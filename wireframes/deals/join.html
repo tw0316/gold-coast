@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Our Buyers List | Gold Coast Home Buyers</title>
+  <meta name="description" content="Get first access to off-market investment properties in South Florida. Join our buyers list for free.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">
+        <span class="logo-icon">🏠</span>
+        Gold Coast Home Buyers
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html#how-it-works">How It Works</a></li>
+          <li><a href="index.html#deals">Properties</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="tel:7869835811">(786) 983-5811</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-cta">
+        <a href="join.html" class="btn btn--primary btn--sm">Join Buyers List</a>
+        <button class="hamburger" aria-label="Menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mobile-menu">
+      <a href="index.html#how-it-works">How It Works</a>
+      <a href="index.html#deals">Properties</a>
+      <a href="faq.html">FAQ</a>
+      <a href="tel:7869835811">📞 (786) 983-5811</a>
+    </div>
+  </header>
+
+  <!-- ===== JOIN FORM ===== -->
+  <div class="join-page">
+    <div style="width: 100%; max-width: 560px;">
+
+      <form class="form-card" data-success="join-success" id="join-form">
+        <h2 class="form-card__title">Join Our Buyers List</h2>
+        <p class="form-card__subtitle">Get first access to off-market investment properties in South Florida.</p>
+
+        <!-- Full Name -->
+        <div class="form-group">
+          <label for="fullname">Full Name <span class="required">*</span></label>
+          <input type="text" id="fullname" class="form-input" placeholder="John Smith" required>
+        </div>
+
+        <!-- Email -->
+        <div class="form-group">
+          <label for="email">Email <span class="required">*</span></label>
+          <input type="email" id="email" class="form-input" placeholder="john@example.com" required>
+        </div>
+
+        <!-- Phone -->
+        <div class="form-group">
+          <label for="phone">Phone <span class="required">*</span></label>
+          <input type="tel" id="phone" class="form-input" placeholder="(555) 123-4567" required>
+        </div>
+
+        <!-- Buyer Type -->
+        <div class="form-group">
+          <label for="buyer-type">What Best Describes You? <span class="required">*</span></label>
+          <select id="buyer-type" class="form-select" required>
+            <option value="" disabled selected>Select one...</option>
+            <option value="fix-flip">Fix & Flipper</option>
+            <option value="buy-hold">Buy & Hold Investor</option>
+            <option value="brrrr">BRRRR Investor</option>
+            <option value="wholesaler">Wholesaler / JV Partner</option>
+            <option value="developer">Developer / Builder</option>
+            <option value="first-time">First-Time Investor</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <!-- Areas -->
+        <div class="form-group">
+          <label>Areas You Buy In <span class="required">*</span></label>
+          <div class="checkbox-group checkbox-group--inline">
+            <label class="checkbox-label">
+              <input type="checkbox" name="areas" value="miami-dade"> Miami-Dade
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="areas" value="broward"> Broward
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="areas" value="palm-beach"> Palm Beach
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="areas" value="other"> Other
+            </label>
+          </div>
+        </div>
+
+        <!-- Property Types -->
+        <div class="form-group">
+          <label>Property Types You're Interested In</label>
+          <div class="checkbox-group checkbox-group--inline">
+            <label class="checkbox-label">
+              <input type="checkbox" name="property-types" value="sfh"> SFH
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="property-types" value="multi-family"> Multi-family
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="property-types" value="condo"> Condo/Townhouse
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="property-types" value="land"> Vacant Land
+            </label>
+          </div>
+        </div>
+
+        <!-- Price Range -->
+        <div class="form-group">
+          <label for="price-range">Price Range <span style="color: var(--color-mid); font-weight: 400;">(optional)</span></label>
+          <select id="price-range" class="form-select">
+            <option value="" disabled selected>Select range...</option>
+            <option value="under-150k">Under $150,000</option>
+            <option value="150k-250k">$150,000 – $250,000</option>
+            <option value="250k-400k">$250,000 – $400,000</option>
+            <option value="400k-600k">$400,000 – $600,000</option>
+            <option value="600k-plus">$600,000+</option>
+            <option value="any">Any Price Range</option>
+          </select>
+        </div>
+
+        <!-- Purchase Method -->
+        <div class="form-group">
+          <label for="purchase-method">Purchase Method <span style="color: var(--color-mid); font-weight: 400;">(optional)</span></label>
+          <select id="purchase-method" class="form-select">
+            <option value="" disabled selected>Select method...</option>
+            <option value="cash">Cash</option>
+            <option value="hard-money">Hard Money Loan</option>
+            <option value="private-money">Private Money</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <!-- SMS Consent -->
+        <div class="form-group" style="margin-top: var(--space-lg);">
+          <label class="checkbox-label checkbox-label--legal">
+            <input type="checkbox" name="sms-service" required>
+            <span>By checking this box, I consent to receive service-related SMS messages from <strong>Gold Coast Home Buyers</strong>, including property deal alerts, availability updates, and transaction communications, at the phone number provided above. Messages may be sent using an automated system. Message frequency varies. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. This consent is not a condition of joining. View our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. <span class="required">*</span></span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label checkbox-label--legal">
+            <input type="checkbox" name="sms-marketing">
+            <span>I also consent to receive occasional marketing messages about new deals, market updates, and investor resources. This consent is not a condition of joining. You can opt out at any time by replying STOP.</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--full btn--lg" style="margin-top: var(--space-lg);">Join Buyers List</button>
+
+        <p style="text-align: center; margin-top: var(--space-md); font-size: 0.8125rem; color: var(--color-mid);">
+          Free to join. No spam. Your info stays private.
+        </p>
+      </form>
+
+      <!-- Success State -->
+      <div class="form-success" id="join-success">
+        <div class="form-success__icon">🎉</div>
+        <h2 class="form-success__title">You're on the list!</h2>
+        <p class="form-success__text">
+          Welcome aboard. We'll send you deal alerts as soon as new properties match your criteria. Keep an eye on your inbox and phone for notifications. Deals go fast, so be ready to move.
+        </p>
+        <a href="index.html" class="btn btn--primary">Browse Current Properties</a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-logo">🏠 Gold Coast Home Buyers</div>
+        <div class="footer-links">
+          <a href="index.html">Properties</a>
+          <a href="join.html">Join Buyers List</a>
+          <a href="faq.html">FAQ</a>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="tel:7869835811">Contact: (786) 983-5811</a>
+        </div>
+      </div>
+      <div class="footer-disclaimer">
+        Gold Coast Home Buyers is a real estate investment company. We are not licensed real estate agents or brokers. All properties are sold as-is. Investment returns are estimates and not guaranteed. Buyers are responsible for their own due diligence, inspections, and closing costs. By using this site you agree to our Terms of Service and Privacy Policy. © 2026 Gold Coast Home Buyers. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <script src="deals.js"></script>
+</body>
+</html>

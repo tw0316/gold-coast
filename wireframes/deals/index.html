@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Off-Market Investment Properties | Gold Coast Home Buyers</title>
+  <meta name="description" content="Get first access to wholesale deals at 20-40% below market value in South Florida. Cash buyers only.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="site-logo">
+        <span class="logo-icon">🏠</span>
+        Gold Coast Home Buyers
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#deals">Properties</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="tel:7869835811">(786) 983-5811</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-cta">
+        <a href="join.html" class="btn btn--primary btn--sm">Join Buyers List</a>
+        <button class="hamburger" aria-label="Menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mobile-menu">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#deals">Properties</a>
+      <a href="faq.html">FAQ</a>
+      <a href="tel:7869835811">📞 (786) 983-5811</a>
+      <a href="join.html" style="color: var(--color-primary); font-weight: 700;">Join Buyers List →</a>
+    </div>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1>Off-Market Investment Properties in South Florida</h1>
+      <p class="hero-sub">Get first access to wholesale deals at 20-40% below market value. Cash buyers only.</p>
+
+      <form class="hero-form" onsubmit="event.preventDefault(); var email = this.querySelector('input').value; if(email) window.location.href='join.html?email=' + encodeURIComponent(email);">
+        <input type="email" placeholder="Enter your email" required>
+        <button type="submit" class="btn btn--accent">Get Access</button>
+      </form>
+
+      <p class="hero-micro">Free to join. No spam. First come, first served.</p>
+
+      <div class="trust-pills">
+        <span class="trust-pill">🔒 Off-Market Deals</span>
+        <span class="trust-pill">💰 Cash/HML Only</span>
+        <span class="trust-pill">⚡ First Access for Members</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <h2>How It Works</h2>
+        <p>Three simple steps to start receiving off-market deals.</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3>Join Our Buyers List</h3>
+          <p>Tell us what you're looking for: property types, areas, and budget. It takes 2 minutes and it's completely free.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3>Get Deal Alerts</h3>
+          <p>When we source a property that fits your criteria, you'll be the first to know via text and email. No scrolling MLS listings.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3>Move Fast, Close Fast</h3>
+          <p>Express interest, schedule a walkthrough, and close. Our deals go fast because the numbers work. First come, first served.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ACTIVE DEALS ===== -->
+  <section class="section section--alt" id="deals">
+    <div class="container">
+      <div class="section-header">
+        <h2>Available Properties</h2>
+        <p>Current off-market deals sourced directly from motivated sellers.</p>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="sfh">SFH</button>
+        <button class="filter-btn" data-filter="multi-family">Multi-family</button>
+        <button class="filter-btn" data-filter="condo">Condo</button>
+        <select class="sort-select" aria-label="Sort deals">
+          <option>Sort: Newest</option>
+          <option>Price: Low to High</option>
+          <option>Price: High to Low</option>
+          <option>ROI: Highest</option>
+        </select>
+      </div>
+
+      <!-- Deals Grid -->
+      <div class="deals-grid">
+
+        <!-- Deal 1: Hollywood Hills -->
+        <a href="deal-detail.html" class="deal-card" data-status="available" data-type="sfh">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--1">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--available">Available</span>
+              <span class="badge badge--type">Assignment</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Hollywood Hills, Hollywood</div>
+            <div class="deal-card__specs">SFH · 3 Bed · 2 Bath · 1,082 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$270,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$450,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Est. Rehab</span>
+                <span class="deal-card__stat-value">$75,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Potential ROI</span>
+                <span class="deal-card__stat-value deal-card__stat-value--roi">26.1%</span>
+              </div>
+            </div>
+            <span class="deal-card__link">View Details →</span>
+          </div>
+        </a>
+
+        <!-- Deal 2: Pompano Beach -->
+        <a href="deal-detail.html" class="deal-card" data-status="available" data-type="sfh">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--2">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--available">Available</span>
+              <span class="badge badge--type">Double Close</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Pompano Beach, Broward County</div>
+            <div class="deal-card__specs">SFH · 4 Bed · 2 Bath · 1,450 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$195,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$340,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Est. Rehab</span>
+                <span class="deal-card__stat-value">$60,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Potential ROI</span>
+                <span class="deal-card__stat-value deal-card__stat-value--roi">33.3%</span>
+              </div>
+            </div>
+            <span class="deal-card__link">View Details →</span>
+          </div>
+        </a>
+
+        <!-- Deal 3: Lauderhill -->
+        <a href="deal-detail.html" class="deal-card" data-status="under-contract" data-type="multi-family">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--3">🏘️</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--under-contract">Under Contract</span>
+              <span class="badge badge--type">Assignment</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Lauderhill, Broward County</div>
+            <div class="deal-card__specs">Duplex · 2/1 + 2/1 · 1,800 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$310,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$520,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Est. Rehab</span>
+                <span class="deal-card__stat-value">$90,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Potential ROI</span>
+                <span class="deal-card__stat-value deal-card__stat-value--roi">30.0%</span>
+              </div>
+            </div>
+            <span class="deal-card__link">View Details →</span>
+          </div>
+        </a>
+
+        <!-- Deal 4: Miami Gardens -->
+        <a href="deal-detail.html" class="deal-card" data-status="available" data-type="sfh">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--4">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--available">Available</span>
+              <span class="badge badge--type">Assignment</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Miami Gardens, Miami-Dade</div>
+            <div class="deal-card__specs">SFH · 3 Bed · 1 Bath · 1,200 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$165,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$280,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Est. Rehab</span>
+                <span class="deal-card__stat-value">$45,000</span>
+              </div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">Potential ROI</span>
+                <span class="deal-card__stat-value deal-card__stat-value--roi">33.3%</span>
+              </div>
+            </div>
+            <span class="deal-card__link">View Details →</span>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- Empty State (hidden when deals exist, shown when grid is empty) -->
+      <div class="empty-state" id="deals-empty" style="display: none;">
+        <div class="empty-state__icon">🏗️</div>
+        <h3 class="empty-state__title">Deals Coming Soon</h3>
+        <p class="empty-state__text">We're always sourcing new properties. Join our buyers list to get notified first when new deals drop.</p>
+        <a href="join.html" class="btn btn--primary">Join Buyers List</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CLOSED DEALS ===== -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Deals We've Closed</h2>
+        <p>Recent transactions closed by our buyers. These deals are no longer available.</p>
+      </div>
+
+      <div class="deals-grid">
+
+        <!-- Closed 1: Dania Beach -->
+        <div class="deal-card deal-card--closed" data-status="sold">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--5">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--sold">Sold</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Dania Beach, Broward County</div>
+            <div class="deal-card__specs">SFH · 3 Bed · 2 Bath · 1,150 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$180,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$320,000</span>
+              </div>
+            </div>
+            <div class="deal-card__close-date">✓ Closed Feb 28, 2026</div>
+          </div>
+        </div>
+
+        <!-- Closed 2: Margate -->
+        <div class="deal-card deal-card--closed" data-status="sold">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--6">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--sold">Sold</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">Margate, Broward County</div>
+            <div class="deal-card__specs">SFH · 4 Bed · 2 Bath · 1,600 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$225,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$395,000</span>
+              </div>
+            </div>
+            <div class="deal-card__close-date">✓ Closed Feb 15, 2026</div>
+          </div>
+        </div>
+
+        <!-- Closed 3: North Miami -->
+        <div class="deal-card deal-card--closed" data-status="sold">
+          <div class="deal-card__image">
+            <div class="placeholder-img placeholder-img--7">🏡</div>
+            <div class="deal-card__badges">
+              <span class="badge badge--sold">Sold</span>
+            </div>
+          </div>
+          <div class="deal-card__body">
+            <div class="deal-card__location">North Miami, Miami-Dade</div>
+            <div class="deal-card__specs">SFH · 3 Bed · 2 Bath · 1,350 sqft</div>
+            <div class="deal-card__numbers">
+              <div class="deal-card__price">$240,000</div>
+              <div class="deal-card__stat">
+                <span class="deal-card__stat-label">ARV</span>
+                <span class="deal-card__stat-value">$410,000</span>
+              </div>
+            </div>
+            <div class="deal-card__close-date">✓ Closed Jan 30, 2026</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== WHY GOLD COAST ===== -->
+  <section class="section section--alt">
+    <div class="container">
+      <div class="section-header">
+        <h2>Why Gold Coast?</h2>
+        <p>What sets us apart from other wholesalers.</p>
+      </div>
+
+      <div class="value-grid">
+        <div class="value-card">
+          <div class="value-card__icon">🔒</div>
+          <h3>Off-Market Only</h3>
+          <p>Every deal is sourced directly from motivated sellers. You won't find these on the MLS or Zillow.</p>
+        </div>
+        <div class="value-card">
+          <div class="value-card__icon">📉</div>
+          <h3>Below Market Value</h3>
+          <p>We negotiate 20-40% below market value so the numbers work for investors on day one.</p>
+        </div>
+        <div class="value-card">
+          <div class="value-card__icon">💵</div>
+          <h3>Cash Buyer Friendly</h3>
+          <p>Our deals are structured for cash and hard money. No waiting on bank approvals or appraisals.</p>
+        </div>
+        <div class="value-card">
+          <div class="value-card__icon">⚡</div>
+          <h3>First Come, First Served</h3>
+          <p>No bidding wars. The first qualified buyer to move gets the deal. Speed wins.</p>
+        </div>
+        <div class="value-card">
+          <div class="value-card__icon">🌴</div>
+          <h3>South Florida Focus</h3>
+          <p>We know Miami-Dade, Broward, and Palm Beach inside and out. Local expertise matters.</p>
+        </div>
+        <div class="value-card">
+          <div class="value-card__icon">🤝</div>
+          <h3>No Fees to Buyers</h3>
+          <p>Our spread is built into the asking price. What you see is what you pay, plus standard closing costs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BUYER PERSONAS ===== -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Whether you're a...</h2>
+        <p>Our deals work for every type of real estate investor.</p>
+      </div>
+
+      <div class="persona-grid">
+        <div class="persona-card">
+          <div class="persona-card__icon">🔨</div>
+          <h3>Fix &amp; Flipper</h3>
+          <p>Buy below market, rehab, and sell at ARV. Our numbers include rehab estimates so you can underwrite quickly.</p>
+        </div>
+        <div class="persona-card">
+          <div class="persona-card__icon">🏦</div>
+          <h3>Buy &amp; Hold</h3>
+          <p>Acquire rental properties at a discount. Build equity from day one with instant equity positions.</p>
+        </div>
+        <div class="persona-card">
+          <div class="persona-card__icon">🔄</div>
+          <h3>BRRRR Investor</h3>
+          <p>Buy, Rehab, Rent, Refinance, Repeat. Our deals are perfect for the BRRRR strategy with built-in margins.</p>
+        </div>
+        <div class="persona-card">
+          <div class="persona-card__icon">🤝</div>
+          <h3>Wholesaler / JV</h3>
+          <p>Looking to JV or co-wholesale? We're open to partnerships on select deals. Reach out to discuss.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BOTTOM CTA ===== -->
+  <section class="bottom-cta">
+    <div class="container">
+      <h2>Get First Access to Our Deals</h2>
+      <p>Join our buyers list and be the first to know when new off-market properties hit our inventory.</p>
+      <a href="join.html" class="btn btn--accent btn--lg">Join Buyers List — It's Free</a>
+      <div class="bottom-cta__phone">
+        Or call us: <a href="tel:7869835811">(786) 983-5811</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-logo">🏠 Gold Coast Home Buyers</div>
+        <div class="footer-links">
+          <a href="index.html">Properties</a>
+          <a href="join.html">Join Buyers List</a>
+          <a href="faq.html">FAQ</a>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="tel:7869835811">Contact: (786) 983-5811</a>
+        </div>
+      </div>
+      <div class="footer-disclaimer">
+        Gold Coast Home Buyers is a real estate investment company. We are not licensed real estate agents or brokers. All properties are sold as-is. Investment returns are estimates and not guaranteed. Buyers are responsible for their own due diligence, inspections, and closing costs. By using this site you agree to our Terms of Service and Privacy Policy. © 2026 Gold Coast Home Buyers. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <script src="deals.js"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Your Cash Offer | Gold Coast Home Buyers</title>
+  <meta name="description" content="Complete your information to receive a fair cash offer for your South Florida home within 24 hours.">
+  <meta name="robots" content="noindex">
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.ico">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/styles.css?v=36">
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZMJ2VXVV10"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-ZMJ2VXVV10');
+  </script>
+</head>
+<body>
+
+  <div class="offer-page">
+    <div class="offer-form-card">
+      <a href="/" class="header__logo" style="display:block;text-align:center;margin-bottom:1.5rem;">
+        <img src="/assets/logo-goldcoast.png" alt="Gold Coast Home Buyers" class="header__logo-img" style="margin:0 auto;">
+      </a>
+
+      <div class="step-indicator">Step <span>2</span> of 2</div>
+
+      <h1>Almost There!</h1>
+      <p class="form-subtitle">Just a few more details so we can prepare your offer.</p>
+
+      <!-- Form -->
+      <form id="step2-form" novalidate>
+        <!-- Hidden fields from Step 1 -->
+        <input type="hidden" id="s2-address" name="address">
+        <input type="hidden" id="s2-phone" name="phone">
+
+        <div class="form-group">
+          <label for="full-name">Full Name *</label>
+          <input type="text" id="full-name" name="fullName" placeholder="John Smith" required autocomplete="name">
+          <span class="form-error">Please enter your name</span>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address *</label>
+          <input type="email" id="email" name="email" placeholder="john@example.com" required autocomplete="email">
+          <span class="form-error">Please enter a valid email address</span>
+        </div>
+
+        <div class="form-group">
+          <label for="condition">Property Condition</label>
+          <select id="condition" name="condition">
+            <option value="">Select condition (optional)</option>
+            <option value="excellent">Excellent — Move-in ready</option>
+            <option value="good">Good — Minor cosmetic updates needed</option>
+            <option value="fair">Fair — Needs some repairs</option>
+            <option value="poor">Poor — Major repairs needed</option>
+            <option value="unknown">Not sure</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="timeline">When do you need to sell?</label>
+          <select id="timeline" name="timeline">
+            <option value="">Select timeline (optional)</option>
+            <option value="asap">ASAP — As fast as possible</option>
+            <option value="30days">Within 30 days</option>
+            <option value="60days">Within 60 days</option>
+            <option value="flexible">I'm flexible</option>
+            <option value="exploring">Just exploring options</option>
+          </select>
+        </div>
+
+        <!-- TCPA Consent — MUST be unchecked by default -->
+        <div class="form-checkbox">
+          <input type="checkbox" id="tcpa-consent" name="tcpaConsent" required>
+          <label for="tcpa-consent">
+            By clicking "Next," I agree to receive calls and text messages from Gold Coast Home Buyers, including marketing communications, at the phone number I provided above or any other number associated with me, using an automated telephone dialing system, artificial or prerecorded voice, and AI-powered virtual assistant. I understand that:<br>
+            • These communications may include marketing and promotional content<br>
+            • My consent is not a condition of purchasing any goods or services<br>
+            • Message and data rates may apply<br>
+            • I may revoke my consent at any time by replying STOP to a text message or by other reasonable means<br>
+            I also agree to Gold Coast Home Buyers’ <a href="/privacy-policy/">Privacy Policy</a> and <a href="/terms/">Terms of Service</a>.
+          </label>
+        </div>
+        <span class="form-error" id="tcpa-error" style="display:none;">You must agree to receive communications to submit your request</span>
+
+        <button type="submit" class="btn btn--primary btn--large btn--full" id="submit-btn">Next</button>
+      </form>
+
+      <!-- Loading State -->
+      <div class="form-loading" id="form-loading">
+        <div class="spinner"></div>
+        <p>Submitting your information...</p>
+      </div>
+
+      <!-- Success State -->
+      <div class="form-success" id="form-success">
+        <div class="form-success__icon">✅</div>
+        <h2>We Got Your Info!</h2>
+        <p style="color:var(--color-mid-gray);margin-top:0.5rem;">A member of our team will reach out within 24 hours with your personalized cash offer. Keep an eye on your phone!</p>
+        <a href="/" class="btn btn--primary" style="margin-top:1.5rem;">Back to Home</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

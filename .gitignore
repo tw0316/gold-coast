@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.credentials
+aws-credentials*
+ghl-api*
+.DS_Store
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+infra/.build/
+*.zip
