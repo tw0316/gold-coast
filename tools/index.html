@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deal Calculator | Gold Coast Home Buyers</title>
+  <meta name="description" content="Internal offer analysis and seller presentation tool for Gold Coast Home Buyers">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container header__inner">
+      <div class="header__logo">
+        <span class="logo-text">Gold Coast Home Buyers</span>
+        <span class="logo-subtitle">Deal Calculator</span>
+      </div>
+      
+      <nav class="view-tabs" id="view-tabs">
+        <button class="view-tab active" data-view="analysis">Analysis</button>
+        <button class="view-tab" data-view="presentation">Presentation</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ========== VIEW 1: ANALYSIS ========== -->
+  <main class="view-container" data-view="analysis" id="view-analysis">
+    <div class="container">
+
+      <!-- Property Information -->
+      <section class="calc-section">
+        <h2>Property Information</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-address">Address</label>
+            <input type="text" id="input-address" placeholder="123 Main Street">
+          </div>
+          <div class="form-group">
+            <label for="input-city">City</label>
+            <input type="text" id="input-city" placeholder="Fort Lauderdale">
+          </div>
+          <div class="form-group">
+            <label for="input-county">County</label>
+            <select id="input-county">
+              <option value="broward">Broward</option>
+              <option value="miami-dade">Miami-Dade</option>
+              <option value="palm-beach">Palm Beach</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="input-zip">Zip Code</label>
+            <input type="text" id="input-zip" placeholder="33301">
+          </div>
+          <div class="form-group">
+            <label for="input-beds">Beds</label>
+            <input type="number" id="input-beds" min="0" step="1" value="3">
+          </div>
+          <div class="form-group">
+            <label for="input-baths">Baths</label>
+            <input type="number" id="input-baths" min="0" step="0.5" value="2">
+          </div>
+          <div class="form-group">
+            <label for="input-sqft">Building Size</label>
+            <input type="text" id="input-sqft" placeholder="2,300 sqft">
+          </div>
+          <div class="form-group">
+            <label for="input-lot-size">Lot Size</label>
+            <input type="text" id="input-lot-size" placeholder="6,000 sqft">
+          </div>
+          <div class="form-group">
+            <label for="input-year-built">Year Built</label>
+            <input type="number" id="input-year-built" min="1800" max="2030" placeholder="1990">
+          </div>
+          <div class="form-group">
+            <label for="input-property-type">Property Type</label>
+            <select id="input-property-type">
+              <option value="">Select</option>
+              <option value="sfh">Single Family Home</option>
+              <option value="condo">Condo</option>
+              <option value="townhouse">Townhouse</option>
+              <option value="multi-family">Multi-family</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Seller Context -->
+      <section class="calc-section">
+        <h2>Seller Context</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-zestimate">Zestimate</label>
+            <input type="text" id="input-zestimate" placeholder="$350,000">
+          </div>
+          <div class="form-group form-group--span-2">
+            <label for="input-original-purchase-price">Original Purchase Price</label>
+            <input type="text" id="input-original-purchase-price" placeholder="$250,000">
+          </div>
+          <div class="form-group">
+            <label for="input-original-purchase-date">Original Purchase Date</label>
+            <input type="date" id="input-original-purchase-date">
+          </div>
+          <div class="form-group">
+            <label for="input-last-listed-price">Last Listed Price</label>
+            <input type="text" id="input-last-listed-price" placeholder="$300,000">
+          </div>
+          <div class="form-group">
+            <label for="input-last-listed-date">Last Listed Date</label>
+            <input type="date" id="input-last-listed-date">
+          </div>
+          <div class="form-group form-group--full">
+            <label for="input-notes">Notes</label>
+            <textarea id="input-notes" rows="3" placeholder="Motivation signals, seller context..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Market Data -->
+      <section class="calc-section">
+        <h2>Market Data</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-list-sale-ratio">List-to-Sale Ratio (%)</label>
+            <input type="text" id="input-list-sale-ratio" placeholder="97%">
+          </div>
+          <div class="form-group">
+            <label for="input-avg-dom">Avg Days on Market</label>
+            <input type="text" id="input-avg-dom" placeholder="60">
+          </div>
+        </div>
+      </section>
+
+      <!-- Comparable Sales -->
+      <section class="calc-section">
+        <h2>Comparable Sales</h2>
+        <div class="table-wrapper">
+          <table class="comp-table" id="comp-table">
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th>Sale Price</th>
+                <th>Building Size</th>
+                <th>$/Sqft</th>
+                <th>Condition</th>
+                <th>Sale Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="comp-table-body">
+              <!-- Rows added dynamically -->
+            </tbody>
+            <tfoot id="comp-table-summary">
+              <tr class="comp-summary-row">
+                <td colspan="7">
+                  <div class="comp-summary">
+                    <div class="comp-stat">
+                      <span class="comp-stat-label">Avg As-Is $/sqft:</span>
+                      <span class="comp-stat-value" id="output-avg-asis-sqft">—</span>
+                    </div>
+                    <div class="comp-stat">
+                      <span class="comp-stat-label">Avg Flipped $/sqft:</span>
+                      <span class="comp-stat-value" id="output-avg-flipped-sqft">—</span>
+                    </div>
+                    <div class="comp-stat">
+                      <span class="comp-stat-label">Est. As-Is Value:</span>
+                      <span class="comp-stat-value" id="output-est-asis-value">—</span>
+                    </div>
+                    <div class="comp-stat">
+                      <span class="comp-stat-label">Est. ARV:</span>
+                      <span class="comp-stat-value comp-stat-value--highlight" id="output-est-arv">—</span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn btn-secondary" id="btn-add-comp">+ Add Comp</button>
+      </section>
+
+      <!-- Rehab Estimate -->
+      <section class="calc-section">
+        <h2>Rehab Estimate</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-rehab-scope">Rehab Scope</label>
+            <select id="input-rehab-scope">
+              <option value="none">None ($0/sqft)</option>
+              <option value="light" selected>Light ($30/sqft)</option>
+              <option value="medium">Medium ($60/sqft)</option>
+              <option value="heavy">Heavy ($90/sqft)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="form-group" id="custom-sqft-group" style="display:none;">
+            <label for="input-custom-sqft">Custom $/sqft</label>
+            <input type="number" id="input-custom-sqft" min="0" step="1" placeholder="50">
+          </div>
+          <div class="form-group">
+            <label for="input-contingency">Contingency (%)</label>
+            <input type="number" id="input-contingency" min="0" max="100" step="0.5" value="3">
+          </div>
+        </div>
+        <div class="calc-results">
+          <div class="calc-result-row">
+            <span class="calc-label">Base Rehab:</span>
+            <span class="calc-value" id="output-base-rehab">$0</span>
+          </div>
+          <div class="calc-result-row">
+            <span class="calc-label">Contingency Amount:</span>
+            <span class="calc-value" id="output-contingency-amount">$0</span>
+          </div>
+          <div class="calc-result-row calc-result-row--total">
+            <span class="calc-label">Total Rehab Estimate:</span>
+            <span class="calc-value" id="output-total-rehab">$0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Deal Structure -->
+      <section class="calc-section">
+        <h2>Deal Structure</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="input-assignment-fee">Assignment Fee</label>
+            <input type="text" id="input-assignment-fee" placeholder="$10,000">
+          </div>
+          <div class="form-group">
+            <label for="input-min-profit-margin">Minimum Profit Margin (%)</label>
+            <input type="number" id="input-min-profit-margin" min="0" max="100" step="1" value="20">
+          </div>
+        </div>
+      </section>
+
+      <!-- Seller Closing Costs -->
+      <section class="calc-section">
+        <h2>Seller Closing Costs</h2>
+        <div class="table-wrapper">
+          <table class="cost-table" id="seller-costs-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Default Value</th>
+                <th>Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="seller-costs-table-body">
+              <!-- Pre-populated with defaults -->
+            </tbody>
+            <tfoot>
+              <tr class="cost-total-row">
+                <td colspan="3"><strong>Total Seller Closing Costs</strong></td>
+                <td><strong id="output-seller-total-costs">$0</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn btn-secondary" id="btn-add-seller-cost">+ Add Row</button>
+      </section>
+
+      <!-- Buyer Closing Costs -->
+      <section class="calc-section">
+        <h2>Buyer Closing Costs</h2>
+        <div class="table-wrapper">
+          <table class="cost-table" id="buyer-costs-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Default Value</th>
+                <th>Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="buyer-costs-table-body">
+              <!-- Pre-populated with defaults -->
+            </tbody>
+            <tfoot>
+              <tr class="cost-total-row">
+                <td colspan="3"><strong>Total Buyer Closing Costs</strong></td>
+                <td><strong id="output-buyer-total-costs">$0</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn btn-secondary" id="btn-add-buyer-cost">+ Add Row</button>
+      </section>
+
+      <!-- Offer Range & Results -->
+      <section class="calc-section calc-section--highlight">
+        <h2>Offer Range & Results</h2>
+        
+        <div class="offer-range-display">
+          <div class="offer-bound">
+            <span class="offer-bound-label">Opening Offer</span>
+            <span class="offer-bound-value" id="output-opening-offer">$0</span>
+          </div>
+          <div class="offer-spread">
+            <span class="offer-spread-label">Spread:</span>
+            <span class="offer-spread-value" id="output-offer-spread">$0</span>
+          </div>
+          <div class="offer-bound">
+            <span class="offer-bound-label">Max Offer</span>
+            <span class="offer-bound-value" id="output-max-offer">$0</span>
+          </div>
+        </div>
+
+        <div class="offer-slider-wrapper">
+          <label for="offer-slider" class="offer-slider-label">Select Offer Price:</label>
+          <input type="range" id="offer-slider" class="offer-slider" min="0" max="1000000" step="1000" value="0">
+          <div class="offer-manual-input">
+            <label for="input-manual-offer">Manual Override:</label>
+            <input type="text" id="input-manual-offer" placeholder="$250,000">
+          </div>
+          <div class="offer-selected">
+            <span class="offer-selected-label">Selected Offer:</span>
+            <span class="offer-selected-value" id="output-selected-offer">$0</span>
+          </div>
+        </div>
+
+        <div class="calc-results calc-results--comparison">
+          <div class="calc-result-row">
+            <span class="calc-label">All-In Basis (Your Cost):</span>
+            <span class="calc-value" id="output-all-in-basis">$0</span>
+          </div>
+          <div class="calc-result-row">
+            <span class="calc-label">Traditional Net (Seller):</span>
+            <span class="calc-value" id="output-traditional-net">$0</span>
+          </div>
+          <div class="calc-result-row calc-result-row--total">
+            <span class="calc-label">Our Offer Net (Seller):</span>
+            <span class="calc-value" id="output-our-offer-net">$0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer Actions -->
+      <section class="calc-footer">
+        <button class="btn btn-primary" id="btn-save">Save</button>
+        <button class="btn btn-secondary" id="btn-export">Export JSON</button>
+        <button class="btn btn-secondary" id="btn-import-trigger">Import JSON</button>
+        <input type="file" id="btn-import" accept=".json" style="display:none;">
+        <button class="btn btn-danger" id="btn-clear">Clear</button>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ========== VIEW 2: SELLER PRESENTATION ========== -->
+  <main class="view-container view-container--presentation" data-view="presentation" id="view-presentation" style="display:none;">
+    <div class="container-presentation">
+
+      <!-- Section 1: Your Home's Value -->
+      <section class="pres-section">
+        <h2 class="pres-title">Your Home's Value</h2>
+        <div class="pres-zestimate">
+          <span class="pres-zestimate-value" id="pres-zestimate">$350,000</span>
+          <span class="pres-zestimate-label">Zillow Estimate</span>
+        </div>
+        <div class="pres-property-details">
+          <span id="pres-beds">3</span> beds · 
+          <span id="pres-baths">2</span> baths · 
+          <span id="pres-sqft">1,500</span> sqft
+        </div>
+        <p class="pres-intro">Here's what Zillow estimates your home is worth.</p>
+      </section>
+
+      <!-- Section 2: What You'd Actually Take Home -->
+      <section class="pres-section">
+        <h2 class="pres-title">What You'd Actually Take Home</h2>
+        <p class="pres-subtitle">After commissions, taxes, fees, repairs, and waiting, here's what you'd actually walk away with:</p>
+        
+        <div class="pres-waterfall">
+          <div class="waterfall-row waterfall-row--start">
+            <span class="waterfall-label">Zestimate</span>
+            <span class="waterfall-value" id="pres-waterfall-zestimate">$350,000</span>
+          </div>
+          <div class="waterfall-row waterfall-row--deduction">
+            <span class="waterfall-label">Agent Commissions (6%)</span>
+            <span class="waterfall-value" id="pres-deduct-commission">-$21,000</span>
+          </div>
+          <div class="waterfall-row waterfall-row--deduction">
+            <span class="waterfall-label">Transfer Taxes & Doc Stamps</span>
+            <span class="waterfall-value" id="pres-deduct-transfer">-$2,450</span>
+          </div>
+          <div class="waterfall-row waterfall-row--deduction">
+            <span class="waterfall-label">Title & Escrow Fees</span>
+            <span class="waterfall-value" id="pres-deduct-title">-$5,250</span>
+          </div>
+          <div class="waterfall-row waterfall-row--deduction">
+            <span class="waterfall-label">Make-Ready Costs (Repairs, Paint, Staging)</span>
+            <span class="waterfall-value" id="pres-deduct-makeready">-$7,000</span>
+          </div>
+          <div class="waterfall-row waterfall-row--deduction">
+            <span class="waterfall-label">Holding Costs (Taxes, Insurance, Utils)</span>
+            <span class="waterfall-value" id="pres-deduct-holding">-$1,200</span>
+          </div>
+          <div class="waterfall-row waterfall-row--result">
+            <span class="waterfall-label">Net in Your Pocket</span>
+            <span class="waterfall-value" id="pres-traditional-net">$312,100</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Market Reality -->
+      <section class="pres-section">
+        <h2 class="pres-title">Market Reality</h2>
+        <p class="pres-subtitle">And that assumes you sell at full Zestimate. The market says otherwise.</p>
+        
+        <div class="pres-market-stats">
+          <div class="market-stat">
+            <span class="market-stat-label">Homes sell for</span>
+            <span class="market-stat-value" id="pres-list-sale-ratio">97%</span>
+            <span class="market-stat-sublabel">below asking on average</span>
+          </div>
+          <div class="market-stat">
+            <span class="market-stat-label">Average time on market</span>
+            <span class="market-stat-value" id="pres-avg-dom">60 days</span>
+            <span class="market-stat-sublabel">before closing</span>
+          </div>
+        </div>
+
+        <div class="pres-adjusted-net">
+          <span class="pres-adjusted-label">Adjusted Net (After Market Discount):</span>
+          <span class="pres-adjusted-value" id="pres-adjusted-net">$302,767</span>
+        </div>
+      </section>
+
+      <!-- Section 4: What We Can Put In Your Pocket -->
+      <section class="pres-section pres-section--highlight">
+        <h2 class="pres-title">What We Can Put In Your Pocket</h2>
+        <p class="pres-subtitle">No commissions. No repairs. No showings. No uncertainty.</p>
+        
+        <div class="pres-our-offer">
+          <span class="pres-our-offer-value" id="pres-our-offer-value">$315,000</span>
+          <span class="pres-our-offer-label">Cash in your hands, on your schedule</span>
+        </div>
+
+        <div class="pres-benefits">
+          <div class="pres-benefit">✓ Close when you want</div>
+          <div class="pres-benefit">✓ No agent fees</div>
+          <div class="pres-benefit">✓ No repairs needed</div>
+          <div class="pres-benefit">✓ Guaranteed price</div>
+        </div>
+      </section>
+
+      <!-- Section 5: Side-by-Side Comparison -->
+      <section class="pres-section">
+        <h2 class="pres-title">Side-by-Side</h2>
+        
+        <div class="comparison-table-wrapper">
+          <table class="pres-comparison-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Traditional Sale</th>
+                <th class="highlight-col">With Us</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">In Your Pocket</td>
+                <td><span id="comp-traditional-net">$302,767</span></td>
+                <td class="highlight-col"><strong><span id="comp-our-net">$315,000</span></strong></td>
+              </tr>
+              <tr>
+                <td class="row-label">Commissions</td>
+                <td><span id="comp-commissions">($21,000)</span></td>
+                <td class="highlight-col">$0</td>
+              </tr>
+              <tr>
+                <td class="row-label">Closing Costs</td>
+                <td><span id="comp-closing-costs">($7,700)</span></td>
+                <td class="highlight-col">$0</td>
+              </tr>
+              <tr>
+                <td class="row-label">Repairs / Make-Ready</td>
+                <td><span id="comp-repairs">($7,000)</span></td>
+                <td class="highlight-col">$0</td>
+              </tr>
+              <tr>
+                <td class="row-label">Holding Costs</td>
+                <td><span id="comp-holding">($1,200)</span></td>
+                <td class="highlight-col">$0</td>
+              </tr>
+              <tr>
+                <td class="row-label">Timeline</td>
+                <td><span id="comp-timeline">~60-90 days</span></td>
+                <td class="highlight-col">At your convenience</td>
+              </tr>
+              <tr>
+                <td class="row-label">Certainty</td>
+                <td>❌</td>
+                <td class="highlight-col">✅</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script type="module" src="js/calc-engine.js"></script>
+  <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
