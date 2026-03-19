@@ -362,7 +362,9 @@ export function getDefaultSellerCosts() {
     { category: 'Transfer Taxes (Doc Stamps)', type: '%', value: 0.70, enabled: true },
     { category: 'Title & Escrow Fees', type: '%', value: 1.5, enabled: true },
     { category: 'Attorney Fees', type: '$', value: 500, enabled: true },
-    { category: 'Make-Ready Costs', type: '%', value: 2, enabled: true }
+    { category: 'Make-Ready Costs', type: '%', value: 2, enabled: true },
+    { category: 'Prorated Property Taxes', type: '$', value: 4800, enabled: true },
+    { category: 'Holding Costs', type: '$', value: 0, enabled: true }
   ];
 }
 
@@ -681,10 +683,12 @@ if (typeof window === 'undefined') {
 
   test('getDefaultSellerCosts: returns Broward defaults', () => {
     const defaults = getDefaultSellerCosts();
-    assertEqual(defaults.length, 5);
+    assertEqual(defaults.length, 7);
     assertEqual(defaults[0].category, 'Agent Commissions');
     assertEqual(defaults[0].value, 6);
     assertEqual(defaults[1].value, 0.70);  // Doc stamps
+    assertEqual(defaults[5].category, 'Prorated Property Taxes');
+    assertEqual(defaults[6].category, 'Holding Costs');
   });
 
   test('getDefaultBuyerCosts: returns cash buyer defaults', () => {

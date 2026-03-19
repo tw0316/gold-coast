@@ -145,10 +145,10 @@ let state = {
     notes: ''
   },
   
-  // Market data
+  // Market data (Broward County defaults per PRD)
   market: {
-    listToSaleRatio: 0,
-    avgDOM: 0
+    listToSaleRatio: 97,
+    avgDOM: 60
   },
   
   // Comps
@@ -626,15 +626,26 @@ function handleCostInput(type, index, field, value) {
 }
 
 function renderClosingCostTables() {
-  renderCostTable('seller', state.sellerCosts, 'seller-costs-table-body');
-  renderCostTable('buyer', state.buyerCosts, 'buyer-costs-table-body');
+  try {
+    renderCostTable('seller', state.sellerCosts, 'seller-costs-table-body');
+  } catch (err) {
+    console.error('Seller cost table render error:', err.message);
+  }
+  try {
+    renderCostTable('buyer', state.buyerCosts, 'buyer-costs-table-body');
+  } catch (err) {
+    console.error('Buyer cost table render error:', err.message);
+  }
 }
 
 function renderCostTable(type, costs, tbodyId) {
   const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
   tbody.innerHTML = '';
   
-  const anchor = type === 'seller' ? state.seller.zestimate : state.selectedOffer;
+  // For seller costs, anchor on zestimate. For buyer costs, anchor on selected offer.
+  // Use fallback of 0 (% items will show $0, flat $ items still display correctly)
+  const anchor = type === 'seller' ? (state.seller.zestimate || 0) : (state.selectedOffer || 0);
   
   costs.forEach((cost, index) => {
     const row = document.createElement('tr');
@@ -671,7 +682,7 @@ function renderCostTable(type, costs, tbodyId) {
         </button>
       </td>
       <td>
-        <input type="number" value="${displayValue}" step="0.1" 
+        <input type="${cost.category === 'Holding Costs' && type === 'seller' ? 'text' : 'number'}" value="${displayValue}" step="0.1" 
                ${cost.category === 'Holding Costs' && type === 'seller' ? 'disabled' : ''} />
       </td>
       <td class="cost-amount">${formatCurrency(amount)}</td>
@@ -689,8 +700,9 @@ function renderCostTable(type, costs, tbodyId) {
       renderClosingCostTables();
     });
     
-    const valueInput = row.querySelector('input[type="number"]');
-    if (!valueInput.disabled) {
+    // Value input may be type="number" or type="text" (for auto-calculated holding costs)
+    const valueInput = row.querySelector('td:nth-child(3) input');
+    if (valueInput && !valueInput.disabled) {
       valueInput.addEventListener('input', (e) => {
         handleCostInput(type, index, 'value', e.target.value);
       });
@@ -816,11 +828,16 @@ function recalculate() {
     }
     
     // 5. Buyer closing costs (based on selected offer)
+    // Use selectedOffer as anchor for % items; if no offer yet, still calc flat $ items
     if (state.selectedOffer > 0) {
       const buyerCalc = calcBuyerClosingCosts(state.buyerCosts, state.selectedOffer);
       state.outputs.buyerClosingTotal = buyerCalc.total;
     } else {
-      state.outputs.buyerClosingTotal = 0;
+      // Calculate flat $ items even without an offer
+      const flatTotal = state.buyerCosts
+        .filter(c => c.enabled !== false && c.type === '$')
+        .reduce((sum, c) => sum + Math.round(c.value), 0);
+      state.outputs.buyerClosingTotal = flatTotal;
     }
     
     // 6. Seller net comparison
@@ -851,7 +868,8 @@ function recalculate() {
       state.outputs.allInBasis = 0;
     }
     
-    // Update UI
+    // Update UI — re-render cost tables so individual row amounts reflect current anchor values
+    renderClosingCostTables();
     renderOutputs();
     
   } catch (err) {
@@ -947,23 +965,32 @@ function renderPresentationView() {
     return Math.round(cost.value);
   };
   
-  setText('pres-deduct-commission', '-' + formatCurrency(calcCostAmount(commissions)));
-  setText('pres-deduct-transfer', '-' + formatCurrency(calcCostAmount(transfer)));
-  setText('pres-deduct-title', '-' + formatCurrency(calcCostAmount(title)));
-  setText('pres-deduct-makeready', '-' + formatCurrency(calcCostAmount(makeReady)));
-  setText('pres-deduct-holding', '-' + formatCurrency(calcCostAmount(holding)));
+  const commissionAmt = calcCostAmount(commissions);
+  const transferAmt = calcCostAmount(transfer);
+  const titleAmt = calcCostAmount(title);
+  const makeReadyAmt = calcCostAmount(makeReady);
+  const holdingAmt = calcCostAmount(holding);
+  
+  setText('pres-deduct-commission', '-' + formatCurrency(commissionAmt));
+  setText('pres-deduct-transfer', '-' + formatCurrency(transferAmt));
+  setText('pres-deduct-title', '-' + formatCurrency(titleAmt));
+  setText('pres-deduct-makeready', '-' + formatCurrency(makeReadyAmt));
+  setText('pres-deduct-holding', '-' + formatCurrency(holdingAmt));
+  
+  // Calculate waterfall net directly from Zestimate minus visible cost items
+  // This works even without comps/ARV (independent of offer range engine)
+  const waterfallNet = state.seller.zestimate - commissionAmt - transferAmt - titleAmt - makeReadyAmt - holdingAmt;
+  setText('pres-traditional-net', formatCurrency(Math.max(0, waterfallNet)));
   
   const nc = state.outputs.sellerNetComparison || {};
-  setText('pres-traditional-net', formatCurrency(nc.traditionalNet || 0));
   
   // Section 3: Market Reality
   setText('pres-list-sale-ratio', `${state.market.listToSaleRatio}%`);
   setText('pres-avg-dom', `${state.market.avgDOM} days`);
   
-  // Adjusted net = traditional net with list-to-sale ratio applied
-  const adjustedNet = state.market.listToSaleRatio > 0 
-    ? Math.round(nc.traditionalNet * (state.market.listToSaleRatio / 100))
-    : nc.traditionalNet;
+  // Traditional net already includes list-to-sale ratio (from calcSellerNetComparison)
+  // Do NOT re-apply the ratio here
+  const adjustedNet = nc.traditionalNet || 0;
   setText('pres-adjusted-net', formatCurrency(adjustedNet));
   
   // Section 4: Our Offer
@@ -1090,8 +1117,8 @@ function handleClear() {
       notes: ''
     },
     market: {
-      listToSaleRatio: 0,
-      avgDOM: 0
+      listToSaleRatio: 97,
+      avgDOM: 60
     },
     comps: [],
     rehab: {
@@ -1139,8 +1166,8 @@ function handleClear() {
   document.getElementById('input-last-listed-date').value = '';
   document.getElementById('input-notes').value = '';
   
-  document.getElementById('input-list-sale-ratio').value = '';
-  document.getElementById('input-avg-dom').value = '';
+  document.getElementById('input-list-sale-ratio').value = formatPercent(97);
+  document.getElementById('input-avg-dom').value = 60;
   
   document.getElementById('input-rehab-scope').value = '30';
   document.getElementById('input-custom-sqft').value = 0;
