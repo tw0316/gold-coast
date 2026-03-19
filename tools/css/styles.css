@@ -119,8 +119,10 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
 }
 
 .header__logo-img {
-  height: 40px;
+  height: 80px;
   width: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .logo-text {
@@ -932,6 +934,60 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
 
 .pres-comparison-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* ---------- Footer (shared with main site) ---------- */
+.footer {
+  background: var(--color-black);
+  color: rgba(255, 255, 255, 0.6);
+  padding: var(--space-2xl) 0;
+}
+
+.footer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.footer__logo {
+  margin-bottom: var(--space-sm);
+}
+
+.footer__logo-img {
+  height: 40px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.footer__links {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.footer__links a {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer__links a:hover {
+  color: var(--color-white);
+}
+
+.footer__dba {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.footer__copy {
+  font-size: 0.8rem;
 }
 
 /* Presentation Actions */
