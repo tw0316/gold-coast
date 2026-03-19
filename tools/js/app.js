@@ -125,10 +125,10 @@ let state = {
   property: {
     address: '',
     city: '',
-    county: 'broward',
+    county: '',
     zip: '',
-    beds: 3,
-    baths: 2,
+    beds: 0,
+    baths: 0,
     sqft: 0,
     lotSize: '',
     yearBuilt: null,
@@ -1099,10 +1099,10 @@ function handleClear() {
     property: {
       address: '',
       city: '',
-      county: 'broward',
+      county: '',
       zip: '',
-      beds: 3,
-      baths: 2,
+      beds: 0,
+      baths: 0,
       sqft: 0,
       lotSize: '',
       yearBuilt: null,
@@ -1150,10 +1150,10 @@ function handleClear() {
   // Reset all inputs
   document.getElementById('input-address').value = '';
   document.getElementById('input-city').value = '';
-  document.getElementById('input-county').value = 'broward';
+  document.getElementById('input-county').value = '';
   document.getElementById('input-zip').value = '';
-  document.getElementById('input-beds').value = 3;
-  document.getElementById('input-baths').value = 2;
+  document.getElementById('input-beds').value = '';
+  document.getElementById('input-baths').value = '';
   document.getElementById('input-sqft').value = '';
   document.getElementById('input-lot-size').value = '';
   document.getElementById('input-year-built').value = '';

@@ -118,6 +118,11 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
   gap: 0.25rem;
 }
 
+.header__logo-img {
+  height: 40px;
+  width: auto;
+}
+
 .logo-text {
   font-family: var(--font-heading);
   font-size: 1.25rem;
@@ -929,6 +934,12 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
   border-bottom: none;
 }
 
+/* Presentation Actions */
+.pres-actions {
+  text-align: center;
+  margin-top: var(--space-xl);
+}
+
 /* ---------- Print Styles (View 2 only) ---------- */
 @media print {
   body {
@@ -937,7 +948,8 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
 
   .header,
   .view-tabs,
-  .calc-footer {
+  .calc-footer,
+  .no-print {
     display: none !important;
   }
 
