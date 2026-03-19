@@ -384,6 +384,30 @@ h3 { font-size: clamp(1rem, 2vw, 1.25rem); }
   cursor: pointer;
 }
 
+/* Comp table column widths */
+.comp-table .comp-beds,
+.comp-table .comp-baths {
+  width: 60px;
+  text-align: center;
+}
+
+.comp-table .comp-condition {
+  min-width: 80px;
+  padding: 0.5rem 0.75rem;
+}
+
+.comp-table .comp-date {
+  width: 90px;
+}
+
+.comp-table .comp-price {
+  width: 120px;
+}
+
+.comp-table .comp-sqft {
+  width: 110px;
+}
+
 .btn-remove {
   background: transparent;
   border: none;

@@ -490,6 +490,8 @@ function handleAddComp() {
     address: '',
     salePrice: 0,
     sqft: 0,
+    beds: 0,
+    baths: 0,
     condition: 'as-is',
     saleDate: ''
   });
@@ -505,12 +507,40 @@ function handleRemoveComp(index) {
 }
 
 function handleCompInput(index, field, value) {
-  if (field === 'salePrice' || field === 'sqft') {
-    value = Number(value);
+  if (field === 'salePrice' || field === 'sqft' || field === 'beds' || field === 'baths') {
+    value = Number(value) || 0;
   }
   
   state.comps[index][field] = value;
   recalculate();
+}
+
+/**
+ * Update $/sqft cell without re-rendering the whole table (preserves tab focus)
+ */
+function updateCompPricePerSqft(row, comp) {
+  const cell = row.querySelector('.comp-calculated');
+  if (cell) {
+    const pricePerSqft = comp.sqft > 0 && comp.salePrice > 0
+      ? (comp.salePrice / comp.sqft).toFixed(2)
+      : '—';
+    cell.textContent = comp.salePrice > 0 && comp.sqft > 0 ? formatCurrency(pricePerSqft) : '—';
+  }
+}
+
+/**
+ * Auto-format date input as MM/YYYY
+ */
+function formatDateInput(e) {
+  let value = e.target.value.replace(/[^\d]/g, ''); // strip non-digits
+  if (value.length > 2) {
+    value = value.substring(0, 2) + '/' + value.substring(2, 6);
+  }
+  if (value.length > 7) {
+    value = value.substring(0, 7);
+  }
+  e.target.value = value;
+  return value;
 }
 
 function renderCompTable() {
@@ -520,20 +550,22 @@ function renderCompTable() {
   state.comps.forEach((comp, index) => {
     const row = document.createElement('tr');
     
-    const pricePerSqft = comp.sqft > 0 ? (comp.salePrice / comp.sqft).toFixed(2) : '—';
+    const pricePerSqft = comp.sqft > 0 && comp.salePrice > 0 ? (comp.salePrice / comp.sqft).toFixed(2) : '—';
     
     row.innerHTML = `
-      <td><input type="text" class="comp-address" value="${comp.address}" placeholder="123 Main St" /></td>
-      <td><input type="text" class="comp-price" value="${comp.salePrice > 0 ? formatCurrency(comp.salePrice) : ''}" placeholder="$300,000" /></td>
-      <td><input type="text" class="comp-sqft" value="${comp.sqft > 0 ? formatSqft(comp.sqft) : ''}" placeholder="1,500 sqft" /></td>
+      <td><input type="text" class="comp-address" tabindex="0" value="${comp.address}" placeholder="123 Main St" /></td>
+      <td><input type="text" class="comp-price" tabindex="0" value="${comp.salePrice > 0 ? formatCurrency(comp.salePrice) : ''}" placeholder="$300,000" /></td>
+      <td><input type="text" class="comp-sqft" tabindex="0" value="${comp.sqft > 0 ? formatSqft(comp.sqft) : ''}" placeholder="1,500 sqft" /></td>
       <td class="comp-calculated">${comp.salePrice > 0 && comp.sqft > 0 ? formatCurrency(pricePerSqft) : '—'}</td>
+      <td><input type="number" class="comp-beds" tabindex="0" value="${comp.beds || ''}" placeholder="3" min="0" step="1" /></td>
+      <td><input type="number" class="comp-baths" tabindex="0" value="${comp.baths || ''}" placeholder="2" min="0" step="0.5" /></td>
       <td>
-        <select class="comp-condition">
+        <select class="comp-condition" tabindex="0">
           <option value="as-is" ${comp.condition === 'as-is' ? 'selected' : ''}>As-Is</option>
           <option value="flipped" ${comp.condition === 'flipped' ? 'selected' : ''}>Flipped</option>
         </select>
       </td>
-      <td><input type="text" class="comp-date" value="${comp.saleDate}" placeholder="MM/YYYY" /></td>
+      <td><input type="text" class="comp-date" tabindex="0" value="${comp.saleDate}" placeholder="MM/YYYY" maxlength="7" /></td>
       <td><button class="btn-remove" data-index="${index}">×</button></td>
     `;
     
@@ -541,6 +573,8 @@ function renderCompTable() {
     const addressInput = row.querySelector('.comp-address');
     const priceInput = row.querySelector('.comp-price');
     const sqftInput = row.querySelector('.comp-sqft');
+    const bedsInput = row.querySelector('.comp-beds');
+    const bathsInput = row.querySelector('.comp-baths');
     const conditionSelect = row.querySelector('.comp-condition');
     const dateInput = row.querySelector('.comp-date');
     const removeBtn = row.querySelector('.btn-remove');
@@ -549,7 +583,7 @@ function renderCompTable() {
       handleCompInput(index, 'address', e.target.value);
     });
     
-    // Price input with currency formatting
+    // Price input with currency formatting — NO full re-render on blur
     priceInput.addEventListener('focus', (e) => {
       e.target.value = comp.salePrice || '';
     });
@@ -557,11 +591,11 @@ function renderCompTable() {
       const value = parseCurrency(e.target.value);
       handleCompInput(index, 'salePrice', value);
       e.target.value = value > 0 ? formatCurrency(value) : '';
-      renderCompTable(); // Re-render to update $/sqft
+      updateCompPricePerSqft(row, state.comps[index]); // Update $/sqft in-place
     });
     priceInput.addEventListener('keydown', (e) => filterNumericInput(e, false));
     
-    // Sqft input with sqft formatting
+    // Sqft input with sqft formatting — NO full re-render on blur
     sqftInput.addEventListener('focus', (e) => {
       e.target.value = comp.sqft || '';
     });
@@ -569,16 +603,26 @@ function renderCompTable() {
       const value = parseSqft(e.target.value);
       handleCompInput(index, 'sqft', value);
       e.target.value = value > 0 ? formatSqft(value) : '';
-      renderCompTable(); // Re-render to update $/sqft
+      updateCompPricePerSqft(row, state.comps[index]); // Update $/sqft in-place
     });
     sqftInput.addEventListener('keydown', (e) => filterNumericInput(e, false));
+    
+    // Beds/Baths
+    bedsInput.addEventListener('input', (e) => {
+      handleCompInput(index, 'beds', e.target.value);
+    });
+    bathsInput.addEventListener('input', (e) => {
+      handleCompInput(index, 'baths', e.target.value);
+    });
     
     conditionSelect.addEventListener('change', (e) => {
       handleCompInput(index, 'condition', e.target.value);
     });
     
+    // Date input with auto-format MM/YYYY
     dateInput.addEventListener('input', (e) => {
-      handleCompInput(index, 'saleDate', e.target.value);
+      const formatted = formatDateInput(e);
+      handleCompInput(index, 'saleDate', formatted);
     });
     
     removeBtn.addEventListener('click', () => handleRemoveComp(index));
