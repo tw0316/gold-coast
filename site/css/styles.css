@@ -323,17 +323,9 @@ h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }
   flex: 1;
 }
 
-.hero__input-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
 .hero__input-wrap input {
   width: 100%;
-  padding: 0.9rem 1rem 0.9rem 44px;
+  padding: 0.9rem 1rem;
   font-family: var(--font-body);
   font-size: 1rem;
   border: 1px solid #D0D5DD;
@@ -618,9 +610,10 @@ h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }
 
 /* Checkbox (TCPA) */
 .form-checkbox {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 18px 1fr;
   gap: var(--space-sm);
+  align-items: start;
   margin: var(--space-lg) 0;
 }
 
@@ -633,6 +626,8 @@ h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); }
 }
 
 .form-checkbox label {
+  display: block;
+  margin: 0;
   font-size: 0.75rem;
   color: var(--color-mid-gray);
   line-height: 1.5;

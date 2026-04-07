@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 868 331" width="868" height="331">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Palm Tree -->
+  <g transform="translate(60, 40)">
+    <!-- Trunk -->
+    <path d="M85 260 Q90 200 80 140 Q75 100 82 60" stroke="#FFC72C" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <!-- Fronds -->
+    <path d="M82 60 Q40 30 10 50" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M82 60 Q50 15 25 10" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M82 60 Q75 5 60 0" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M82 60 Q100 10 115 5" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M82 60 Q110 20 135 20" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M82 60 Q120 40 150 45" stroke="#FFC72C" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- House -->
+  <g transform="translate(100, 95)">
+    <!-- House body -->
+    <rect x="30" y="80" width="140" height="100" rx="2" fill="#2D6CC0"/>
+    <!-- Roof -->
+    <polygon points="100,10 20,80 180,80" fill="#2D6CC0"/>
+    <!-- Roof trim -->
+    <polyline points="20,80 100,10 180,80" stroke="#FFC72C" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Door -->
+    <rect x="80" y="120" width="30" height="55" rx="2" fill="white"/>
+    <!-- Window -->
+    <rect x="125" y="110" width="28" height="28" rx="3" fill="white"/>
+  </g>
+
+  <!-- Ground curve -->
+  <path d="M40 290 Q200 260 300 290" stroke="#2D6CC0" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <!-- Text: GOLD COAST -->
+  <text x="355" y="155" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" font-size="100" font-weight="400" letter-spacing="4" fill="#FFC72C">GOLD COAST</text>
+
+  <!-- Text: WHOLESALERS -->
+  <text x="355" y="245" font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" font-size="85" font-weight="400" letter-spacing="5" fill="#2D6CC0">WHOLESALERS</text>
+</svg>

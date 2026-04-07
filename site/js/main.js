@@ -61,7 +61,6 @@
       var email = document.getElementById('email');
       var serviceConsent = document.getElementById('service-consent');
       var marketingConsent = document.getElementById('marketing-consent');
-      var serviceConsentError = document.getElementById('service-consent-error');
       var valid = true;
 
       // Validate full name
