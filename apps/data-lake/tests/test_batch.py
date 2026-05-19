@@ -9,6 +9,9 @@ import unittest
 from gold_coast_data_lake.batch import BatchRefreshRunner, LocalTtlLock, sanitize
 
 
+FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
+
+
 class BatchRunnerTests(unittest.TestCase):
     def test_sanitize_redacts_sensitive_values(self) -> None:
         payload = {
@@ -39,7 +42,7 @@ class BatchRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             status_dir = Path(tmp) / "status"
             runner = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
-            result = runner.run(run_id="20260518T220000Z", dry_run=True, metadata={"webhook_url": "https://hooks.slack.com/x"})
+            result = runner.run(run_id="20260518T220000Z", dry_run=True, metadata={"webhook_url": FAKE_SLACK_WEBHOOK})
 
             self.assertEqual(result["status"], "succeeded")
             self.assertEqual(result["phases"][0]["name"], "dry_run_validation")
@@ -93,6 +96,48 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["manifest_s3_uri"], "s3://bucket/manifests/ghl/run=run1.json")
             self.assertEqual(result["entity_counts"], {"contacts": 2})
             self.assertEqual(result["recordings"]["archived"], 1)
+
+    def test_alert_callback_updates_run_status_without_exposing_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            callback_payloads = []
+
+            def callback(payload):
+                callback_payloads.append(payload)
+                return "posted"
+
+            runner = BatchRefreshRunner(
+                status_dir=Path(tmp) / "status",
+                output_dir=Path(tmp) / "extracts",
+                alert_callback=callback,
+            )
+            result = runner.run(
+                run_id="alerted",
+                dry_run=True,
+                metadata={"webhook_url": FAKE_SLACK_WEBHOOK, "safe": "ok"},
+            )
+            self.assertEqual(result["alert_status"], "posted")
+            self.assertEqual(callback_payloads[0]["metadata"]["webhook_url"], "[redacted]")
+            self.assertEqual(callback_payloads[0]["metadata"]["safe"], "ok")
+
+    def test_alert_callback_failure_records_sanitized_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+
+            def callback(_payload):
+                raise RuntimeError(f"Authorization: Bearer secret from {FAKE_SLACK_WEBHOOK}")
+
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                alert_callback=callback,
+            )
+            result = runner.run(run_id="alert-failed", dry_run=True)
+            run_status = json.loads((status_dir / "run=alert-failed.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(result["alert_status"], "failed")
+            self.assertEqual(run_status["alert_status"], "failed")
+            self.assertEqual(run_status["alert_error"]["class"], "RuntimeError")
+            self.assertEqual(run_status["alert_error"]["message"], "[redacted]")
 
 
 if __name__ == "__main__":

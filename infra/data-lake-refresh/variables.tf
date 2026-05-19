@@ -57,7 +57,7 @@ variable "ghl_location_id_secret_arn" {
 }
 
 variable "slack_webhook_secret_arn" {
-  description = "Optional Secrets Manager secret ARN for the Gold Coast tech-alerts Slack webhook."
+  description = "Secrets Manager secret ARN for the Gold Coast tech-alerts Slack webhook targeting C0B4JTC5VPF. Required when alert_mode is not off."
   type        = string
   default     = null
   sensitive   = true
@@ -90,4 +90,21 @@ variable "schedule_enabled" {
   description = "Enable the 30-minute EventBridge schedule. Keep false until manual run evidence passes."
   type        = bool
   default     = false
+}
+
+variable "alert_mode" {
+  description = "Slack alert policy: off, failure-only, success-and-failure, or launch-window."
+  type        = string
+  default     = "failure-only"
+
+  validation {
+    condition     = contains(["off", "failure-only", "success-and-failure", "launch-window"], var.alert_mode)
+    error_message = "alert_mode must be off, failure-only, success-and-failure, or launch-window."
+  }
+}
+
+variable "success_alert_until" {
+  description = "UTC ISO timestamp required for launch-window success alerts. Leave null for failure-only or off."
+  type        = string
+  default     = null
 }

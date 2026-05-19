@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 58,
+  "roughPercent": 68,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T23:39:00-04:00",
+  "updatedAt": "2026-05-19T00:02:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -26,14 +26,14 @@
     "over90PercentMinutes": 15,
     "immediateOn": ["blocked", "decision-needed", "completed"]
   },
-  "lastReportAt": "2026-05-18T23:39:00-04:00",
+  "lastReportAt": "2026-05-18T23:54:00-04:00",
   "finalReport": {
     "sent": false,
     "sentAt": null,
     "messageId": null
   },
-  "activeSlice": "slice-7-fargate-infrastructure",
-  "lastCompletedSlice": "slice-6-curated-latest-stage-history",
+  "activeSlice": null,
+  "lastCompletedSlice": "slice-8-aws-slack-alerts",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -134,21 +134,21 @@
         "no-NAT networking review",
         "least-privilege IAM review"
       ],
-      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification remains blocked because no container engine is installed on this machine. Rechecked 2026-05-18T23:28:00-04:00. No AWS resources were created or modified."
+      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification remains blocked because no container engine is installed on this machine. Rechecked 2026-05-18T23:43:00-04:00. No AWS resources were created or modified."
     },
     {
       "id": "slice-8-aws-slack-alerts",
       "title": "Add AWS-native Slack webhook alerts to C0B4JTC5VPF",
-      "status": "pending",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-05-18T23:53:00-04:00",
+      "completedAt": "2026-05-19T00:02:00-04:00",
       "expectedEvidence": [
         ".jks/slice-8-aws-slack-alerts-evidence.md",
         "sanitized alert payload tests",
         "Secrets Manager reference docs",
         "no webhook URL exposure scan"
       ],
-      "notes": "Do not post routine Slack messages from JKS; deployed runtime alerting only."
+      "notes": "Verified by owner. Added sanitized Slack alert module, batch runner alert callback, Fargate env/secret wiring, docs, and tests. No webhook call, live GHL extraction, AWS change, deploy, schedule enablement, or GitHub push was run."
     },
     {
       "id": "slice-9-athena-smoke-run-status",
@@ -195,28 +195,39 @@
     }
   ],
   "childReliability": {
-    "spawned": 0,
-    "completed": 0,
+    "spawned": 1,
+    "completed": 1,
     "stale": 0,
     "replaced": 0,
     "failed": 0,
     "lastIssue": null
   },
-  "childRuns": [],
+  "childRuns": [
+    {
+      "sliceId": "slice-8-aws-slack-alerts",
+      "agentId": "019e3e5e-8804-72e3-8692-756490ea66b5",
+      "nickname": "Lorentz",
+      "status": "completed",
+      "startedAt": "2026-05-18T23:53:00-04:00",
+      "completedAt": "2026-05-19T00:02:00-04:00",
+      "expectedEvidence": [".jks/slice-8-aws-slack-alerts-evidence.md"],
+      "notes": "Owner verified local artifacts directly. Current cron requester did not list an active child, but Slice 8 evidence and working tree were present and passed the narrow verification gate."
+    }
+  ],
   "lastVerifiedEvidence": [
-    ".jks/slice-7-fargate-infrastructure-evidence.md",
-    "Dockerfile, .dockerignore, Terraform runtime skeleton, prod tfvars example, and Fargate runtime runbook are present under the monorepo boundaries.",
-    "Runner now accepts GHL_API_KEY and GHL_LOCATION_ID from process env for ECS Secrets Manager injection.",
-    "Python compile passed and unittest ran 25 tests: 24 passed, 1 skipped because pyarrow is not installed locally.",
-    "Focused GET-only static check found no non-GET request paths in apps/data-lake/src or apps/data-lake/scripts.",
-    "Terraform fmt, init -backend=false, and validate passed for infra/data-lake-refresh.",
-    "Docker build verification is blocked because no docker, podman, finch, nerdctl, colima, or lima binary is installed locally.",
-    "No terraform plan/apply, AWS resource change, live GHL extraction, deploy, schedule enablement, or Slack alert was run.",
-    "2026-05-18T23:14:00-04:00 owner recheck: no docker, podman, finch, nerdctl, colima, or lima binary found locally; Slice 7 remains blocked and later slices were not started.",
-    "2026-05-18T23:28:00-04:00 owner recheck: no docker, podman, finch, nerdctl, colima, limactl, or lima binary found locally; Slice 7 remains blocked and Slice 8 was not started."
+    ".jks/slice-8-aws-slack-alerts-evidence.md",
+    "Added apps/data-lake/src/gold_coast_data_lake/alerts.py with policy-based Slack webhook alert decisions and sanitized payload construction.",
+    "BatchRefreshRunner accepts an alert callback and records alert_status/alert_error in immutable run status after sanitizing payloads.",
+    "GHL batch job reads SLACK_WEBHOOK_URL, ALERT_MODE, SUCCESS_ALERT_UNTIL, and CLOUDWATCH_LOG_URL from runtime env; Terraform wires alert mode and optional Secrets Manager webhook injection.",
+    "Python compile passed and unittest ran 33 tests: 32 passed, 1 skipped because pyarrow is not installed locally.",
+    "Terraform fmt -check -recursive and terraform validate passed for infra/data-lake-refresh.",
+    "Webhook and token scans found no real committed Slack webhook URL or credential; hits were limited to sanitizer markers, documented scan commands, and test fixtures with intentionally fake/split values.",
+    "Focused GET-only scan found no mutating GHL access path in extractor/raw-refresh code; the only new POST path is the Slack webhook sender.",
+    "No Slack webhook call, live GHL extraction, AWS resource change, deploy, schedule enablement, or GitHub push was run.",
+    "Slice 7 Docker image build verification remains a scoped deployment blocker because no local container engine is installed."
   ],
   "blockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-18T23:28:00-04:00."
+    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:01:30-04:00. This blocks deploy/schedule enablement, but Slice 8 code/docs/tests were verified locally."
   ],
   "guardrails": [
     "No data-lake GHL writes",

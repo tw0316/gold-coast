@@ -58,7 +58,10 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 - No NAT Gateway is required.
 - GHL credentials are injected as GHL_API_KEY and GHL_LOCATION_ID from Secrets Manager.
 - The runner also supports GHL_ENV_FILE for local operator runs, but Fargate uses injected env vars.
-- Slack webhook injection is optional in this slice; alert behavior is owned by the alert slice.
+- Slack webhook injection uses `SLACK_WEBHOOK_URL` from Secrets Manager. The secret ARN must point to the reusable Gold Coast tech-alerts webhook for Slack channel `C0B4JTC5VPF`; never place the webhook URL in tfvars, docs, logs, or status files.
+- `ALERT_MODE=failure-only` is the deployed default and posts failures only.
+- `ALERT_MODE=launch-window` posts failures always and successful runs only until `SUCCESS_ALERT_UNTIL=<UTC ISO timestamp>`. Terraform rejects launch-window mode without that timestamp so success alerts cannot continue forever by accident.
+- `ALERT_MODE=success-and-failure` is available for bounded operator testing only. Do not leave it enabled for routine production refreshes.
 - The container entrypoint is python -m gold_coast_data_lake.jobs.ghl_batch_refresh.
 
 ## Rollback

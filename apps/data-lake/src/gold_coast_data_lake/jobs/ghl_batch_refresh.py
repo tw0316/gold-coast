@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 
+from gold_coast_data_lake.alerts import AlertConfig, alert_callback
 from gold_coast_data_lake.batch import BatchRefreshRunner
 from gold_coast_data_lake.extractor import ENTITY_ALIASES
 from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES, RawRefreshConfig, build_ghl_raw_refresh_phase
@@ -15,6 +16,9 @@ from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES, RawRe
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ENV_FILE = os.environ.get("GHL_ENV_FILE")
+DEFAULT_ALERT_MODE = os.environ.get("ALERT_MODE", "off")
+DEFAULT_SUCCESS_ALERT_UNTIL = os.environ.get("SUCCESS_ALERT_UNTIL")
+DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -64,6 +68,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Run production raw-refresh phases. Requires GHL config from --env-file or process env.",
     )
+    parser.add_argument(
+        "--alert-mode",
+        default=DEFAULT_ALERT_MODE,
+        choices=["off", "failure-only", "success-and-failure", "launch-window"],
+        help="Slack alert policy. Webhook URL is read only from SLACK_WEBHOOK_URL.",
+    )
+    parser.add_argument("--success-alert-until", default=DEFAULT_SUCCESS_ALERT_UNTIL)
+    parser.add_argument("--cloudwatch-log-url", default=DEFAULT_CLOUDWATCH_LOG_URL)
     return parser.parse_args(argv)
 
 
@@ -97,6 +109,16 @@ def main(argv: list[str] | None = None) -> int:
         status_dir=args.status_dir,
         output_dir=args.output_dir,
         phases=phases,
+        alert_callback=None
+        if args.alert_mode == "off"
+        else alert_callback(
+            AlertConfig(
+                webhook_url=os.environ.get("SLACK_WEBHOOK_URL"),
+                mode=args.alert_mode,
+                success_alert_until=args.success_alert_until,
+                cloudwatch_log_url=args.cloudwatch_log_url,
+            )
+        ),
     )
     result = runner.run(
         run_id=args.run_id,

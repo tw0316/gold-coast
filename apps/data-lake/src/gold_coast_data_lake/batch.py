@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
+import re
 from typing import Any, Callable, Iterable
 
 from .storage import format_run_id
@@ -26,6 +27,8 @@ SENSITIVE_KEY_PARTS = (
     "phone",
     "email",
 )
+EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+PHONE_RE = re.compile(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b")
 
 
 def utc_now() -> datetime:
@@ -64,10 +67,26 @@ def sanitize(value: Any) -> Any:
     if isinstance(value, tuple):
         return [sanitize(item) for item in value]
     if isinstance(value, str):
-        if "hooks.slack.com/" in value or "Authorization:" in value:
+        lowered = value.lower()
+        if (
+            "hooks.slack.com/" in lowered
+            or "authorization:" in lowered
+            or "bearer " in lowered
+            or "x-api-key" in lowered
+            or "api_key" in lowered
+            or "access_token" in lowered
+            or "webhook" in lowered
+            or EMAIL_RE.search(value)
+            or PHONE_RE.search(value)
+            or looks_like_raw_payload(value)
+        ):
             return "[redacted]"
         return value
     return value
+
+
+def looks_like_raw_payload(value: str) -> bool:
+    return (("{" in value and "}" in value) or ("[" in value and "]" in value)) and ":" in value
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -130,6 +149,7 @@ class LocalTtlLock:
 
 
 Phase = Callable[[BatchRunContext], dict[str, Any] | None]
+AlertCallback = Callable[[dict[str, Any]], str]
 
 
 def summarize_phase_results(phase_results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -177,12 +197,14 @@ class BatchRefreshRunner:
         output_dir: str | Path,
         lock: LocalTtlLock | None = None,
         phases: Iterable[tuple[str, Phase]] | None = None,
+        alert_callback: AlertCallback | None = None,
         now: Callable[[], datetime] = utc_now,
     ) -> None:
         self.status_dir = Path(status_dir)
         self.output_dir = Path(output_dir)
         self.lock = lock or LocalTtlLock(self.status_dir / "locks" / "ghl-refresh.lock")
         self.phases = list(phases or [])
+        self.alert_callback = alert_callback
         self.now = now
 
     def run(
@@ -268,6 +290,12 @@ class BatchRefreshRunner:
             "metadata": sanitize(metadata or {}),
             "error": sanitize(error) if error else None,
         }
+        if self.alert_callback:
+            try:
+                payload["alert_status"] = self.alert_callback(sanitize(payload))
+            except Exception as exc:  # noqa: BLE001
+                payload["alert_status"] = "failed"
+                payload["alert_error"] = sanitize({"class": exc.__class__.__name__, "message": str(exc)})
         log.write("run_completed", {"run_id": run_id, "status": status, "duration_seconds": duration_seconds})
         self._write_status(payload)
         return payload

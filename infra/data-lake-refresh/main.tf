@@ -181,6 +181,17 @@ resource "aws_ecs_task_definition" "refresh" {
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  lifecycle {
+    precondition {
+      condition     = var.alert_mode == "off" || try(trimspace(var.slack_webhook_secret_arn) != "", false)
+      error_message = "slack_webhook_secret_arn is required when alert_mode is not off."
+    }
+    precondition {
+      condition     = var.alert_mode != "launch-window" || try(trimspace(var.success_alert_until) != "", false)
+      error_message = "success_alert_until is required when alert_mode is launch-window."
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name      = local.container_name
@@ -197,7 +208,9 @@ resource "aws_ecs_task_definition" "refresh" {
         { name = "GLUE_DATABASE", value = var.glue_database },
         { name = "ATHENA_WORKGROUP", value = var.athena_workgroup },
         { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
-        { name = "SOURCE_ENVIRONMENT", value = var.environment }
+        { name = "SOURCE_ENVIRONMENT", value = var.environment },
+        { name = "ALERT_MODE", value = var.alert_mode },
+        { name = "SUCCESS_ALERT_UNTIL", value = var.success_alert_until == null ? "" : var.success_alert_until }
       ]
       secrets = concat(
         [
