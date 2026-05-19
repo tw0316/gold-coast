@@ -5,7 +5,7 @@
   "status": "active",
   "roughPercent": 78,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T05:15:00-04:00",
+  "updatedAt": "2026-05-19T05:30:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -177,7 +177,7 @@
         "first scheduled run status",
         "latest-success verification"
       ],
-      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T05:15:00-04:00: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally; Docker.app, OrbStack.app, Podman Desktop.app, /usr/local/bin/docker, /opt/homebrew/bin/docker, and /Applications/Docker.app/Contents/Resources/bin/docker are absent. Required local artifacts are present under the actual data-lake doc/SQL paths, schedule_enabled remains false by default, no NAT Gateway resource was found, and the data-lake GHL client path remains GET-only. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
+      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T05:30:00-04:00: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally; Docker.app, OrbStack.app, Podman Desktop.app, /usr/local/bin/docker, /opt/homebrew/bin/docker, and /Applications/Docker.app/Contents/Resources/bin/docker are absent. Required local artifacts are present under the actual data-lake doc/SQL paths, schedule_enabled remains false by default, no NAT Gateway resource was found, and the data-lake GHL client path remains GET-only. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
     },
     {
       "id": "slice-11-final-acceptance",
@@ -191,7 +191,7 @@
         "operator runbook links",
         "reporter final update"
       ],
-      "notes": "Started and immediately blocked on unmet dependency: Slice 10 schedule enablement and first production run are still blocked by the Slice 7 container image build verification gate. Dependency rechecked 2026-05-19T05:15:00-04:00; container/build tools and common local Docker app/CLI paths remain unavailable, and Slice 10 remains blocked before start. Do not perform final acceptance or mark the goal complete until Slice 10 completes and the final report is sent and recorded."
+      "notes": "Started and immediately blocked on unmet dependency: Slice 10 schedule enablement and first production run are still blocked by the Slice 7 container image build verification gate. Dependency rechecked 2026-05-19T05:30:00-04:00; container/build tools and common local Docker app/CLI paths remain unavailable, and Slice 10 remains blocked before start. Do not perform final acceptance or mark the goal complete until Slice 10 completes and the final report is sent and recorded."
     }
   ],
   "childReliability": {
@@ -226,7 +226,7 @@
   ],
   "lastVerifiedEvidence": [
     ".jks/slice-10-enable-schedule-first-run-evidence.md",
-    "Rechecked Slice 10 blocker at 2026-05-19T05:15:00-04:00: schedule enablement and first production run remain blocked by the unresolved Slice 7 container image build verification gate.",
+    "Rechecked Slice 10 blocker at 2026-05-19T05:30:00-04:00: schedule enablement and first production run remain blocked by the unresolved Slice 7 container image build verification gate.",
     "Container/build tools remain unavailable locally: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly were not found.",
     "Common local container app/CLI paths remain absent: Docker.app, OrbStack.app, Podman Desktop.app, /usr/local/bin/docker, /opt/homebrew/bin/docker, and /Applications/Docker.app/Contents/Resources/bin/docker.",
     "Required local artifacts exist under their actual paths: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.",
@@ -240,11 +240,11 @@
     "No queue item with status next or pending exists; the remaining bounded advancement is blocker recheck until the container build gate or an approved alternate path clears."
   ],
   "blockers": [
-    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T05:15:00-04:00; docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally, and common local Docker app/CLI paths are absent.",
-    "Slice 11 final acceptance is blocked until Slice 10 completes and the final report is sent and recorded. Dependency rechecked 2026-05-19T05:15:00-04:00."
+    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T05:30:00-04:00; docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally, and common local Docker app/CLI paths are absent.",
+    "Slice 11 final acceptance is blocked until Slice 10 completes and the final report is sent and recorded. Dependency rechecked 2026-05-19T05:30:00-04:00."
   ],
   "releaseBlockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container/build engine is installed on this machine; rechecked 2026-05-19T05:15:00-04:00. This blocks deploy/schedule/final acceptance."
+    "Slice 7 Docker image build verification remains blocked because no local container/build engine is installed on this machine; rechecked 2026-05-19T05:30:00-04:00. This blocks deploy/schedule/final acceptance."
   ],
   "guardrails": [
     "No data-lake GHL writes",
