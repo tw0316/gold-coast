@@ -1,4 +1,4 @@
--- Smoke check: latest successful run has rows in every critical curated table.
+-- Smoke check: latest eligible production-success run has rows in every critical curated table.
 -- This query intentionally joins on both snapshot_date and run_id so repeated same-day runs
 -- cannot accidentally read a stale partition.
 WITH latest_success AS (
@@ -8,6 +8,14 @@ WITH latest_success AS (
     FROM gold_coast.run_status_ghl
     WHERE status = 'succeeded'
       AND coalesce(dry_run, false) = false
+      AND (
+          coalesce(latest_pointers_published, false) = true
+          OR (
+              latest_pointers_published IS NULL
+              AND manifest_s3_uri IS NOT NULL
+              AND coalesce(cardinality(curated_tables), 0) > 0
+          )
+      )
     ORDER BY try(from_iso8601_timestamp(completed_at)) DESC
     LIMIT 1
 ),

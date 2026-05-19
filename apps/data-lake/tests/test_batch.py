@@ -26,9 +26,28 @@ from gold_coast_data_lake.jobs.ghl_batch_refresh import (
     join_s3_prefix,
     parse_args,
 )
+from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES
 
 
 FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
+
+
+def production_metadata(**overrides):
+    metadata = {
+        "entrypoint": "gold_coast_data_lake.jobs.ghl_batch_refresh",
+        "entities": list(DEFAULT_RAW_REFRESH_ENTITIES),
+        "default_entities": list(DEFAULT_RAW_REFRESH_ENTITIES),
+        "extractor_dry_run": False,
+        "skip_curated": False,
+        "max_items": None,
+        "max_pages": None,
+        "pipeline_ids": [],
+        "conversation_ids": [],
+        "message_ids": [],
+        "download_recordings": False,
+    }
+    metadata.update(overrides)
+    return metadata
 
 
 class FakeStatusUploader:
@@ -101,7 +120,7 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(release_call["Key"], {"lock_name": {"S": "ghl-refresh"}})
         self.assertEqual(release_call["ExpressionAttributeValues"][":run_id"], {"S": "run1"})
 
-    def test_dry_run_writes_immutable_status_and_latest_success(self) -> None:
+    def test_dry_run_writes_immutable_status_without_latest_pointer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             status_dir = Path(tmp) / "status"
             runner = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
@@ -112,13 +131,14 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["lock"]["ttl_seconds"], 2700)
             run_status_text = historical_run_status_path(status_dir, "20260518T220000Z").read_text(encoding="utf-8")
             run_status = json.loads(run_status_text)
-            latest = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
             log_lines = (status_dir / "logs" / "run=20260518T220000Z.jsonl").read_text(encoding="utf-8").splitlines()
 
             self.assertEqual(run_status["run_id"], "20260518T220000Z")
             self.assertEqual(run_status_text.count("\n"), 1)
             self.assertTrue(run_status["lock"]["acquired"])
-            self.assertEqual(latest["run_id"], "20260518T220000Z")
+            self.assertFalse(run_status["latest_pointers_published"])
+            self.assertEqual(run_status["latest_pointer_skip_reason"], "dry_run")
+            self.assertFalse(latest_success_status_path(status_dir).exists())
             self.assertIn("run_started", log_lines[0])
             self.assertIn("run_completed", log_lines[-1])
             self.assertEqual(run_status["metadata"]["webhook_url"], "[redacted]")
@@ -142,10 +162,13 @@ class BatchRunnerTests(unittest.TestCase):
                     )
                 ],
             )
-            result = runner.run(run_id="s3-run", dry_run=False)
+            result = runner.run(run_id="s3-run", dry_run=False, metadata=production_metadata())
             uploads = {upload["key"]: upload for upload in uploader.uploads}
 
             self.assertEqual(result["log_path"], f"s3://bucket/{run_status_log_key('s3-run')}")
+            self.assertTrue(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_publish_target"], "latest-success.json")
+            self.assertIsNone(result["latest_pointer_skip_reason"])
             self.assertIn(historical_run_status_key("s3-run"), uploads)
             self.assertIn(latest_success_status_key(), uploads)
             self.assertIn(run_status_log_key("s3-run"), uploads)
@@ -170,16 +193,30 @@ class BatchRunnerTests(unittest.TestCase):
     def test_failure_writes_latest_failure_without_advancing_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             status_dir = Path(tmp) / "status"
-            runner = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
-            success = runner.run(run_id="success", dry_run=True)
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[
+                    (
+                        "raw_refresh_and_curated_publish",
+                        lambda _context: {
+                            "manifest_s3_uri": "s3://bucket/manifests/ghl/run=success.json",
+                            "curated_tables": {"contacts": 1},
+                        },
+                    )
+                ],
+            )
+            success = runner.run(run_id="success", dry_run=False, metadata=production_metadata())
             self.assertEqual(success["status"], "succeeded")
 
             failed_runner = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
-            failed = failed_runner.run(run_id="failed", dry_run=False)
+            failed = failed_runner.run(run_id="failed", dry_run=False, metadata=production_metadata())
 
             latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
             latest_failure = json.loads(latest_failure_status_path(status_dir).read_text(encoding="utf-8"))
             self.assertEqual(failed["status"], "failed")
+            self.assertTrue(failed["latest_pointers_published"])
+            self.assertEqual(failed["latest_pointer_publish_target"], "latest-failure.json")
             self.assertEqual(latest_success["run_id"], "success")
             self.assertEqual(latest_failure["run_id"], "failed")
             self.assertEqual(latest_failure["error"]["class"], "NotImplementedError")
@@ -205,14 +242,27 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["manifest_s3_uri"], "s3://bucket/manifests/ghl/run=run1.json")
             self.assertEqual(result["entity_counts"], {"contacts": 2})
             self.assertEqual(result["recordings"]["archived"], 1)
-            self.assertFalse(result["latest_success_eligible"])
+            self.assertFalse(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_skip_reason"], "missing_entities_metadata")
             self.assertFalse(latest_success_status_path(status_dir).exists())
 
     def test_non_dry_raw_only_success_does_not_advance_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             status_dir = Path(tmp) / "status"
-            baseline = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
-            baseline.run(run_id="baseline", dry_run=True)
+            baseline = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[
+                    (
+                        "raw_refresh_and_curated_publish",
+                        lambda _context: {
+                            "manifest_s3_uri": "s3://bucket/manifests/ghl/run=baseline.json",
+                            "curated_tables": {"contacts": 1},
+                        },
+                    )
+                ],
+            )
+            baseline.run(run_id="baseline", dry_run=False, metadata=production_metadata())
 
             def raw_only_phase(_context):
                 return {
@@ -220,17 +270,94 @@ class BatchRunnerTests(unittest.TestCase):
                     "entity_counts": {"contacts": 1},
                 }
 
+            uploader = FakeStatusUploader()
             runner = BatchRefreshRunner(
                 status_dir=status_dir,
                 output_dir=Path(tmp) / "extracts",
+                status_uploader=uploader,
                 phases=[("raw_refresh", raw_only_phase)],
             )
-            result = runner.run(run_id="diag", dry_run=False)
+            result = runner.run(
+                run_id="diag",
+                dry_run=False,
+                metadata=production_metadata(skip_curated=True, max_items=1, entities=["contacts"]),
+            )
             latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
+            run_status = json.loads(historical_run_status_path(status_dir, "diag").read_text(encoding="utf-8"))
+            uploads = {upload["key"]: upload for upload in uploader.uploads}
 
             self.assertEqual(result["status"], "succeeded")
-            self.assertFalse(result["latest_success_eligible"])
+            self.assertFalse(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_skip_reason"], "skip_curated")
+            self.assertFalse(run_status["latest_pointers_published"])
             self.assertEqual(latest_success["run_id"], "baseline")
+            self.assertIn(historical_run_status_key("diag"), uploads)
+            self.assertIn(run_status_log_key("diag"), uploads)
+            self.assertNotIn(latest_success_status_key(), uploads)
+
+    def test_ineligible_invocations_skip_latest_pointers(self) -> None:
+        cases = [
+            ("extractor_dry_run", {"extractor_dry_run": True}, "extractor_dry_run"),
+            ("skip_curated", {"skip_curated": True}, "skip_curated"),
+            ("max_items", {"max_items": 1}, "max_items"),
+            ("max_pages", {"max_pages": 1}, "max_pages"),
+            ("entity_subset", {"entities": ["contacts"]}, "entity_subset"),
+            ("pipeline_filter", {"pipeline_ids": ["pipe1"]}, "pipeline_filter"),
+            ("conversation_filter", {"conversation_ids": ["conv1"]}, "conversation_filter"),
+            ("message_filter", {"message_ids": ["msg1"]}, "message_filter"),
+        ]
+
+        for label, metadata_overrides, expected_reason in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as tmp:
+                status_dir = Path(tmp) / "status"
+
+                def curated_phase(_context):
+                    return {
+                        "manifest_s3_uri": f"s3://bucket/manifests/ghl/run={label}.json",
+                        "curated_tables": {"contacts": 1},
+                    }
+
+                runner = BatchRefreshRunner(
+                    status_dir=status_dir,
+                    output_dir=Path(tmp) / "extracts",
+                    phases=[("raw_refresh_and_curated_publish", curated_phase)],
+                )
+                result = runner.run(
+                    run_id=label,
+                    dry_run=False,
+                    metadata=production_metadata(**metadata_overrides),
+                )
+
+                self.assertEqual(result["status"], "succeeded")
+                self.assertFalse(result["latest_pointers_published"])
+                self.assertEqual(result["latest_pointer_skip_reason"], expected_reason)
+                self.assertFalse(latest_success_status_path(status_dir).exists())
+
+        with self.subTest(label="non_production_environment"), tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[
+                    (
+                        "raw_refresh_and_curated_publish",
+                        lambda _context: {
+                            "manifest_s3_uri": "s3://bucket/manifests/ghl/run=staging.json",
+                            "curated_tables": {"contacts": 1},
+                        },
+                    )
+                ],
+            )
+            result = runner.run(
+                run_id="staging",
+                source_environment="staging",
+                dry_run=False,
+                metadata=production_metadata(),
+            )
+
+            self.assertFalse(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_skip_reason"], "non_production_environment")
+            self.assertFalse(latest_success_status_path(status_dir).exists())
 
     def test_non_dry_curated_success_advances_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -248,11 +375,13 @@ class BatchRunnerTests(unittest.TestCase):
                 output_dir=Path(tmp) / "extracts",
                 phases=[("raw_refresh_and_curated_publish", curated_phase)],
             )
-            result = runner.run(run_id="prod", dry_run=False)
+            result = runner.run(run_id="prod", dry_run=False, metadata=production_metadata())
             latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
 
             self.assertEqual(result["status"], "succeeded")
-            self.assertTrue(result["latest_success_eligible"])
+            self.assertTrue(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_publish_target"], "latest-success.json")
+            self.assertIsNone(result["latest_pointer_skip_reason"])
             self.assertEqual(latest_success["run_id"], "prod")
 
     def test_run_status_promotes_image_tag_and_cloudwatch_log_url(self) -> None:
@@ -292,7 +421,7 @@ class BatchRunnerTests(unittest.TestCase):
                 "https://console.aws.amazon.com/cloudwatch/home#logsV2:log-events/stream",
             )
 
-    def test_build_status_uploader_skips_dry_run_even_with_status_bucket(self) -> None:
+    def test_build_status_uploader_skips_runner_dry_run_only(self) -> None:
         with mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.S3Uploader") as uploader_cls:
             args = parse_args(["--status-s3-bucket", "status-bucket"])
             self.assertIsNone(build_status_uploader(args))
@@ -300,9 +429,9 @@ class BatchRunnerTests(unittest.TestCase):
             extractor_dry_run_args = parse_args(
                 ["--execute", "--extractor-dry-run", "--status-s3-bucket", "status-bucket"]
             )
-            self.assertIsNone(build_status_uploader(extractor_dry_run_args))
+            self.assertEqual(build_status_uploader(extractor_dry_run_args), uploader_cls.return_value)
 
-            uploader_cls.assert_not_called()
+            uploader_cls.assert_called_once_with("status-bucket", "")
 
     def test_build_lock_uses_dynamodb_only_for_execute_non_dry_run(self) -> None:
         with mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.DynamoDbTtlLock") as lock_cls:

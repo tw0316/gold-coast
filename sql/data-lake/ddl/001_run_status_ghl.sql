@@ -29,6 +29,9 @@ CREATE EXTERNAL TABLE IF NOT EXISTS gold_coast.run_status_ghl (
     curated_tables map<string,bigint>,
     smoke_checks array<struct<check_name:string,name:string,status:string,query_execution_id:string,sql_file:string,checked_at:string>>,
     log_path string,
+    latest_pointers_published boolean,
+    latest_pointer_publish_target string,
+    latest_pointer_skip_reason string,
     alert_status string,
     error map<string,string>,
     alert_error map<string,string>

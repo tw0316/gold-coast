@@ -167,7 +167,14 @@ def main(argv: list[str] | None = None) -> int:
         metadata={
             "entrypoint": "gold_coast_data_lake.jobs.ghl_batch_refresh",
             "entities": args.entities,
+            "default_entities": list(DEFAULT_RAW_REFRESH_ENTITIES),
             "extractor_dry_run": args.extractor_dry_run,
+            "skip_curated": args.skip_curated,
+            "max_items": args.max_items,
+            "max_pages": args.max_pages,
+            "pipeline_ids": args.pipeline_id,
+            "conversation_ids": args.conversation_id,
+            "message_ids": args.message_id,
             "download_recordings": args.download_recordings,
         },
     )
@@ -176,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_status_uploader(args: argparse.Namespace) -> S3Uploader | None:
-    if not args.execute or args.extractor_dry_run:
+    if not args.execute:
         return None
     bucket = args.status_s3_bucket or args.s3_bucket
     if bucket is None:

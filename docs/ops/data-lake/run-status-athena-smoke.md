@@ -49,7 +49,9 @@ latest-success.json and latest-failure.json are pointers for operators and autom
 
 In production execute mode, the runner uploads these artifacts when `--status-s3-bucket` is provided. If `--status-s3-bucket` is omitted, a non-dry-run execute with `--s3-bucket` uses that bucket for status artifacts too. `--status-s3-prefix` can override the raw-output prefix if a prefixed lake layout is ever used.
 
-Dry-run and `--extractor-dry-run` runs do not create a status S3 uploader, even when `--status-s3-bucket` is supplied.
+Runner dry-runs do not create a status S3 uploader. Execute-mode diagnostics, including `--extractor-dry-run`, may upload immutable historical status/log artifacts when a status bucket is supplied, but they do not publish `latest-success.json` or `latest-failure.json`.
+
+`latest-success.json` and `latest-failure.json` are published only for eligible production refresh runs. Ineligible runs include runner dry-runs, extractor dry-runs, `--skip-curated`, `--max-items`, `--max-pages`, entity subsets, pipeline/conversation/message filters, non-production environments, and successful runs missing a manifest or curated-table output. Every status payload includes `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` so operators can see why a pointer did or did not move.
 
 The immutable `status.json` file is single-line JSON so Athena can read it with the JSON SerDe. Pointer files can remain human-readable because they are excluded from the historical table location.
 
@@ -79,7 +81,7 @@ s3://gcoffers-data-lake/run-status/ghl/runs/
 
 Do not point it at s3://gcoffers-data-lake/run-status/ghl/. That broader prefix includes pointer objects and logs.
 
-The table exposes `image_tag` and `cloudwatch_log_url` as nullable top-level string columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
+The table exposes `image_tag`, `cloudwatch_log_url`, `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` as nullable top-level columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
 
 ## Smoke Checks
 

@@ -16,6 +16,28 @@ RUN_STATUS_HISTORY_DIR = "runs"
 LATEST_SUCCESS_STATUS_FILE = "latest-success.json"
 LATEST_FAILURE_STATUS_FILE = "latest-failure.json"
 RUN_STATUS_S3_PREFIX = "run-status/ghl"
+DEFAULT_LATEST_POINTER_ENTITIES = (
+    "contacts",
+    "pipelines",
+    "opportunities",
+    "conversations",
+    "messages",
+    "call_message_details",
+)
+LATEST_POINTER_ENTITY_ALIASES = {
+    "all": "all",
+    "contacts": "contacts",
+    "pipelines": "pipelines",
+    "pipeline-stages": "pipelines",
+    "pipeline_stages": "pipelines",
+    "opportunities": "opportunities",
+    "conversations": "conversations",
+    "messages": "messages",
+    "call-details": "call_message_details",
+    "call_details": "call_message_details",
+    "call-message-details": "call_message_details",
+    "call_message_details": "call_message_details",
+}
 
 SENSITIVE_KEY_PARTS = (
     "api_key",
@@ -145,6 +167,87 @@ def optional_status_text(value: Any) -> str | None:
     if isinstance(cleaned, str):
         return cleaned
     return json.dumps(cleaned, sort_keys=True, separators=(",", ":"))
+
+
+def latest_pointer_skip_reason(
+    *,
+    dry_run: bool,
+    source_environment: str,
+    metadata: dict[str, Any],
+    status: str,
+    phase_summary: dict[str, Any],
+) -> str | None:
+    if dry_run:
+        return "dry_run"
+    if source_environment.lower() not in {"production", "prod"}:
+        return "non_production_environment"
+    if metadata.get("extractor_dry_run"):
+        return "extractor_dry_run"
+    if metadata.get("skip_curated"):
+        return "skip_curated"
+    if metadata.get("max_items") is not None:
+        return "max_items"
+    if metadata.get("max_pages") is not None:
+        return "max_pages"
+    if has_filter(metadata, "pipeline_ids", "pipeline_id"):
+        return "pipeline_filter"
+    if has_filter(metadata, "conversation_ids", "conversation_id"):
+        return "conversation_filter"
+    if has_filter(metadata, "message_ids", "message_id"):
+        return "message_filter"
+
+    entities = normalize_latest_pointer_entities(metadata.get("entities"))
+    default_entities = normalize_latest_pointer_entities(metadata.get("default_entities"))
+    if default_entities is None:
+        default_entities = list(DEFAULT_LATEST_POINTER_ENTITIES)
+    if entities is None:
+        return "missing_entities_metadata"
+    if entities != default_entities:
+        return "entity_subset"
+
+    if status == "succeeded":
+        if not phase_summary["manifest_s3_uri"]:
+            return "missing_manifest_s3_uri"
+        if not phase_summary["curated_tables"]:
+            return "missing_curated_tables"
+    return None
+
+
+def normalize_latest_pointer_entities(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        raw_items: Iterable[Any] = [value]
+    elif isinstance(value, Iterable):
+        raw_items = value
+    else:
+        return None
+
+    normalized: list[str] = []
+    for item in raw_items:
+        key = str(item).strip().lower()
+        if not key:
+            continue
+        alias = LATEST_POINTER_ENTITY_ALIASES.get(key, key)
+        if alias == "all":
+            for default_item in DEFAULT_LATEST_POINTER_ENTITIES:
+                if default_item not in normalized:
+                    normalized.append(default_item)
+            continue
+        if alias not in normalized:
+            normalized.append(alias)
+    return normalized
+
+
+def has_filter(metadata: dict[str, Any], *keys: str) -> bool:
+    for key in keys:
+        value = metadata.get(key)
+        if value is None or value is False or value == "":
+            continue
+        if isinstance(value, (list, tuple, set, dict)) and not value:
+            continue
+        return True
+    return False
 
 
 @dataclass
@@ -401,9 +504,16 @@ class BatchRefreshRunner:
 
         duration_seconds = max(0.0, (completed_at - started_at).total_seconds())
         phase_summary = summarize_phase_results(phase_results)
-        latest_success_eligible = dry_run or bool(
-            phase_summary["manifest_s3_uri"] and phase_summary["curated_tables"]
+        pointer_skip_reason = latest_pointer_skip_reason(
+            dry_run=dry_run,
+            source_environment=source_environment,
+            metadata=run_metadata,
+            status=status,
+            phase_summary=phase_summary,
         )
+        pointer_publish_target = None
+        if pointer_skip_reason is None:
+            pointer_publish_target = LATEST_SUCCESS_STATUS_FILE if status == "succeeded" else LATEST_FAILURE_STATUS_FILE
         payload = {
             "run_id": run_id,
             "status": status,
@@ -429,7 +539,9 @@ class BatchRefreshRunner:
             "smoke_checks": phase_summary["smoke_checks"],
             "phases": phase_results,
             "log_path": self._log_location(run_id, log.path, dry_run=dry_run),
-            "latest_success_eligible": latest_success_eligible,
+            "latest_pointers_published": pointer_publish_target is not None,
+            "latest_pointer_publish_target": pointer_publish_target,
+            "latest_pointer_skip_reason": pointer_skip_reason,
             "alert_status": "skipped",
             "metadata": sanitize(run_metadata),
             "error": sanitize(error) if error else None,
@@ -454,7 +566,7 @@ class BatchRefreshRunner:
                 historical_run_status_key(str(payload["run_id"])),
                 content_type="application/json",
             )
-        if payload["status"] == "succeeded" and payload.get("latest_success_eligible", True):
+        if payload["status"] == "succeeded" and payload.get("latest_pointers_published"):
             latest_path = latest_success_status_path(self.status_dir)
             atomic_write_json(latest_path, sanitize(payload))
             if status_uploader:
@@ -463,7 +575,7 @@ class BatchRefreshRunner:
                     latest_success_status_key(),
                     content_type="application/json",
                 )
-        elif payload["status"] == "failed":
+        elif payload["status"] == "failed" and payload.get("latest_pointers_published"):
             latest_path = latest_failure_status_path(self.status_dir)
             atomic_write_json(latest_path, sanitize(payload))
             if status_uploader:

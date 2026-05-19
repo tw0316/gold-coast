@@ -1,5 +1,5 @@
 -- Smoke check: latest successful production GHL refresh is recent.
--- Pass target: latest succeeded, non-dry-run status row completed within the last 120 minutes.
+-- Pass target: latest eligible production-success status row completed within the last 120 minutes.
 WITH latest_success AS (
     SELECT
         run_id,
@@ -12,6 +12,14 @@ WITH latest_success AS (
     FROM gold_coast.run_status_ghl
     WHERE status = 'succeeded'
       AND coalesce(dry_run, false) = false
+      AND (
+          coalesce(latest_pointers_published, false) = true
+          OR (
+              latest_pointers_published IS NULL
+              AND manifest_s3_uri IS NOT NULL
+              AND coalesce(cardinality(curated_tables), 0) > 0
+          )
+      )
     ORDER BY try(from_iso8601_timestamp(completed_at)) DESC
     LIMIT 1
 )
