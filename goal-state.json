@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 52,
+  "roughPercent": 58,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T22:55:20-04:00",
+  "updatedAt": "2026-05-18T23:00:53-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -32,7 +32,7 @@
     "sentAt": null,
     "messageId": null
   },
-  "activeSlice": null,
+  "activeSlice": "slice-7-fargate-infrastructure",
   "lastCompletedSlice": "slice-6-curated-latest-stage-history",
   "queue": [
     {
@@ -124,8 +124,8 @@
     {
       "id": "slice-7-fargate-infrastructure",
       "title": "Add container packaging, ECR image tagging, ECS Fargate task definition, IAM, public-subnet/no-NAT networking, and EventBridge Scheduler at 30-minute cadence",
-      "status": "next",
-      "startedAt": null,
+      "status": "blocked",
+      "startedAt": "2026-05-18T22:56:00-04:00",
       "completedAt": null,
       "expectedEvidence": [
         ".jks/slice-7-fargate-infrastructure-evidence.md",
@@ -134,7 +134,7 @@
         "no-NAT networking review",
         "least-privilege IAM review"
       ],
-      "notes": "Do not create or modify AWS resources until local app/package verification passes for this slice."
+      "notes": "Partial implementation committed. Terraform fmt and validate pass, but Docker build verification is blocked because Docker is not installed on this machine. No AWS resources were created or modified."
     },
     {
       "id": "slice-8-aws-slack-alerts",
@@ -204,16 +204,16 @@
   },
   "childRuns": [],
   "lastVerifiedEvidence": [
-    ".jks/slice-6-curated-latest-stage-history-evidence.md",
-    "Curated publish semantics now write under snapshot_date/run_id partitions.",
-    "Curated rows include snapshot_at from the raw manifest.",
-    "Opportunity stage/status snapshots are emitted in opportunity_stage_history for future time-in-stage diffs.",
-    "Latest-success payload is built only after curated writes complete.",
-    "Unit tests passed under unittest: 24 run, 23 passed, 1 skipped because pyarrow is not installed locally.",
-    "Python syntax compile passed for data-lake scripts, package modules, job modules, and tests.",
-    "No live GHL extraction, AWS resource change, Glue update, deploy, schedule, or Slack alert was run."
+    ".jks/slice-7-fargate-infrastructure-evidence.md",
+    "Dockerfile, .dockerignore, Terraform runtime skeleton, prod tfvars example, and Fargate runtime runbook were added.",
+    "Terraform fmt passed for infra/data-lake.",
+    "Terraform init -backend=false and terraform validate passed for infra/data-lake.",
+    "Docker build verification is blocked because Docker is not installed locally.",
+    "No terraform apply, AWS resource change, deploy, schedule enablement, or Slack alert was run."
   ],
-  "blockers": [],
+  "blockers": [
+    "Slice 7 Docker image build verification is blocked because Docker is not installed on this machine."
+  ],
   "guardrails": [
     "No data-lake GHL writes",
     "Preserve website lead-write behavior",

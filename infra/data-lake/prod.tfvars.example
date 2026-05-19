@@ -1,0 +1,16 @@
+environment      = "prod"
+region           = "us-east-1"
+data_lake_bucket = "gcoffers-data-lake"
+glue_database    = "gold_coast"
+athena_workgroup = "gold_coast_data_lake"
+image_tag        = "REPLACE_WITH_GIT_SHA"
+schedule_enabled = false
+
+# Fill these from the approved VPC before planning.
+vpc_id            = "vpc-REPLACE"
+public_subnet_ids = ["subnet-REPLACE-A", "subnet-REPLACE-B"]
+
+# Store secret values in AWS Secrets Manager. Do not put secret values here.
+ghl_api_key_secret_arn     = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:gold-coast/ghl/api-key-REPLACE"
+ghl_location_id_secret_arn = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:gold-coast/ghl/location-id-REPLACE"
+slack_webhook_secret_arn   = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:gold-coast/slack/tech-alerts-webhook-REPLACE"
