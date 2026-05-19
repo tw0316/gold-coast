@@ -141,6 +141,12 @@ resource "aws_iam_role_policy" "task" {
         }
       },
       {
+        Sid      = "AthenaResultsBucketLocation"
+        Effect   = "Allow"
+        Action   = ["s3:GetBucketLocation"]
+        Resource = format("arn:aws:s3:::%s", var.data_lake_bucket)
+      },
+      {
         Sid      = "DataLakeBucketObjects"
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject"]
