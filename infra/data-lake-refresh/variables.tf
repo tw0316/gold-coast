@@ -80,6 +80,17 @@ variable "task_memory" {
   default     = 1024
 }
 
+variable "task_cpu_architecture" {
+  description = "Fargate task CPU architecture. ARM64 matches Apple Silicon local builds and is supported by Fargate."
+  type        = string
+  default     = "ARM64"
+
+  validation {
+    condition     = contains(["ARM64", "X86_64"], var.task_cpu_architecture)
+    error_message = "task_cpu_architecture must be ARM64 or X86_64."
+  }
+}
+
 variable "log_retention_days" {
   description = "CloudWatch log retention."
   type        = number

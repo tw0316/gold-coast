@@ -23,7 +23,7 @@ Docker is required on the operator machine.
 
 ~~~
 cd apps/data-lake
-docker build -t gold-coast-data-lake:$(git rev-parse --short HEAD) .
+docker build --platform linux/arm64 -t gold-coast-data-lake:$(git rev-parse --short HEAD) .
 ~~~
 
 Push only after the ECR repository exists:
@@ -54,6 +54,7 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 ## Runtime Notes
 
 - Fargate uses public subnets with assignPublicIp enabled.
+- The task definition uses ARM64 by default, matching Apple Silicon local builds. If this changes to X86_64, build and push an X86_64 image tag as well.
 - The task security group has no ingress and egress only on TCP 443.
 - No NAT Gateway is required.
 - GHL credentials are injected as GHL_API_KEY and GHL_LOCATION_ID from Secrets Manager.

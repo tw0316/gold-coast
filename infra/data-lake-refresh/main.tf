@@ -181,6 +181,11 @@ resource "aws_ecs_task_definition" "refresh" {
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = var.task_cpu_architecture
+  }
+
   lifecycle {
     precondition {
       condition     = var.alert_mode == "off" || try(trimspace(var.slack_webhook_secret_arn) != "", false)

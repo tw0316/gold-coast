@@ -246,3 +246,109 @@ Additional guardrails confirmed for this tick:
 - No live GHL extraction was run.
 - No deploy, schedule enablement, first production refresh, Slack webhook call, or routine Slack message was run.
 - No GitHub push was run.
+
+## Owner Completion: 2026-05-19 07:35 ET
+
+The delayed Docker image build verification gate is now complete.
+
+Environment reconciliation:
+
+~~~text
+docker=/opt/homebrew/bin/docker
+colima=/opt/homebrew/bin/colima
+lima=/opt/homebrew/bin/lima
+limactl=/opt/homebrew/bin/limactl
+~~~
+
+The default Colima profile did not start because it is configured for x86_64 and this host does not have qemu-img installed. To avoid changing that profile or requiring emulation, an isolated ARM64 profile was started:
+
+~~~text
+colima start --profile gold-coast-build --arch aarch64 --runtime docker
+~~~
+
+Result: profile gold-coast-build started successfully and Docker context colima-gold-coast-build became current.
+
+Docker image build:
+
+~~~text
+cd apps/data-lake
+docker build --progress=plain -t gold-coast-data-lake:efc79ff .
+~~~
+
+Result: passed. The package installed successfully inside python:3.12-slim with runtime dependencies including boto3 and pyarrow.
+
+Image smoke:
+
+~~~text
+docker image inspect gold-coast-data-lake:efc79ff --format '{{.Id}} {{.Architecture}} {{.Os}} {{json .Config.Cmd}}'
+docker run --rm gold-coast-data-lake:efc79ff --help
+~~~
+
+Result:
+
+- image: sha256:cd1a36abd14d2f57ec15e501f87b1d1df416d0467adf78796eee3d6a2fb71420
+- platform: linux/arm64
+- default command: ["--help"]
+- container help exited 0 and printed the ghl_batch_refresh.py CLI options.
+
+Architecture alignment:
+
+- The ECS task definition now declares runtime_platform with LINUX and var.task_cpu_architecture.
+- task_cpu_architecture defaults to ARM64 and is documented in prod.tfvars.example.
+- docs/ops/data-lake/fargate-refresh-runtime.md now builds with --platform linux/arm64 and documents the architecture contract.
+- terraform fmt -recursive infra/data-lake-refresh passed.
+- terraform -chdir=infra/data-lake-refresh init -backend=false passed using the already-installed AWS provider.
+- terraform -chdir=infra/data-lake-refresh validate passed.
+
+Decision:
+
+Slice 7 is complete. The remaining deploy/schedule/first-run work belongs to Slice 10 and was not started in this tick.
+
+Guardrails confirmed for this tick:
+
+- No AWS resources were created or modified.
+- No terraform plan or apply was run.
+- No live GHL extraction was run.
+- No deploy, EventBridge schedule enablement, or first production refresh was run.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
+
+## Owner Correction: 2026-05-19 07:40 ET
+
+The final verified local path is native ARM64, not x86_64 emulation.
+
+- Installed local container tooling: Docker CLI, Docker Buildx, Colima, QEMU, and Lima additional guest agents.
+- Abandoned the x86_64 Colima attempt because emulation added avoidable local complexity.
+- Made the ECS task definition architecture explicit with \`runtime_platform.cpu_architecture = var.task_cpu_architecture\`, default \`ARM64\`.
+- Updated \`prod.tfvars.example\` and the Fargate runbook so local builds use \`--platform linux/arm64\`.
+- Verified Docker context \`colima-gold-coast-build\` is running on Linux ARM64.
+
+Final build verification:
+
+~~~text
+cd apps/data-lake
+docker --context colima-gold-coast-build build --platform linux/arm64 -t gold-coast-data-lake:efc79ff .
+docker --context colima-gold-coast-build run --rm gold-coast-data-lake:efc79ff --help
+docker --context colima-gold-coast-build run --rm -v "$PWD/data/container-smoke:/tmp/status" gold-coast-data-lake:efc79ff --run-id container-smoke --status-dir /tmp/status --image-tag efc79ff
+~~~
+
+Result:
+
+- Image build passed.
+- Image inspect returned \`Architecture=arm64\`, \`Os=linux\`, image ID \`sha256:8c5879b59dc9aaffaf953babfa92122c7fb8795a64153eb69ac7355568a85f8c\`.
+- Help command exited 0 and printed the batch-refresh CLI.
+- Container dry-run exited 0 and wrote \`latest-success.json\`, immutable \`runs/run=container-smoke/status.json\`, and sanitized JSONL logs through the mounted status directory.
+- Dry-run status included \`image_tag=efc79ff\`.
+
+Additional verification after architecture pin:
+
+- \`terraform fmt -recursive\`: passed.
+- \`terraform validate -no-color\`: passed.
+- \`PYTHONPATH=src python3 -m unittest discover -s tests -v\`: 38 tests run, 37 passed, 1 skipped because local \`pyarrow\` is not installed outside the container.
+
+Guardrails confirmed:
+
+- No AWS resources were created or modified.
+- No Terraform plan/apply was run.
+- No live GHL extraction was run.
+- No deploy, EventBridge schedule enablement, first production refresh, Slack webhook call, or GitHub push was run.

@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 78,
+  "roughPercent": 84,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T07:01:00-04:00",
+  "updatedAt": "2026-05-19T07:40:16-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -26,14 +26,14 @@
     "over90PercentMinutes": 15,
     "immediateOn": ["blocked", "decision-needed", "completed"]
   },
-  "lastReportAt": "2026-05-19T06:59:00-04:00",
+  "lastReportAt": "2026-05-19T07:30:35-04:00",
   "finalReport": {
     "sent": false,
     "sentAt": null,
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-9-athena-smoke-run-status",
+  "lastCompletedSlice": "slice-7-fargate-infrastructure",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -124,9 +124,9 @@
     {
       "id": "slice-7-fargate-infrastructure",
       "title": "Add container packaging, ECR image tagging, ECS Fargate task definition, IAM, public-subnet/no-NAT networking, and EventBridge Scheduler at 30-minute cadence",
-      "status": "blocked",
+      "status": "completed",
       "startedAt": "2026-05-18T22:56:00-04:00",
-      "completedAt": null,
+      "completedAt": "2026-05-19T07:40:16-04:00",
       "expectedEvidence": [
         ".jks/slice-7-fargate-infrastructure-evidence.md",
         "Docker build verification",
@@ -134,7 +134,7 @@
         "no-NAT networking review",
         "least-privilege IAM review"
       ],
-      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification remains blocked because no container engine is installed on this machine. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices. Rechecked 2026-05-19T03:00:00-04:00. No AWS resources were created or modified."
+      "notes": "Completed after delayed Docker image build verification. Earlier local app/static/Terraform gates had passed; an isolated ARM64 Colima profile built apps/data-lake/Dockerfile successfully as gold-coast-data-lake:efc79ff, image inspect returned linux/arm64, docker run --rm gold-coast-data-lake:efc79ff --help returned CLI usage, Terraform now pins the task runtime platform through task_cpu_architecture=ARM64 by default, and terraform fmt/init/validate passed by 2026-05-19T07:40:16-04:00. No AWS resources, deploy, schedule enablement, live GHL extraction, Slack webhook call, or GitHub push was run."
     },
     {
       "id": "slice-8-aws-slack-alerts",
@@ -167,7 +167,7 @@
     {
       "id": "slice-10-enable-schedule-first-run",
       "title": "Enable approved schedule and verify the first scheduled production run",
-      "status": "blocked",
+      "status": "next",
       "startedAt": null,
       "completedAt": null,
       "expectedEvidence": [
@@ -177,7 +177,7 @@
         "first scheduled run status",
         "latest-success verification"
       ],
-      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T07:01:00-04:00: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally; Docker.app, OrbStack.app, Podman Desktop.app, /usr/local/bin/docker, /opt/homebrew/bin/docker, and /Applications/Docker.app/Contents/Resources/bin/docker are absent. Required local artifacts are present under the actual data-lake doc/SQL paths, schedule_enabled remains false by default, no NAT Gateway resource/configuration was found, and the data-lake GHL client/extractor path remains GET-only. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
+      "notes": "Unblocked for the next driver tick after Slice 7 Docker image build verification and ARM64 Fargate runtime-platform validation passed locally by 2026-05-19T07:40:16-04:00 using isolated ARM64 Colima profile gold-coast-build. EventBridge remains schedule_enabled=false and no AWS deploy, schedule enablement, production refresh, live GHL extraction, Slack webhook call, or GitHub push was run in the verification tick."
     },
     {
       "id": "slice-11-final-acceptance",
@@ -191,7 +191,7 @@
         "operator runbook links",
         "reporter final update"
       ],
-      "notes": "Started and immediately blocked on unmet dependency: Slice 10 schedule enablement and first production run are still blocked by the Slice 7 container image build verification gate. Dependency rechecked 2026-05-19T05:30:00-04:00; container/build tools and common local Docker app/CLI paths remain unavailable, and Slice 10 remains blocked before start. Do not perform final acceptance or mark the goal complete until Slice 10 completes and the final report is sent and recorded."
+      "notes": "Started earlier and remains blocked on unmet dependency: Slice 10 schedule enablement and first production run must complete first. The Slice 7 Docker build and runtime-platform gate cleared on 2026-05-19T07:40:16-04:00, so Slice 10 is now next. Do not perform final acceptance or mark the goal complete until Slice 10 completes and the final report is sent and recorded."
     }
   ],
   "childReliability": {
@@ -225,27 +225,24 @@
     }
   ],
   "lastVerifiedEvidence": [
+    ".jks/slice-7-fargate-infrastructure-evidence.md",
     ".jks/slice-10-enable-schedule-first-run-evidence.md",
-    "Rechecked Slice 10 blocker at 2026-05-19T07:01:00-04:00: schedule enablement and first production run remain blocked by the unresolved Slice 7 container image build verification gate.",
-    "Container/build tools remain unavailable locally: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly were not found.",
-    "Common local container app/CLI paths remain absent: Docker.app, OrbStack.app, Podman Desktop.app, /usr/local/bin/docker, /opt/homebrew/bin/docker, and /Applications/Docker.app/Contents/Resources/bin/docker.",
-    "Required local artifacts exist under their actual paths: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, docs/ops/data-lake/query-library.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.",
+    "Rechecked release blocker at 2026-05-19T07:40:16-04:00: Docker CLI and Colima are now available.",
+    "An x86_64 Colima attempt required extra emulation dependencies and was abandoned; isolated native ARM64 profile colima-gold-coast-build is available and matches the explicit ARM64 Fargate task runtime.",
+    "Docker build passed: docker --context colima-gold-coast-build build --platform linux/arm64 -t gold-coast-data-lake:efc79ff . from apps/data-lake.",
+    "Image smoke passed: docker image inspect returned linux/arm64 image sha256:8c5879b59dc9aaffaf953babfa92122c7fb8795a64153eb69ac7355568a85f8c, docker run --rm gold-coast-data-lake:efc79ff --help returned CLI usage, and a mounted container dry-run wrote latest-success/status/log artifacts with image_tag=efc79ff.",
+    "Architecture alignment passed: ECS task runtime_platform uses var.task_cpu_architecture, defaults to ARM64, prod tfvars/docs are aligned to linux/arm64, and terraform fmt/init -backend=false/validate passed.",
+    "Required future deploy/acceptance artifacts exist under their actual paths: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, docs/ops/data-lake/query-library.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.",
     "goal-state.json validated as JSON before update.",
-    "EventBridge Scheduler remains disabled by default through schedule_enabled=false.",
+    "EventBridge Scheduler remains rate(30 minutes) and disabled by default through schedule_enabled=false.",
     "Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh; the only NAT text is a variable description documenting the no-NAT design.",
-    "Focused GHL mutation scan found no data-lake GHL write path; the only POST hit under apps/data-lake/src is the Slack alert webhook helper, outside GHL access.",
-    "Focused GHL contract scan confirmed the LeadConnector client refuses non-GET methods and sends method=GET; the Slack alert helper is outside the GHL client path.",
+    "Focused GHL mutation scan found no data-lake GHL write path; focused GET contract scan confirmed the LeadConnector client refuses non-GET methods and sends method=GET. The Slack alert helper is outside the GHL client path.",
     "Focused high-risk secret pattern filename scan returned no matches for committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL_API_KEY assignments, or direct SLACK_WEBHOOK_URL assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.",
     "No live GHL extraction, AWS resource change, terraform plan/apply, deploy, schedule enablement, first production refresh, Slack webhook call, routine Slack message, or GitHub push was run.",
-    "No queue item with status next or pending exists; the remaining bounded advancement is blocker recheck until the container build gate or an approved alternate path clears."
+    "Slice 10 is now set to next; the next driver tick may start deploy/schedule/first-run work only under Slice 10 ownership."
   ],
-  "blockers": [
-    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T07:01:00-04:00; docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, executor, buildah, img, and earthly are unavailable locally, and common local Docker app/CLI paths are absent.",
-    "Slice 11 final acceptance is blocked until Slice 10 completes and the final report is sent and recorded. Dependency rechecked 2026-05-19T05:30:00-04:00."
-  ],
-  "releaseBlockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container/build engine is installed on this machine; rechecked 2026-05-19T07:01:00-04:00. This blocks deploy/schedule/final acceptance."
-  ],
+  "blockers": [],
+  "releaseBlockers": [],
   "guardrails": [
     "No data-lake GHL writes",
     "Preserve website lead-write behavior",

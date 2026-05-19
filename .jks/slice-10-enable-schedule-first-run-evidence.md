@@ -42,6 +42,14 @@ Keep Slice 10 blocked. Do not deploy, enable EventBridge Scheduler, or run the f
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
 
+Correction after final owner verification:
+
+- The final accepted build path is native ARM64, not x86_64 emulation.
+- Terraform now pins the ECS task runtime platform to ARM64 by default.
+- Docker build command verified: \`docker --context colima-gold-coast-build build --platform linux/arm64 -t gold-coast-data-lake:efc79ff .\`
+- Container dry-run verified status/log artifact writing through a mounted status directory.
+- Slice 10 is unblocked for a later tick, but this tick still did not deploy, enable the schedule, run production GHL extraction, change AWS resources, or call the Slack webhook.
+
 ## 2026-05-19 00:59 ET Owner Recheck
 
 Slice 10 remains blocked before start. The blocker is still the Slice 7 container image build verification gate.
@@ -1537,6 +1545,142 @@ Keep Slice 10 blocked. Do not deploy, enable EventBridge Scheduler, run a produc
 
 - A container build tool is available and apps/data-lake/Dockerfile build verification passes.
 - Tej explicitly approves an alternate AWS-native build verification path.
+
+Guardrails confirmed for this tick:
+
+- No AWS resources were created or modified.
+- No terraform plan or apply was run.
+- No live GHL extraction was run.
+- No deploy, EventBridge schedule enablement, or first production refresh was run.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
+
+## 2026-05-19 07:16 ET Owner Recheck
+
+Slice 10 remains blocked before start. No queue item with status `next` or `pending` exists, so this tick advanced exactly one bounded item by rechecking the deploy/schedule blocker only.
+
+Container/build tool availability check:
+
+~~~text
+for t in docker colima podman nerdctl finch lima limactl buildctl kaniko executor buildah img earthly; do
+  if command -v "$t" >/dev/null 2>&1; then
+    printf '%s=%s\\n' "$t" "$(command -v "$t")"
+  else
+    printf '%s=missing\\n' "$t"
+  fi
+done
+~~~
+
+Result:
+
+- docker=missing
+- colima=missing
+- podman=missing
+- nerdctl=missing
+- finch=missing
+- lima=missing
+- limactl=missing
+- buildctl=missing
+- kaniko=missing
+- executor=missing
+- buildah=missing
+- img=missing
+- earthly=missing
+
+Common local app and CLI paths checked:
+
+- /Applications/Docker.app=missing
+- /Applications/OrbStack.app=missing
+- /Applications/Podman Desktop.app=missing
+- /usr/local/bin/docker=missing
+- /opt/homebrew/bin/docker=missing
+- /Applications/Docker.app/Contents/Resources/bin/docker=missing
+
+Additional local reconciliation:
+
+- Required future deploy/acceptance artifacts remain present: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, docs/ops/data-lake/query-library.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.
+- goal-state.json validated as JSON before this state update.
+- EventBridge Scheduler remains configured as rate(30 minutes) and disabled by default through schedule_enabled=false.
+- Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh; the only NAT text is the approved no-NAT variable description.
+- Focused GHL mutation scan found no data-lake GHL write path. The only POST hit under apps/data-lake/src is the Slack alert webhook helper, outside GHL access.
+- Focused GHL contract scan confirmed the LeadConnector client refuses non-GET methods and sends method=GET; the Slack alert helper is outside the GHL client path.
+- Focused high-risk secret filename scan returned no matches for committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL_API_KEY assignments, or direct SLACK_WEBHOOK_URL assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.
+
+Decision:
+
+Keep Slice 10 blocked. Do not deploy, enable EventBridge Scheduler, run a production refresh, or modify AWS resources until one of these happens:
+
+- A container build tool is available and apps/data-lake/Dockerfile build verification passes.
+- Tej explicitly approves an alternate AWS-native build verification path.
+
+Guardrails confirmed for this tick:
+
+- No AWS resources were created or modified.
+- No terraform plan or apply was run.
+- No live GHL extraction was run.
+- No deploy, EventBridge schedule enablement, or first production refresh was run.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
+
+## 2026-05-19 07:35 ET Dependency Unblocked
+
+The Slice 7 Docker image build verification dependency is now cleared. This tick advanced exactly one bounded item by completing that local build verification only.
+
+Container/build tool availability changed:
+
+~~~text
+docker=/opt/homebrew/bin/docker
+colima=/opt/homebrew/bin/colima
+lima=/opt/homebrew/bin/lima
+limactl=/opt/homebrew/bin/limactl
+~~~
+
+The default Colima profile failed because it is configured for x86_64 and qemu-img is not installed. An isolated ARM64 profile was started instead:
+
+~~~text
+colima start --profile gold-coast-build --arch aarch64 --runtime docker
+~~~
+
+Result: succeeded.
+
+Docker build verification:
+
+~~~text
+cd apps/data-lake
+docker build --progress=plain -t gold-coast-data-lake:efc79ff .
+docker image inspect gold-coast-data-lake:efc79ff --format '{{.Id}} {{.Architecture}} {{.Os}} {{json .Config.Cmd}}'
+docker run --rm gold-coast-data-lake:efc79ff --help
+~~~
+
+Result:
+
+- build passed.
+- image ID: sha256:cd1a36abd14d2f57ec15e501f87b1d1df416d0467adf78796eee3d6a2fb71420
+- platform: linux/arm64
+- help command exited 0 and printed the batch refresh CLI.
+
+Architecture alignment:
+
+- The ECS task definition now declares runtime_platform with LINUX and var.task_cpu_architecture.
+- task_cpu_architecture defaults to ARM64 and is documented in prod.tfvars.example.
+- docs/ops/data-lake/fargate-refresh-runtime.md now builds with --platform linux/arm64 and documents the architecture contract.
+- terraform fmt -recursive infra/data-lake-refresh passed.
+- terraform -chdir=infra/data-lake-refresh init -backend=false passed using the already-installed AWS provider.
+- terraform -chdir=infra/data-lake-refresh validate passed.
+
+Additional local reconciliation:
+
+- Required future deploy/acceptance artifacts remain present: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, docs/ops/data-lake/query-library.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.
+- goal-state.json validated as JSON before this state update.
+- EventBridge Scheduler remains configured as rate(30 minutes) and disabled by default through schedule_enabled=false.
+- Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh; the only NAT text is the approved no-NAT variable description.
+- Focused GHL mutation scan found no data-lake GHL write path.
+- Focused GHL contract scan confirmed the LeadConnector client refuses non-GET methods and sends method=GET; the Slack alert helper is outside the GHL client path.
+- Focused high-risk secret pattern filename scan returned no matches for committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL_API_KEY assignments, or direct SLACK_WEBHOOK_URL assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.
+
+Decision:
+
+Set Slice 7 to completed and Slice 10 to next. Do not deploy, enable EventBridge Scheduler, run a production refresh, or modify AWS resources until a later tick starts Slice 10 explicitly.
 
 Guardrails confirmed for this tick:
 
