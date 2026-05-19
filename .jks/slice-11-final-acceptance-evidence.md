@@ -84,6 +84,55 @@ Do not mark final acceptance complete until all of these are true:
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
 
+## 2026-05-19 09:31 ET Final Acceptance
+
+Final acceptance is complete.
+
+### Accepted Scope
+
+- Slice 1 refactored tw0316/gold-coast into the target monorepo skeleton while preserving existing website behavior.
+- Slices 2-9 imported and hardened the data-lake app, run-status contract, Fargate infrastructure, Slack alerts, and Athena smoke checks.
+- Slice 10 deployed the AWS-native recurring production GHL batch refresh.
+- Slice 11 verified final acceptance, sent the final visible report, and disabled the JKS driver/reporter crons.
+
+### Production State
+
+- EventBridge schedule: gold-coast-data-lake-ghl-refresh.
+- Schedule state: ENABLED.
+- Cadence: rate(30 minutes).
+- ECS task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:4.
+- ECR image: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:14138204ab4f7f2f28e427f2e596599d7397f772.
+- Lock: DynamoDB table gold-coast-data-lake-refresh-lock.
+- Run status path: s3://gcoffers-data-lake/run-status/ghl/.
+- Latest successful scheduled run: 20260519T132614Z.
+
+### Verification Summary
+
+- Local data-lake unit tests passed: 45 passed, 1 expected local pyarrow skip.
+- Focused batch tests passed: 19 passed.
+- Python compile passed.
+- git diff check passed.
+- ARM64 Docker build passed.
+- ECR push passed.
+- Terraform validate/apply passed.
+- Manual production refresh on revision 4 passed.
+- Bounded diagnostic run did not move latest-success.json.
+- First scheduled EventBridge run passed.
+- Athena smoke checks passed: freshness, latest curated row availability, and critical table catalog.
+
+### JKS Crons
+
+- Driver cron cdc91a06-8342-47ea-8625-e77a7b19ca41: disabled.
+- Reporter cron 4f0b9c10-0640-4a16-843c-4ad9c37d7a8c: disabled.
+
+### Final Guardrails
+
+- No GHL write path was added to apps/data-lake.
+- No standalone Slack webhook test was sent.
+- No secret values were printed, committed, or written to evidence.
+- No NAT Gateway was added.
+- No GitHub push was run.
+
 ## 2026-05-19 03:30 ET Owner Recheck
 
 Final acceptance remains blocked because Slice 10 is still blocked before start. This tick rechecked the release dependency instead of starting any new work.

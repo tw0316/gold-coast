@@ -1847,3 +1847,705 @@ Required unblock:
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
 - No secret values were printed or committed.
+
+## 2026-05-19 08:40 ET Slice Restart After Webhook Secret
+
+User approved proceeding. The required Slack webhook secret now exists in AWS Secrets Manager. This run is scoped to deploy the production Fargate refresh with the EventBridge schedule disabled, push an immutable ARM64 image, run exactly one manual ECS task, verify run-status/Athena smoke checks, then enable the 30-minute schedule only if the manual run passes.
+
+### Guardrails
+
+- Do not print, commit, or write secret values.
+- Do not run GHL POST/PUT/PATCH/DELETE. The data-lake client path is GET-only.
+- Do not send a standalone Slack webhook test message. Alert behavior may occur only as part of the real batch run.
+- Do not enable EventBridge Scheduler unless the manual ECS run and smoke checks pass.
+- Do not push to GitHub.
+- Do not add NAT Gateway.
+- Do not modify GOAL.md or goal-state.json.
+
+### Read-Only AWS Preflight
+
+Commands:
+
+~~~text
+AWS_PAGER="" aws sts get-caller-identity --no-cli-pager --query '{Account:Account,Arn:Arn,UserId:UserId}' --output json
+AWS_PAGER="" aws s3api head-bucket --no-cli-pager --bucket gcoffers-data-lake --region us-east-1
+AWS_PAGER="" aws glue get-database --no-cli-pager --region us-east-1 --name gold_coast --query '{Name:Database.Name,LocationUri:Database.LocationUri,CreateTime:Database.CreateTime}' --output json
+AWS_PAGER="" aws athena get-work-group --no-cli-pager --region us-east-1 --work-group gold_coast_data_lake --query '{Name:WorkGroup.Name,State:WorkGroup.State,OutputLocation:WorkGroup.Configuration.ResultConfiguration.OutputLocation}' --output json
+AWS_PAGER="" aws ec2 describe-vpcs --no-cli-pager --region us-east-1 --filters Name=is-default,Values=true --query 'Vpcs[].{VpcId:VpcId,CidrBlock:CidrBlock,State:State,IsDefault:IsDefault}' --output json
+AWS_PAGER="" aws ec2 describe-subnets --no-cli-pager --region us-east-1 --filters Name=vpc-id,Values=vpc-04664759049cb614c Name=map-public-ip-on-launch,Values=true --query 'Subnets[].{SubnetId:SubnetId,AvailabilityZone:AvailabilityZone,CidrBlock:CidrBlock,MapPublicIpOnLaunch:MapPublicIpOnLaunch,State:State}' --output json
+AWS_PAGER="" aws secretsmanager describe-secret --no-cli-pager --region us-east-1 --secret-id <required-secret-name> --query '{Name:Name,ARN:ARN,CreatedDate:CreatedDate,LastChangedDate:LastChangedDate}' --output json
+~~~
+
+Result:
+
+- AWS CLI: aws-cli/2.34.31, configured region us-east-1.
+- Caller: account 108750423275, ARN arn:aws:iam::108750423275:user/jarvis-bot.
+- S3 bucket present: gcoffers-data-lake, ARN arn:aws:s3:::gcoffers-data-lake, region us-east-1.
+- Glue database present: gold_coast, location s3://gcoffers-data-lake/curated/.
+- Athena workgroup present: gold_coast_data_lake, state ENABLED, output s3://gcoffers-data-lake/athena-results/.
+- Default VPC present: vpc-04664759049cb614c, CIDR 172.31.0.0/16, state available.
+- Public subnets with map-public-ip enabled:
+  - subnet-0942a2ef1f34b56a3, us-east-1a, 172.31.0.0/20
+  - subnet-0ce3a3943da419573, us-east-1b, 172.31.80.0/20
+  - subnet-06c63a15198a72464, us-east-1c, 172.31.16.0/20
+  - subnet-08eea8452fc9c5d06, us-east-1d, 172.31.32.0/20
+  - subnet-08910474ab60a3f79, us-east-1e, 172.31.48.0/20
+  - subnet-066cd3be788e2ceb2, us-east-1f, 172.31.64.0/20
+- Required secret ARNs found by name only, values were not read:
+  - goldcoast/ghl-api-key: arn:aws:secretsmanager:us-east-1:108750423275:secret:goldcoast/ghl-api-key-Ejoeuo
+  - goldcoast/ghl-location-id: arn:aws:secretsmanager:us-east-1:108750423275:secret:goldcoast/ghl-location-id-AGk3dN
+  - goldcoast/slack/tech-alerts-webhook: arn:aws:secretsmanager:us-east-1:108750423275:secret:goldcoast/slack/tech-alerts-webhook-3wxfZG
+- Existing refresh resources before deploy:
+  - ECR repository gold-coast-data-lake: not found.
+  - ECS cluster gold-coast-data-lake: no active cluster found.
+  - EventBridge schedule gold-coast-data-lake-ghl-refresh: not found.
+  - DynamoDB table gold-coast-data-lake-refresh-lock: not found.
+  - CloudWatch log group prefix /gold-coast/data-lake/prod/ghl-refresh: no log groups found.
+
+### Terraform Var Handling
+
+No committed prod tfvars file will be created. The repo tracks only prod.tfvars.example, and .gitignore excludes terraform.tfvars. Terraform commands for this production run will use -var flags containing resource IDs and secret ARNs only. No secret values are passed, printed, or written.
+
+### Owner Hardening Before Deploy
+
+Deployment was paused before AWS writes because local reconciliation found two production contract gaps:
+
+- Terraform created a DynamoDB lock table, but the Fargate runner still used only the local file lock.
+- The scheduled runner invoked raw refresh but did not publish curated tables from the fresh manifest before run-status success.
+
+Accepted local fix commit: 103fbb3 fix: harden data lake production refresh runner.
+
+Changes:
+
+- Added a DynamoDB conditional TTL lock provider used when LOCK_TABLE_NAME is present.
+- Kept the local file lock for dry-runs and bounded local operator checks.
+- Wired production non-dry-run execution to run GET-only raw refresh, then curated Parquet/Glue publish from the fresh manifest.
+- Injected IMAGE_TAG from Terraform into the ECS task environment so run-status rows include the immutable image tag.
+- Updated operator docs for the DynamoDB lock and curated publish behavior.
+
+Verification:
+
+- python3 compileall passed for apps/data-lake source, scripts, and tests.
+- unittest discovery passed: 42 tests, 1 skipped for missing local pyarrow.
+- terraform fmt -check and terraform validate passed for infra/data-lake-refresh.
+- git diff --check passed.
+- Local CLI dry-run passed with image_tag=local-test.
+- ARM64 Docker build passed for gold-coast-data-lake:103fbb3.
+- Container inspect returned linux/arm64 with entrypoint python -m gold_coast_data_lake.jobs.ghl_batch_refresh.
+- Container --help exposed lock-table, curated publish, and alert args.
+- Mounted container dry-run passed with image_tag=103fbb3.
+
+Guardrail scans:
+
+- Focused data-lake mutation scan found the GHL client uses method=GET; the only POST path is the Slack alert helper outside GHL access.
+- Focused no-NAT scan found no NAT gateway resource. The only 0.0.0.0/0 match is HTTPS egress for the approved no-inbound public-subnet design.
+- Focused secret scan found no committed Slack webhook URL, Slack token, AWS access key, private key, direct GHL_API_KEY=, or direct SLACK_WEBHOOK_URL= assignment in app, infra, or docs paths.
+
+Decision:
+
+Slice 10 may proceed to Terraform deploy with the schedule disabled, ECR image push, one manual ECS production run, Athena/run-status smoke verification, then schedule enablement only if the manual run passes.
+
+### Local Validation Before Deploy
+
+Commands:
+
+~~~text
+PYTHONPATH=src python3 -m unittest tests.test_batch
+rg -n 'requests\.|\.request\(|method=|POST|PUT|PATCH|DELETE|post\(|put\(|patch\(|delete\(' apps/data-lake/src/gold_coast_data_lake apps/data-lake/scripts
+rg -n 'nat_gateway|aws_nat|NAT Gateway|0\.0\.0\.0/0|assign_public_ip|egress|ingress' infra/data-lake-refresh/main.tf infra/data-lake-refresh/variables.tf
+rg -n 'hooks\.slack\.com/services|xox[baprs]-|AKIA[0-9A-Z]{16}|BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY|GHL_API_KEY=|SLACK_WEBHOOK_URL=' apps/data-lake infra/data-lake-refresh docs/ops .jks
+~~~
+
+Result:
+
+- Batch tests: 16 passed.
+- GHL path remains GET-only in client.py. The only POST hit is the Slack alert webhook helper in alerts.py, outside GHL access.
+- No NAT Gateway resource/configuration is present. Fargate network path remains public subnet with assignPublicIp and HTTPS egress only.
+- High-risk secret scan found no committed Slack webhook URL, Slack token, AWS access key, private key, direct GHL_API_KEY assignment, or direct SLACK_WEBHOOK_URL assignment. The only hit was evidence text describing the scan.
+
+### Terraform Deploy With Schedule Disabled
+
+Current source revision used for the immutable image tag: 309b59ed2ad4e122edbb84562e92bd3f399ac197.
+
+Worktree note: before deploy, the worktree already contained uncommitted Slice 10 deltas in apps/data-lake/src/gold_coast_data_lake/batch.py, apps/data-lake/src/gold_coast_data_lake/jobs/ghl_batch_refresh.py, apps/data-lake/tests/test_batch.py, and infra/data-lake-refresh/main.tf. I did not revert them. The production image will be tagged with the current git SHA per the slice instruction, but the image content includes these local uncommitted deltas until the owner verifies and commits.
+
+Commands:
+
+~~~text
+terraform -chdir=infra/data-lake-refresh init -input=false -no-color
+terraform -chdir=infra/data-lake-refresh fmt -check -recursive -no-color
+terraform -chdir=infra/data-lake-refresh validate -no-color
+terraform -chdir=infra/data-lake-refresh plan -input=false -no-color -out=/tmp/slice10-disabled.tfplan \
+  -var region=us-east-1 \
+  -var environment=prod \
+  -var data_lake_bucket=gcoffers-data-lake \
+  -var data_lake_s3_prefix= \
+  -var glue_database=gold_coast \
+  -var athena_workgroup=gold_coast_data_lake \
+  -var vpc_id=vpc-04664759049cb614c \
+  -var public_subnet_ids=[public subnet IDs listed in preflight] \
+  -var ghl_api_key_secret_arn=<GHL API key secret ARN> \
+  -var ghl_location_id_secret_arn=<GHL location secret ARN> \
+  -var slack_webhook_secret_arn=<Slack webhook secret ARN> \
+  -var image_tag=309b59ed2ad4e122edbb84562e92bd3f399ac197 \
+  -var task_cpu_architecture=ARM64 \
+  -var schedule_enabled=false \
+  -var alert_mode=launch-window \
+  -var success_alert_until=2026-05-21T12:36:39Z
+terraform -chdir=infra/data-lake-refresh apply -input=false -no-color /tmp/slice10-disabled.tfplan
+terraform -chdir=infra/data-lake-refresh output -json
+~~~
+
+Plan result:
+
+- 14 to add, 0 to change, 0 to destroy.
+- EventBridge schedule planned as DISABLED.
+- Task runtime platform planned as LINUX/ARM64.
+- Security group planned with no ingress and HTTPS-only egress.
+- No NAT Gateway planned.
+- Sensitive container definitions and secret policy values were redacted by Terraform.
+
+Apply result:
+
+- Apply complete: 14 added, 0 changed, 0 destroyed.
+- ECR repository URL: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake
+- ECS cluster: gold-coast-data-lake
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:1
+- DynamoDB lock table: gold-coast-data-lake-refresh-lock
+- EventBridge schedule: gold-coast-data-lake-ghl-refresh
+- schedule_enabled output: false
+- CloudWatch log group: /gold-coast/data-lake/prod/ghl-refresh
+- Security group: sg-008a4dbf40090cc29
+
+### Image Build And Push
+
+During the deploy run, the owner committed the local Slice 10 production-runner deltas as commit 103fbb3b054704baa07acc22cb18ed754c0632ff. That made the earlier task definition revision 1 point at the pre-commit image tag 309b59ed2ad4e122edbb84562e92bd3f399ac197 while the built/pushed image correctly used the new immutable commit tag. I reconciled Terraform before running ECS.
+
+Commands:
+
+~~~text
+docker context ls
+colima status --profile gold-coast-build
+aws ecr get-login-password --region us-east-1 | docker --context colima-gold-coast-build login --username AWS --password-stdin 108750423275.dkr.ecr.us-east-1.amazonaws.com
+docker --context colima-gold-coast-build build --platform linux/arm64 --progress=plain -t gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff apps/data-lake
+docker --context colima-gold-coast-build image inspect gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff --format '{{.Id}} {{.Architecture}} {{.Os}} {{index .RepoTags 0}} {{json .Config.Cmd}}'
+docker --context colima-gold-coast-build tag gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff
+docker --context colima-gold-coast-build push 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff
+aws ecr describe-images --region us-east-1 --repository-name gold-coast-data-lake --image-ids imageTag=103fbb3b054704baa07acc22cb18ed754c0632ff
+~~~
+
+Result:
+
+- Docker context: colima-gold-coast-build, profile gold-coast-build, arch aarch64, runtime docker.
+- ECR login succeeded. Docker warned local credentials are stored unencrypted in /Users/jarvis/.docker/config.json.
+- ARM64 build passed from apps/data-lake.
+- Local image inspect: sha256:9e14f370c3e5ae19c3449d5e24abc303e8c63eba041aba8c5fc0928bbec54051, arm64, linux, command ["--help"].
+- Pushed ECR image: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff.
+- ECR tagged image digest: sha256:9e14f370c3e5ae19c3449d5e24abc303e8c63eba041aba8c5fc0928bbec54051.
+- Image size: 113030947 bytes.
+- Pushed at: 2026-05-19T08:39:37.293000-04:00.
+
+### Terraform Reconcile To Pushed Image Tag
+
+Commands:
+
+~~~text
+terraform -chdir=infra/data-lake-refresh plan -input=false -no-color -out=/tmp/slice10-disabled-reconcile.tfplan [same production vars as above, schedule_enabled=false, image_tag=103fbb3b054704baa07acc22cb18ed754c0632ff]
+terraform -chdir=infra/data-lake-refresh apply -input=false -no-color /tmp/slice10-disabled-reconcile.tfplan
+aws ecs describe-task-definition --region us-east-1 --task-definition gold-coast-data-lake-ghl-refresh --query 'taskDefinition.{taskDefinitionArn:taskDefinitionArn,revision:revision,containerImage:containerDefinitions[0].image,runtimePlatform:runtimePlatform}' --output json
+aws scheduler get-schedule --region us-east-1 --name gold-coast-data-lake-ghl-refresh --group-name default --query '{Name:Name,Arn:Arn,State:State,ScheduleExpression:ScheduleExpression,TargetArn:Target.Arn,TaskDefinitionArn:Target.EcsParameters.TaskDefinitionArn}' --output json
+~~~
+
+Plan result:
+
+- 1 to add, 2 to change, 1 to destroy.
+- Replaced ECS task definition only because container definition image/env changed to tag 103fbb3b054704baa07acc22cb18ed754c0632ff.
+- Updated scheduler IAM policy and scheduler target to the new task definition revision.
+- Schedule remained DISABLED.
+
+Apply result:
+
+- Task definition is now arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:2.
+- Container image is 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff.
+- Runtime platform is ARM64/LINUX.
+- EventBridge schedule gold-coast-data-lake-ghl-refresh remained DISABLED and points to task definition revision 2.
+
+### Manual Production ECS Run
+
+Schedule state immediately before manual run:
+
+~~~json
+{
+  "Name": "gold-coast-data-lake-ghl-refresh",
+  "State": "DISABLED",
+  "ScheduleExpression": "rate(30 minutes)",
+  "TaskDefinitionArn": "arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:2"
+}
+~~~
+
+Command:
+
+~~~text
+aws ecs run-task \
+  --region us-east-1 \
+  --cluster gold-coast-data-lake \
+  --task-definition arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:2 \
+  --launch-type FARGATE \
+  --platform-version LATEST \
+  --started-by slice-10-manual \
+  --network-configuration awsvpcConfiguration={subnets=[subnet-0942a2ef1f34b56a3,subnet-0ce3a3943da419573,subnet-06c63a15198a72464,subnet-08eea8452fc9c5d06,subnet-08910474ab60a3f79,subnet-066cd3be788e2ceb2],securityGroups=[sg-008a4dbf40090cc29],assignPublicIp=ENABLED}
+~~~
+
+Run-task result:
+
+- Task ARN: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/e49e7bd392bc4d5a803d0c0d556dbfae.
+- Initial status: PROVISIONING.
+- Task definition: revision 2.
+- Container image: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:103fbb3b054704baa07acc22cb18ed754c0632ff.
+- Failures array: empty.
+
+Monitor result:
+
+- RUNNING at 2026-05-19T12:41:18Z.
+- DEPROVISIONING at 2026-05-19T12:41:42Z, desired STOPPED, exit 1.
+- STOPPED at 2026-05-19T12:42:05Z.
+- Final task startedAt: 2026-05-19T08:41:11.701000-04:00.
+- Final task stoppedAt: 2026-05-19T08:41:40.919000-04:00.
+- stoppedReason: Essential container in task exited.
+- stopCode: EssentialContainerExited.
+- Container exitCode: 1.
+- ENI private IP: 172.31.47.226.
+
+CloudWatch:
+
+- Log group: /gold-coast/data-lake/prod/ghl-refresh.
+- Log stream: ecs/ghl-batch-refresh/e49e7bd392bc4d5a803d0c0d556dbfae.
+- First/last event timestamp: 1779194476018.
+- Tail contained only sanitized run-status JSON. No secret values, webhook URLs, raw SMS bodies, raw contact dumps, presigned recording URLs, or audio URLs were printed.
+
+Run-status artifacts:
+
+- Failed run ID: 20260519T124115Z.
+- Historical status: s3://gcoffers-data-lake/run-status/ghl/runs/run=20260519T124115Z/status.json.
+- Failure pointer: s3://gcoffers-data-lake/run-status/ghl/latest-failure.json.
+- Sanitized log: s3://gcoffers-data-lake/run-status/ghl/logs/run=20260519T124115Z.jsonl.
+- Status: failed.
+- Error class: ValueError.
+- Error message: [redacted] by sanitizer.
+- Manifest S3 URI: null.
+- Entity counts: empty.
+- Curated tables: empty.
+- Lock provider: dynamodb_ttl.
+- Lock acquired: true.
+- Alert status: posted. This was a real failed batch-run alert, not a standalone webhook test.
+
+### Bounded Diagnostic After Failed Manual Run
+
+Because the production run failed before producing a manifest and the sanitized message hid the exact ValueError, I ran one diagnostic ECS task to verify secret injection without calling GHL, writing S3 status, or sending Slack.
+
+Command:
+
+~~~text
+aws ecs run-task \
+  --region us-east-1 \
+  --cluster gold-coast-data-lake \
+  --task-definition arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:2 \
+  --launch-type FARGATE \
+  --platform-version LATEST \
+  --started-by slice-10-secret-env-diagnostic \
+  --network-configuration awsvpcConfiguration={subnets=[same public subnets],securityGroups=[sg-008a4dbf40090cc29],assignPublicIp=ENABLED} \
+  --overrides '{"containerOverrides":[{"name":"ghl-batch-refresh","command":["--execute","--extractor-dry-run","--max-items","0","--skip-curated","--alert-mode","off"]}]}'
+~~~
+
+Diagnostic guardrails:
+
+- --max-items 0 prevented GHL GET calls.
+- --extractor-dry-run prevented S3 status uploads.
+- --alert-mode off prevented Slack alerts.
+- No secret values were printed.
+
+Diagnostic result:
+
+- Task ARN: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/4d97e29cef95481d9c923972c30692a3.
+- StartedAt: 2026-05-19T08:46:12.688000-04:00.
+- StoppedAt: 2026-05-19T08:46:39.426000-04:00.
+- Exit code: 0.
+- Status: succeeded.
+- This proves the Fargate task can see enough injected GHL configuration to load the config path. The failed production run is therefore not blocked on basic ECS secret injection.
+
+### Post-Failure State Checks
+
+Commands:
+
+~~~text
+aws scheduler get-schedule --region us-east-1 --name gold-coast-data-lake-ghl-refresh --group-name default
+aws s3api list-objects-v2 --bucket gcoffers-data-lake --prefix run-status/ghl/ --max-items 30
+aws s3api head-object --bucket gcoffers-data-lake --key run-status/ghl/latest-success.json
+aws s3 cp s3://gcoffers-data-lake/run-status/ghl/latest-failure.json -
+~~~
+
+Result:
+
+- EventBridge schedule remains DISABLED.
+- Root run-status objects now present:
+  - run-status/ghl/latest-failure.json, size 1235, last modified 2026-05-19T12:41:16Z
+  - run-status/ghl/logs/run=20260519T124115Z.jsonl, size 766, last modified 2026-05-19T12:41:16Z
+  - run-status/ghl/runs/run=20260519T124115Z/status.json, size 1005, last modified 2026-05-19T12:41:16Z
+- run-status/ghl/latest-success.json is missing. The failed manual run did not advance latest-success.
+- Athena smoke checks were not run because the manual production run failed and no latest-success pointer or manifest exists for this deployment.
+
+### Decision
+
+Do not enable the EventBridge schedule. Slice 10 remains active/blocked on investigating the production-run ValueError and getting a successful manual ECS run plus smoke checks.
+
+### Guardrails Confirmed After Failure
+
+- No EventBridge schedule enablement was run.
+- No GHL write path was run or added.
+- No standalone Slack webhook test was sent.
+- No GitHub push was run.
+- No secret values were printed, committed, or written to evidence.
+- No NAT Gateway was added.
+- GOAL.md was not modified by this worker.
+
+## 2026-05-19 09:11 ET Owner Continuation
+
+The owner inspected the worker artifacts, verified the manual production failure state, and continued Slice 10 without starting a new slice.
+
+### Reconciliation
+
+- EventBridge schedule remained DISABLED.
+- Failed manual run task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/e49e7bd392bc4d5a803d0c0d556dbfae.
+- Failed run ID: 20260519T124115Z.
+- The failed run wrote immutable failure status and latest-failure only:
+  - s3://gcoffers-data-lake/run-status/ghl/runs/run=20260519T124115Z/status.json
+  - s3://gcoffers-data-lake/run-status/ghl/latest-failure.json
+  - s3://gcoffers-data-lake/run-status/ghl/logs/run=20260519T124115Z.jsonl
+- No raw object or manifest existed for failed run 20260519T124115Z.
+- A bounded local container diagnostic verified the image can use injected GHL secret values for a real read-only GET without printing secret values.
+
+### Diagnostic Contract Bug Found
+
+A bounded ECS diagnostic was run through the deployed task role:
+
+~~~text
+--execute --s3-bucket gcoffers-data-lake --entities contacts --max-items 1 --skip-curated --alert-mode off
+~~~
+
+Result:
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/6a34bf0787aa4501913d591b189c5de0
+- Exit code: 0.
+- Diagnostic run ID: 20260519T130349Z.
+- The diagnostic proved Fargate task-role S3 writes and one bounded GHL GET work.
+- It also exposed a runner contract bug: a non-dry raw-only diagnostic could advance run-status/ghl/latest-success.json.
+
+Correction:
+
+- Added latest_success_eligible to run status.
+- Non-dry successful runs advance latest-success only when they produce both a manifest URI and curated table counts.
+- Dry-run local/operator status behavior remains supported.
+- Added unit tests for raw-only non-promotion and curated success promotion.
+- Committed locally as 0b96f2b fix: prevent diagnostic refresh latest-success promotion.
+
+Verification:
+
+~~~text
+PYTHONPATH=apps/data-lake/src python3 -m unittest discover -s apps/data-lake/tests
+python3 -m compileall -q apps/data-lake/src apps/data-lake/scripts apps/data-lake/tests
+git diff --check
+~~~
+
+Result:
+
+- 44 data-lake unit tests passed, with 1 expected local skip for missing pyarrow.
+- Python compile passed.
+- git diff --check passed.
+
+AWS correction:
+
+- Deleted the bad diagnostic pointer: s3://gcoffers-data-lake/run-status/ghl/latest-success.json.
+- Verified head-object now returns 404 for that pointer.
+- Left immutable diagnostic artifacts intact for audit.
+
+### Fixed Image And Terraform Reconcile
+
+Fixed image:
+
+- Tag: 0b96f2b2e0607f08a50e585eae4a004f6b171c83.
+- Local image inspect: linux/arm64, entrypoint python -m gold_coast_data_lake.jobs.ghl_batch_refresh, command --help.
+- ECR image digest: sha256:17225e58fea2a4881d91c27b0c0b283f3fb26affb9b4f2d0e126964ab25e29fa.
+- Image size: 113031319 bytes.
+- Pushed at: 2026-05-19T09:07:33.194000-04:00.
+
+Terraform reconcile:
+
+- Task definition now: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:3.
+- Container image now: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:0b96f2b2e0607f08a50e585eae4a004f6b171c83.
+- Runtime platform remains ARM64/LINUX.
+- EventBridge schedule remains DISABLED.
+- Schedule still points to task definition revision 3.
+
+### Manual Production Run In Progress
+
+Started one real manual ECS production run after the fixed image deploy:
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/3f518c2a154444a1958d27ece314a47f.
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:3.
+- Started by: slice-10-manual-fixed.
+- Run ID from DynamoDB lock: 20260519T130912Z.
+- Lock provider: DynamoDB TTL.
+- Lock expires at: 2026-05-19T13:54:12Z.
+- State at owner handoff: RUNNING.
+
+Decision:
+
+- Keep Slice 10 active.
+- Do not enable the EventBridge schedule yet.
+- Next driver tick should inspect task 3f518c2a154444a1958d27ece314a47f, S3 run-status for run 20260519T130912Z, latest-success/latest-failure pointers, and then run Athena smoke checks only if the manual production run succeeded.
+
+Guardrails confirmed:
+
+- No GHL write path was run or added.
+- No EventBridge schedule enablement was run.
+- No standalone Slack webhook test was sent.
+- No GitHub push was run.
+- No secret values were printed, committed, or written to evidence.
+- No NAT Gateway was added.
+- GOAL.md was not modified.
+
+## 2026-05-19 09:31 ET Final Slice 10 Acceptance
+
+Slice 10 is complete.
+
+### Credential Correction
+
+- The first production ECS run failed before writing a manifest because the AWS goldcoast/ghl-api-key secret contained a stale or invalid GHL private integration token.
+- The approved local credential source passed a bounded one-record GET.
+- AWS Secrets Manager goldcoast/ghl-api-key was rotated to the approved local token.
+- Only shape/hash evidence was printed. No secret values were printed, committed, or written to evidence.
+
+### Production Safety Fixes
+
+- 103fbb3 hardened production execution:
+  - DynamoDB TTL lock used when LOCK_TABLE_NAME is present.
+  - Production non-dry-run execution publishes curated tables from the fresh raw manifest.
+  - Terraform injects IMAGE_TAG into ECS run status.
+- 0b96f2b fixed the first discovered diagnostic pointer issue.
+- 1413820 added the robust latest pointer eligibility guard:
+  - latest-success.json / latest-failure.json publish only for eligible production refreshes.
+  - Runner dry-runs, extractor dry-runs, --skip-curated, bounded runs, entity subsets, and filtered runs are excluded.
+  - Status payloads include latest_pointers_published, latest_pointer_publish_target, and latest_pointer_skip_reason.
+
+### Local Verification
+
+Commands:
+
+~~~text
+PYTHONPATH=apps/data-lake/src python3 -m unittest apps/data-lake/tests/test_batch.py
+PYTHONPATH=apps/data-lake/src python3 -m unittest discover -s apps/data-lake/tests
+python3 -m compileall -q apps/data-lake/src/gold_coast_data_lake
+git diff --check
+~~~
+
+Result:
+
+- 19 focused batch tests passed.
+- 45 data-lake tests passed, with 1 expected local pyarrow skip.
+- Python compile passed.
+- git diff check passed.
+
+### AWS Deployment
+
+- Final image tag: 14138204ab4f7f2f28e427f2e596599d7397f772.
+- ECR image: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:14138204ab4f7f2f28e427f2e596599d7397f772.
+- ECS task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:4.
+- Runtime platform: Linux/ARM64.
+- Schedule stayed DISABLED until manual and diagnostic verification passed.
+- No NAT Gateway was added.
+
+### Manual Rev4 Production Run
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/763a573a9fad434aa400de25a3ca025f.
+- Run ID: 20260519T131917Z.
+- Exit code: 0.
+- Duration: 155.3 seconds.
+- Entity counts: contacts 177, opportunities 122, conversations 149, messages 2386, call_message_details 248, pipelines 2.
+- Curated tables: contacts 177, opportunities 122, opportunity_stage_history 122, messages 2386, calls 248, call_recordings 248, mart_lead_response 122, mart_rep_activity_daily 139.
+- Latest pointer: latest-success.json published for the full refresh.
+
+### Bounded Diagnostic Pointer Verification
+
+- Diagnostic task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/f4af9e24cdf4407a8fcc3c27eb54c5a5.
+- Command override: --execute --s3-bucket gcoffers-data-lake --entities contacts --max-items 1 --skip-curated --alert-mode off.
+- Diagnostic run ID: 20260519T132336Z.
+- Exit code: 0.
+- Historical status/logs were written.
+- latest_pointers_published: false.
+- latest_pointer_skip_reason: skip_curated.
+- latest-success.json remained pinned to full run 20260519T131917Z.
+
+### Schedule Enablement And First Scheduled Run
+
+- EventBridge schedule: gold-coast-data-lake-ghl-refresh.
+- State: ENABLED.
+- Expression: rate(30 minutes).
+- Target task definition: revision 4.
+- First scheduled task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/3a545782925c46039d4e312174755f59.
+- Started by: chronos-schedule/gold-coast-data-lak.
+- Scheduled run ID: 20260519T132614Z.
+- Exit code: 0.
+- Duration: 147.2 seconds.
+- Latest pointer: latest-success.json published for scheduled run 20260519T132614Z.
+- No ECS tasks were running after verification.
+
+### Athena Smoke
+
+Smoke query execution IDs:
+
+- Freshness: 3bc3c1e5-e52e-4e9b-8d54-8f5ad58fee62, pass.
+- Latest curated row availability: 5259a702-68e5-4dd5-80b9-58383f8554eb, pass.
+- Critical table catalog: aa7b6b8c-8eaa-40f0-8307-e176164b4426, pass.
+
+Latest scheduled run row counts:
+
+- contacts: 177.
+- opportunities: 122.
+- opportunity_stage_history: 122.
+- messages: 2389.
+- calls: 251.
+- call_recordings: 251.
+- mart_lead_response: 122.
+- mart_rep_activity_daily: 139.
+
+### Final Guardrails
+
+- No GHL write path was run or added.
+- Website lead-capture behavior was not modified after Slice 1.
+- No standalone Slack webhook test was sent.
+- No secret value was printed, committed, or written to evidence.
+- No GitHub push was run.
+- No NAT Gateway was added.
+
+## 2026-05-19 09:34 ET Owner Verification And Completion
+
+This tick reconciled the active Slice 10 AWS state against the expected evidence before starting any new work.
+
+### Manual Run Verification
+
+Manual fixed-image run:
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/3f518c2a154444a1958d27ece314a47f.
+- Started by: slice-10-manual-fixed.
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:3.
+- ECS status: STOPPED.
+- Container exit code: 0.
+- Started at: 2026-05-19T09:09:08-04:00.
+- Stopped at: 2026-05-19T09:12:17-04:00.
+- Run ID: 20260519T130912Z.
+- Status: succeeded.
+- Manifest: s3://gcoffers-data-lake/manifests/ghl/run=20260519T130912Z.json.
+- Entity counts: contacts 177, opportunities 122, conversations 149, messages 2382, call_message_details 246, pipelines 2.
+- Curated rows: contacts 177, opportunities 122, messages 2382, calls 246, call_recordings 246, mart_lead_response 122, mart_rep_activity_daily 138, opportunity_stage_history 122.
+- Recordings: attempted 246, skipped_existing 196, unavailable 50, archived 0.
+- Alert status: posted by the real batch run.
+
+### Final Pointer-Gating Fix
+
+The revision 3 manual run succeeded, but it exposed that older status payloads did not include explicit pointer-publish fields. I accepted and deployed commit 1413820 fix: gate data lake latest status pointers.
+
+Key correction:
+
+- Latest-success/latest-failure publication now records latest_pointers_published, latest_pointer_publish_target, and latest_pointer_skip_reason.
+- Pointer promotion is limited to full production runs with the default entity set, no extractor dry-run, no curated skip, no max-items/max-pages, and no entity/message/pipeline/conversation filters.
+- Diagnostic/entity-subset runs now write immutable run status only and do not advance latest-success.
+
+Verification for commit 1413820:
+
+- Data-lake unit tests and Python compile passed before image push.
+- ARM64 Docker image built and pushed to ECR with immutable tag 14138204ab4f7f2f28e427f2e596599d7397f772.
+- Terraform reconciled ECS task definition revision 4 to image tag 14138204ab4f7f2f28e427f2e596599d7397f772.
+- EventBridge schedule was enabled only after a revision 4 manual production run succeeded.
+
+### Revision 4 Manual Run
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/763a573a9fad434aa400de25a3ca025f.
+- Started by: slice-10-rev4-manual-20260519T131849Z.
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:4.
+- ECS exit code: 0.
+- Run ID: 20260519T131917Z.
+- Status: succeeded.
+- latest_pointers_published: true.
+- latest_pointer_publish_target: latest-success.json.
+- Entity counts: contacts 177, opportunities 122, conversations 149, messages 2386, call_message_details 248, pipelines 2.
+- Curated rows: contacts 177, opportunities 122, messages 2386, calls 248, call_recordings 248, mart_lead_response 122, mart_rep_activity_daily 139, opportunity_stage_history 122.
+- Recordings: attempted 248, archived 2, skipped_existing 196, unavailable 50.
+- Alert status: posted by the real batch run.
+
+Bounded revision 4 diagnostic:
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/f4af9e24cdf4407a8fcc3c27eb54c5a5.
+- Started by: slice-10-rev4-diagnostic-20260519T132244Z.
+- ECS exit code: 0.
+- Run ID: 20260519T132336Z.
+- Invocation shape: contacts-only, max_items 1, skip_curated true, alert off.
+- latest_pointers_published: false.
+- latest_pointer_skip_reason: skip_curated.
+- Result: diagnostic status was written for audit and latest-success was not advanced.
+
+### Schedule And First Scheduled Run
+
+EventBridge Scheduler state:
+
+- Schedule: gold-coast-data-lake-ghl-refresh.
+- State: ENABLED.
+- Expression: rate(30 minutes).
+- Target: arn:aws:ecs:us-east-1:108750423275:cluster/gold-coast-data-lake.
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:4.
+- Launch type: FARGATE.
+- Assign public IP: ENABLED.
+- No NAT Gateway was introduced.
+
+First scheduled task:
+
+- Task: arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/3a545782925c46039d4e312174755f59.
+- Started by: chronos-schedule/gold-coast-data-lak.
+- Task definition: arn:aws:ecs:us-east-1:108750423275:task-definition/gold-coast-data-lake-ghl-refresh:4.
+- ECS exit code: 0.
+- Started at: 2026-05-19T09:26:10-04:00.
+- Stopped at: 2026-05-19T09:29:07-04:00.
+- Run ID: 20260519T132614Z.
+- Status: succeeded.
+- latest_pointers_published: true.
+- latest_pointer_publish_target: latest-success.json.
+- latest-success last modified: 2026-05-19T09:28:42-04:00.
+- Entity counts: contacts 177, opportunities 122, conversations 149, messages 2389, call_message_details 251, pipelines 2.
+- Curated rows: contacts 177, opportunities 122, messages 2389, calls 251, call_recordings 251, mart_lead_response 122, mart_rep_activity_daily 139, opportunity_stage_history 122.
+- Recordings: attempted 251, skipped_existing 198, unavailable 53, archived 0.
+- Alert status: posted by the AWS runtime launch-window rule.
+
+### Athena Smoke Checks
+
+Operator-run Athena smoke checks were executed after the first scheduled success:
+
+- 001_latest_success_freshness.sql: query da385cb9-e029-4c9f-a804-9e2d2413ec92, SUCCEEDED, result pass for run 20260519T132614Z, age 2 minutes, image tag 14138204ab4f7f2f28e427f2e596599d7397f772.
+- 002_latest_curated_row_availability.sql: query 0fec79f3-c3a2-4cf0-95e8-70e5dd1f584a, SUCCEEDED, result pass for call_recordings, calls, contacts, mart_lead_response, mart_rep_activity_daily, messages, opportunities, and opportunity_stage_history.
+- 003_critical_table_catalog.sql: query 0a12b12d-f17c-4938-84db-c650f1dbccf3, SUCCEEDED, result pass for call_recordings, calls, contacts, mart_lead_response, mart_rep_activity_daily, messages, opportunities, opportunity_stage_history, and run_status_ghl.
+
+Smoke output contained only operational status, counts, table names, run IDs, timestamps, and image tags. It did not expose credentials, raw SMS bodies, raw contact dumps, presigned recording URLs, audio URLs, or webhook URLs.
+
+### Decision
+
+Slice 10 is complete. The manual production run passed, the schedule is enabled, the first scheduled production run passed, latest-success points at the scheduled run, and Athena smoke checks passed.
+
+Next slice: Slice 11 final acceptance/evidence bundle and final reporter acknowledgement.
+
+### Guardrails Confirmed
+
+- Data-lake GHL access remained GET-only.
+- Existing website lead-capture behavior was not changed by this tick.
+- No GitHub push was run.
+- No standalone Slack webhook test was sent.
+- No secret values were printed, committed, or written to evidence.
+- No NAT Gateway was added.
+- No dashboard, transcription, call summary, coaching analysis, website-leads, marketing-spend, or GHL write-back scope was added.
