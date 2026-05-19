@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 68,
+  "roughPercent": 78,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T00:08:00-04:00",
+  "updatedAt": "2026-05-19T00:23:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -32,8 +32,8 @@
     "sentAt": null,
     "messageId": null
   },
-  "activeSlice": "slice-9-athena-smoke-run-status",
-  "lastCompletedSlice": "slice-8-aws-slack-alerts",
+  "activeSlice": null,
+  "lastCompletedSlice": "slice-9-athena-smoke-run-status",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -153,21 +153,21 @@
     {
       "id": "slice-9-athena-smoke-run-status",
       "title": "Add Athena smoke checks, run-status Athena table, and evidence docs",
-      "status": "active",
+      "status": "completed",
       "startedAt": "2026-05-19T00:08:00-04:00",
-      "completedAt": null,
+      "completedAt": "2026-05-19T00:23:00-04:00",
       "expectedEvidence": [
         ".jks/slice-9-athena-smoke-run-status-evidence.md",
         "Athena smoke-check command",
         "run-status table excludes pointer objects",
         "evidence docs"
       ],
-      "notes": "Worker Galileo owns this slice. Keep pointer objects out of historical run-status rows."
+      "notes": "Verified by owner. Added Athena run-status DDL, smoke SQL, operator docs, single-line historical status files, and S3 run-status/log publishing for non-dry-run execute mode. No live Athena, GHL extraction, AWS change, deploy, schedule enablement, Slack webhook call, or GitHub push was run."
     },
     {
       "id": "slice-10-enable-schedule-first-run",
       "title": "Enable approved schedule and verify the first scheduled production run",
-      "status": "pending",
+      "status": "blocked",
       "startedAt": null,
       "completedAt": null,
       "expectedEvidence": [
@@ -177,7 +177,7 @@
         "first scheduled run status",
         "latest-success verification"
       ],
-      "notes": "Requires prior infrastructure, alerting, smoke checks, and approval-safe deploy path."
+      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
     },
     {
       "id": "slice-11-final-acceptance",
@@ -196,7 +196,7 @@
   ],
   "childReliability": {
     "spawned": 2,
-    "completed": 1,
+    "completed": 2,
     "stale": 0,
     "replaced": 0,
     "failed": 0,
@@ -217,25 +217,28 @@
       "sliceId": "slice-9-athena-smoke-run-status",
       "agentId": "019e3e6b-942b-7633-9373-480a24a06c12",
       "nickname": "Galileo",
-      "status": "running",
+      "status": "completed",
       "startedAt": "2026-05-19T00:08:00-04:00",
+      "completedAt": "2026-05-19T00:23:00-04:00",
       "expectedEvidence": [".jks/slice-9-athena-smoke-run-status-evidence.md"],
-      "notes": "Worker asked to add local-only Athena run-status and smoke-check SQL/docs. Owner will verify before accepting or committing."
+      "notes": "Worker artifacts were consolidated and owner-hardened. Owner verification passed and Slice 9 was accepted."
     }
   ],
   "lastVerifiedEvidence": [
-    ".jks/slice-8-aws-slack-alerts-evidence.md",
-    "Added apps/data-lake/src/gold_coast_data_lake/alerts.py with policy-based Slack webhook alert decisions and sanitized payload construction.",
-    "BatchRefreshRunner accepts an alert callback and records alert_status/alert_error in immutable run status after sanitizing payloads.",
-    "GHL batch job reads SLACK_WEBHOOK_URL, ALERT_MODE, SUCCESS_ALERT_UNTIL, and CLOUDWATCH_LOG_URL from runtime env; Terraform wires alert mode and optional Secrets Manager webhook injection.",
-    "Python compile passed and unittest ran 33 tests: 32 passed, 1 skipped because pyarrow is not installed locally.",
-    "Terraform fmt -check -recursive and terraform validate passed for infra/data-lake-refresh.",
-    "Webhook and token scans found no real committed Slack webhook URL or credential; hits were limited to sanitizer markers, documented scan commands, and test fixtures with intentionally fake/split values.",
-    "Focused GET-only scan found no mutating GHL access path in extractor/raw-refresh code; the only new POST path is the Slack webhook sender.",
-    "No Slack webhook call, live GHL extraction, AWS resource change, deploy, schedule enablement, or GitHub push was run.",
-    "Slice 7 Docker image build verification remains a scoped deployment blocker because no local container engine is installed."
+    ".jks/slice-9-athena-smoke-run-status-evidence.md",
+    "Added sql/data-lake/ddl/001_run_status_ghl.sql with LOCATION limited to s3://gcoffers-data-lake/run-status/ghl/runs/ so pointer objects are excluded from historical rows.",
+    "Added smoke SQL for latest-success freshness, curated row availability by snapshot_date plus run_id, and critical catalog table presence.",
+    "BatchRefreshRunner now writes historical status as single-line JSON and can upload run-status artifacts/logs to S3 for non-dry-run execute mode.",
+    "GHL batch CLI now exposes --status-s3-bucket and --status-s3-prefix; execute mode defaults status artifacts to --s3-bucket when not extractor-dry-run.",
+    "Added operator docs for run-status paths and Athena smoke-check commands; consolidated duplicate smoke docs.",
+    "Python compile passed and unittest ran 34 tests: 33 passed, 1 skipped because pyarrow is not installed locally.",
+    "Local dry-run verified one-line historical status, pointer exclusion, JSON validity, CLI help, git diff --check, GET-only GHL scan, and credential/webhook scan.",
+    "No live Athena query, GHL extraction, AWS resource change, deploy, schedule enablement, Slack webhook call, or GitHub push was run.",
+    "Slice 7 Docker image build verification remains a release/deploy blocker and now blocks Slice 10 schedule enablement."
   ],
-  "blockers": [],
+  "blockers": [
+    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path."
+  ],
   "releaseBlockers": [
     "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:01:30-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
   ],

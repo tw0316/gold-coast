@@ -12,6 +12,7 @@ from gold_coast_data_lake.alerts import AlertConfig, alert_callback
 from gold_coast_data_lake.batch import BatchRefreshRunner
 from gold_coast_data_lake.extractor import ENTITY_ALIASES
 from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES, RawRefreshConfig, build_ghl_raw_refresh_phase
+from gold_coast_data_lake.storage import S3Uploader
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -51,6 +52,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--s3-bucket", default=None, help="Optional S3 bucket for raw/checkpoint/manifest uploads.")
     parser.add_argument("--s3-prefix", default="", help="Optional S3 prefix under the bucket.")
+    parser.add_argument(
+        "--status-s3-bucket",
+        default=None,
+        help="Optional S3 bucket for run-status artifacts. Defaults to --s3-bucket for execute-mode non-dry-run runs.",
+    )
+    parser.add_argument(
+        "--status-s3-prefix",
+        default=None,
+        help="Optional S3 prefix for run-status artifacts. Defaults to --s3-prefix.",
+    )
     parser.add_argument("--pipeline-id", action="append", default=[], help="Limit opportunity extraction to pipeline ID.")
     parser.add_argument("--conversation-id", action="append", default=[], help="Limit message extraction to conversation ID.")
     parser.add_argument("--message-id", action="append", default=[], help="Limit call detail extraction to message ID.")
@@ -82,6 +93,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     phases = []
+    status_uploader = build_status_uploader(args)
     if args.execute:
         raw_config = RawRefreshConfig(
             env_file=args.env_file,
@@ -109,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
         status_dir=args.status_dir,
         output_dir=args.output_dir,
         phases=phases,
+        status_uploader=status_uploader,
         alert_callback=None
         if args.alert_mode == "off"
         else alert_callback(
@@ -133,6 +146,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["status"] == "succeeded" else 1
+
+
+def build_status_uploader(args: argparse.Namespace) -> S3Uploader | None:
+    bucket = args.status_s3_bucket
+    if bucket is None and args.execute and args.s3_bucket and not args.extractor_dry_run:
+        bucket = args.s3_bucket
+    if bucket is None:
+        return None
+    prefix = args.status_s3_prefix if args.status_s3_prefix is not None else args.s3_prefix
+    return S3Uploader(bucket, prefix)
 
 
 if __name__ == "__main__":

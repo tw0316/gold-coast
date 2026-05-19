@@ -6,10 +6,38 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from gold_coast_data_lake.batch import BatchRefreshRunner, LocalTtlLock, sanitize
+from gold_coast_data_lake.batch import (
+    BatchRefreshRunner,
+    LocalTtlLock,
+    historical_run_status_key,
+    historical_run_status_path,
+    latest_success_status_key,
+    latest_failure_status_path,
+    latest_success_status_path,
+    run_status_log_key,
+    sanitize,
+)
 
 
 FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
+
+
+class FakeStatusUploader:
+    def __init__(self) -> None:
+        self.uploads = []
+
+    def upload_file(self, path, relative_key, *, content_type=None):
+        self.uploads.append(
+            {
+                "key": relative_key,
+                "content_type": content_type,
+                "content": Path(path).read_text(encoding="utf-8"),
+            }
+        )
+        return self.uri(relative_key)
+
+    def uri(self, relative_key):
+        return f"s3://bucket/{relative_key}"
 
 
 class BatchRunnerTests(unittest.TestCase):
@@ -47,16 +75,39 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["status"], "succeeded")
             self.assertEqual(result["phases"][0]["name"], "dry_run_validation")
             self.assertEqual(result["lock"]["ttl_seconds"], 2700)
-            run_status = json.loads((status_dir / "run=20260518T220000Z.json").read_text(encoding="utf-8"))
-            latest = json.loads((status_dir / "latest-success.json").read_text(encoding="utf-8"))
+            run_status_text = historical_run_status_path(status_dir, "20260518T220000Z").read_text(encoding="utf-8")
+            run_status = json.loads(run_status_text)
+            latest = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
             log_lines = (status_dir / "logs" / "run=20260518T220000Z.jsonl").read_text(encoding="utf-8").splitlines()
 
             self.assertEqual(run_status["run_id"], "20260518T220000Z")
+            self.assertEqual(run_status_text.count("\n"), 1)
             self.assertTrue(run_status["lock"]["acquired"])
             self.assertEqual(latest["run_id"], "20260518T220000Z")
             self.assertIn("run_started", log_lines[0])
             self.assertIn("run_completed", log_lines[-1])
             self.assertEqual(run_status["metadata"]["webhook_url"], "[redacted]")
+            self.assertEqual(historical_run_status_path(status_dir, "20260518T220000Z").relative_to(status_dir).parts[0], "runs")
+            self.assertNotIn("latest-success.json", str(historical_run_status_path(status_dir, "20260518T220000Z")))
+
+    def test_status_uploader_writes_historical_status_pointer_and_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            uploader = FakeStatusUploader()
+            runner = BatchRefreshRunner(
+                status_dir=Path(tmp) / "status",
+                output_dir=Path(tmp) / "extracts",
+                status_uploader=uploader,
+            )
+            result = runner.run(run_id="s3-run", dry_run=True)
+            uploads = {upload["key"]: upload for upload in uploader.uploads}
+
+            self.assertEqual(result["log_path"], f"s3://bucket/{run_status_log_key('s3-run')}")
+            self.assertIn(historical_run_status_key("s3-run"), uploads)
+            self.assertIn(latest_success_status_key(), uploads)
+            self.assertIn(run_status_log_key("s3-run"), uploads)
+            self.assertEqual(uploads[historical_run_status_key("s3-run")]["content"].count("\n"), 1)
+            self.assertEqual(uploads[historical_run_status_key("s3-run")]["content_type"], "application/json")
+            self.assertEqual(uploads[run_status_log_key("s3-run")]["content_type"], "application/x-ndjson")
 
     def test_failure_writes_latest_failure_without_advancing_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -68,8 +119,8 @@ class BatchRunnerTests(unittest.TestCase):
             failed_runner = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
             failed = failed_runner.run(run_id="failed", dry_run=False)
 
-            latest_success = json.loads((status_dir / "latest-success.json").read_text(encoding="utf-8"))
-            latest_failure = json.loads((status_dir / "latest-failure.json").read_text(encoding="utf-8"))
+            latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
+            latest_failure = json.loads(latest_failure_status_path(status_dir).read_text(encoding="utf-8"))
             self.assertEqual(failed["status"], "failed")
             self.assertEqual(latest_success["run_id"], "success")
             self.assertEqual(latest_failure["run_id"], "failed")
@@ -132,7 +183,7 @@ class BatchRunnerTests(unittest.TestCase):
                 alert_callback=callback,
             )
             result = runner.run(run_id="alert-failed", dry_run=True)
-            run_status = json.loads((status_dir / "run=alert-failed.json").read_text(encoding="utf-8"))
+            run_status = json.loads(historical_run_status_path(status_dir, "alert-failed").read_text(encoding="utf-8"))
 
             self.assertEqual(result["alert_status"], "failed")
             self.assertEqual(run_status["alert_status"], "failed")

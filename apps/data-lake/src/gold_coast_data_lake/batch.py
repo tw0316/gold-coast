@@ -9,8 +9,13 @@ from pathlib import Path
 import re
 from typing import Any, Callable, Iterable
 
-from .storage import format_run_id
+from .storage import S3Uploader, format_run_id
 
+
+RUN_STATUS_HISTORY_DIR = "runs"
+LATEST_SUCCESS_STATUS_FILE = "latest-success.json"
+LATEST_FAILURE_STATUS_FILE = "latest-failure.json"
+RUN_STATUS_S3_PREFIX = "run-status/ghl"
 
 SENSITIVE_KEY_PARTS = (
     "api_key",
@@ -94,6 +99,41 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     tmp_path = path.with_name(f".{path.name}.tmp")
     tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp_path.replace(path)
+
+
+def atomic_write_json_line(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    tmp_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def historical_run_status_path(status_dir: str | Path, run_id: str) -> Path:
+    return Path(status_dir) / RUN_STATUS_HISTORY_DIR / f"run={run_id}" / "status.json"
+
+
+def latest_success_status_path(status_dir: str | Path) -> Path:
+    return Path(status_dir) / LATEST_SUCCESS_STATUS_FILE
+
+
+def latest_failure_status_path(status_dir: str | Path) -> Path:
+    return Path(status_dir) / LATEST_FAILURE_STATUS_FILE
+
+
+def historical_run_status_key(run_id: str) -> str:
+    return f"{RUN_STATUS_S3_PREFIX}/{RUN_STATUS_HISTORY_DIR}/run={run_id}/status.json"
+
+
+def latest_success_status_key() -> str:
+    return f"{RUN_STATUS_S3_PREFIX}/{LATEST_SUCCESS_STATUS_FILE}"
+
+
+def latest_failure_status_key() -> str:
+    return f"{RUN_STATUS_S3_PREFIX}/{LATEST_FAILURE_STATUS_FILE}"
+
+
+def run_status_log_key(run_id: str) -> str:
+    return f"{RUN_STATUS_S3_PREFIX}/logs/run={run_id}.jsonl"
 
 
 @dataclass
@@ -198,6 +238,7 @@ class BatchRefreshRunner:
         lock: LocalTtlLock | None = None,
         phases: Iterable[tuple[str, Phase]] | None = None,
         alert_callback: AlertCallback | None = None,
+        status_uploader: S3Uploader | None = None,
         now: Callable[[], datetime] = utc_now,
     ) -> None:
         self.status_dir = Path(status_dir)
@@ -205,6 +246,7 @@ class BatchRefreshRunner:
         self.lock = lock or LocalTtlLock(self.status_dir / "locks" / "ghl-refresh.lock")
         self.phases = list(phases or [])
         self.alert_callback = alert_callback
+        self.status_uploader = status_uploader
         self.now = now
 
     def run(
@@ -285,7 +327,7 @@ class BatchRefreshRunner:
             "curated_tables": phase_summary["curated_tables"],
             "smoke_checks": phase_summary["smoke_checks"],
             "phases": phase_results,
-            "log_path": str(log.path),
+            "log_path": self._log_location(run_id, log.path),
             "alert_status": "skipped",
             "metadata": sanitize(metadata or {}),
             "error": sanitize(error) if error else None,
@@ -301,12 +343,43 @@ class BatchRefreshRunner:
         return payload
 
     def _write_status(self, payload: dict[str, Any]) -> None:
-        run_path = self.status_dir / f"run={payload['run_id']}.json"
-        atomic_write_json(run_path, sanitize(payload))
+        run_path = historical_run_status_path(self.status_dir, str(payload["run_id"]))
+        atomic_write_json_line(run_path, sanitize(payload))
+        if self.status_uploader:
+            self.status_uploader.upload_file(
+                run_path,
+                historical_run_status_key(str(payload["run_id"])),
+                content_type="application/json",
+            )
         if payload["status"] == "succeeded":
-            atomic_write_json(self.status_dir / "latest-success.json", sanitize(payload))
+            latest_path = latest_success_status_path(self.status_dir)
+            atomic_write_json(latest_path, sanitize(payload))
+            if self.status_uploader:
+                self.status_uploader.upload_file(
+                    latest_path,
+                    latest_success_status_key(),
+                    content_type="application/json",
+                )
         elif payload["status"] == "failed":
-            atomic_write_json(self.status_dir / "latest-failure.json", sanitize(payload))
+            latest_path = latest_failure_status_path(self.status_dir)
+            atomic_write_json(latest_path, sanitize(payload))
+            if self.status_uploader:
+                self.status_uploader.upload_file(
+                    latest_path,
+                    latest_failure_status_key(),
+                    content_type="application/json",
+                )
+        if self.status_uploader:
+            self.status_uploader.upload_file(
+                self.status_dir / "logs" / f"run={payload['run_id']}.jsonl",
+                run_status_log_key(str(payload["run_id"])),
+                content_type="application/x-ndjson",
+            )
+
+    def _log_location(self, run_id: str, local_path: Path) -> str:
+        if self.status_uploader:
+            return self.status_uploader.uri(run_status_log_key(run_id))
+        return str(local_path)
 
 
 class RunLogger:

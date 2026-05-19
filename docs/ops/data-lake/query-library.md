@@ -4,7 +4,9 @@ Database: `gold_coast`
 
 SQL dialect: Athena/Presto
 
-Location: `sql/data-lake/acceptance/`
+Acceptance query location: `sql/data-lake/acceptance/`
+
+Smoke query location: `sql/data-lake/smoke/`
 
 Athena workgroup: `gold_coast_data_lake`
 
@@ -23,6 +25,8 @@ Local project root: `/Users/jarvis/LocalRepos/gold-coast/apps/data-lake`
 - Recording fields are metadata only. Audio remains private encrypted S3 object storage.
 - No query uses transcription, call summaries, or coaching analysis.
 - No query depends on dashboards, Slack scorecards, or GHL writes.
+
+Run-status smoke checks use `gold_coast.run_status_ghl`, backed only by `s3://gcoffers-data-lake/run-status/ghl/runs/`. Pointer files such as `latest-success.json` and `latest-failure.json` are not historical rows.
 
 ## Acceptance Queries
 
