@@ -8,8 +8,8 @@ Added the production runtime scaffolding for the scheduled data-lake refresh.
 
 - Added apps/data-lake/Dockerfile.
 - Added apps/data-lake/.dockerignore.
-- Added infra/data-lake Terraform for ECR, ECS Fargate, IAM, DynamoDB lock table, CloudWatch logs, security group, and EventBridge Scheduler.
-- Added infra/data-lake/prod.tfvars.example with placeholders only.
+- Added infra/data-lake-refresh Terraform for ECR, ECS Fargate, IAM, DynamoDB lock table, CloudWatch logs, security group, and EventBridge Scheduler.
+- Added infra/data-lake-refresh/prod.tfvars.example with placeholders only.
 - Added docs/ops/data-lake/fargate-refresh-runtime.md.
 
 ## Verification Completed
@@ -17,7 +17,7 @@ Added the production runtime scaffolding for the scheduled data-lake refresh.
 Terraform formatting:
 
 ~~~
-terraform fmt -check -recursive infra/data-lake
+terraform fmt -check -recursive infra/data-lake-refresh
 ~~~
 
 Result: passed.
@@ -25,7 +25,7 @@ Result: passed.
 Terraform validation:
 
 ~~~
-cd infra/data-lake
+cd infra/data-lake-refresh
 terraform init -backend=false
 terraform validate
 ~~~

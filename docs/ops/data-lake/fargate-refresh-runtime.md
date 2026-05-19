@@ -39,7 +39,7 @@ docker push <ecr-repo-url>:$(git rev-parse --short HEAD)
 Use the example tfvars as a template. Never put secret values in tfvars; use Secrets Manager ARNs.
 
 ~~~
-cd infra/data-lake
+cd infra/data-lake-refresh
 cp prod.tfvars.example prod.tfvars
 terraform init
 terraform fmt -check

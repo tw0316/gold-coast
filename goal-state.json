@@ -206,8 +206,8 @@
   "lastVerifiedEvidence": [
     ".jks/slice-7-fargate-infrastructure-evidence.md",
     "Dockerfile, .dockerignore, Terraform runtime skeleton, prod tfvars example, and Fargate runtime runbook were added.",
-    "Terraform fmt passed for infra/data-lake.",
-    "Terraform init -backend=false and terraform validate passed for infra/data-lake.",
+    "Terraform fmt passed for infra/data-lake-refresh.",
+    "Terraform init -backend=false and terraform validate passed for infra/data-lake-refresh.",
     "Docker build verification is blocked because Docker is not installed locally.",
     "No terraform apply, AWS resource change, deploy, schedule enablement, or Slack alert was run."
   ],
