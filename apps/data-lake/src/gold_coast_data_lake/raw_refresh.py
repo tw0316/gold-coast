@@ -63,8 +63,6 @@ def run_ghl_raw_refresh(
 ) -> dict[str, Any]:
     if client is None:
         env_file = config.env_file or os.environ.get("GHL_ENV_FILE")
-        if not env_file:
-            raise ValueError("Provide --env-file or set GHL_ENV_FILE for production raw refresh runs.")
         ghl_config = load_ghl_config(env_file, api_version=config.api_version, base_url=config.base_url)
         client = GHLClient(
             ghl_config,

@@ -16,6 +16,12 @@ variable "data_lake_bucket" {
   default     = "gcoffers-data-lake"
 }
 
+variable "data_lake_s3_prefix" {
+  description = "Optional prefix inside the data lake bucket. Leave empty for bucket-root production layout."
+  type        = string
+  default     = ""
+}
+
 variable "glue_database" {
   description = "Existing Glue database for curated tables."
   type        = string

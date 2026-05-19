@@ -29,8 +29,10 @@ docker build -t gold-coast-data-lake:$(git rev-parse --short HEAD) .
 Push only after the ECR repository exists:
 
 ~~~
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
-docker tag gold-coast-data-lake:$(git rev-parse --short HEAD) <ecr-repo-url>:$(git rev-parse --short HEAD)
+aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+docker tag gold-coast-data-lake:$(git rev-parse --short HEAD) \
+  <ecr-repo-url>:$(git rev-parse --short HEAD)
 docker push <ecr-repo-url>:$(git rev-parse --short HEAD)
 ~~~
 
@@ -55,6 +57,7 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 - The task security group has no ingress and egress only on TCP 443.
 - No NAT Gateway is required.
 - GHL credentials are injected as GHL_API_KEY and GHL_LOCATION_ID from Secrets Manager.
+- The runner also supports GHL_ENV_FILE for local operator runs, but Fargate uses injected env vars.
 - Slack webhook injection is optional in this slice; alert behavior is owned by the alert slice.
 - The container entrypoint is python -m gold_coast_data_lake.jobs.ghl_batch_refresh.
 

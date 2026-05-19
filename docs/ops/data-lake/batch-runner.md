@@ -36,7 +36,7 @@ The `data/` directory is ignored by git.
 
 ## Production Guardrail
 
-`--execute` runs only the raw GHL refresh phase. It requires production GHL config from `--env-file` or process env.
+`--execute` runs only the raw GHL refresh phase. It requires production GHL config from `--env-file`, `GHL_ENV_FILE`, or process env variables injected by ECS Secrets Manager.
 
 For bounded local operator verification, use explicit limits and local output paths:
 
@@ -54,4 +54,4 @@ PYTHONPATH=src python3 -m gold_coast_data_lake.jobs.ghl_batch_refresh \
 
 The raw refresh phase uses the package GET-only `GHLClient`. Recording downloads require `--s3-bucket` and are disabled by `--extractor-dry-run`.
 
-Curated publish, AWS-native lock/status storage, ECS Fargate packaging, EventBridge scheduling, and Slack webhook alerts are later slices.
+Curated publish and the Fargate infrastructure skeleton now exist. AWS-native lock/status storage, schedule enablement, Athena smoke checks, and Slack webhook alert behavior are later slices.

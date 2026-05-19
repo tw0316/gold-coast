@@ -1,6 +1,7 @@
 environment      = "prod"
 region           = "us-east-1"
 data_lake_bucket = "gcoffers-data-lake"
+data_lake_s3_prefix = ""
 glue_database    = "gold_coast"
 athena_workgroup = "gold_coast_data_lake"
 image_tag        = "REPLACE_WITH_GIT_SHA"

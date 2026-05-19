@@ -40,6 +40,7 @@ services/
   lead-handler/  Lambda source for website lead capture
 infra/
   website/       Existing Terraform for website, API Gateway, Lambda, and DNS
+  data-lake-refresh/ ECS Fargate scheduled refresh infrastructure
 sql/
   data-lake/     Gold Coast analytical SQL and acceptance queries
 docs/

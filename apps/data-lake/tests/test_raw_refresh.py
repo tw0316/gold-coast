@@ -67,7 +67,7 @@ class RawRefreshTests(unittest.TestCase):
             self.assertEqual(manifest["run_id"], "20260518T230000Z")
             self.assertTrue(all(call[0].startswith("/") for call in client.calls))
 
-    def test_env_file_is_required_without_injected_client(self) -> None:
+    def test_ghl_config_is_required_without_injected_client(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             context = BatchRunContext(
@@ -82,6 +82,31 @@ class RawRefreshTests(unittest.TestCase):
             with mock.patch.dict("os.environ", {}, clear=True):
                 with self.assertRaises(ValueError):
                     run_ghl_raw_refresh(context, RawRefreshConfig(env_file=None))
+
+    def test_process_env_can_configure_fargate_secret_injected_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="20260518T231500Z",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 15, tzinfo=timezone.utc),
+            )
+            fake_client = FullRefreshClient()
+            env = {
+                "GHL_API_KEY": "test-key",
+                "GHL_LOCATION_ID": "loc",
+            }
+            with mock.patch.dict("os.environ", env, clear=True):
+                with mock.patch("gold_coast_data_lake.raw_refresh.GHLClient", return_value=fake_client) as client_cls:
+                    result = run_ghl_raw_refresh(context, RawRefreshConfig(local_only=True))
+
+            client_cls.assert_called_once()
+            self.assertEqual(result["entity_counts"]["contacts"], 1)
+            self.assertEqual(result["entity_counts"]["call_message_details"], 1)
 
     def test_s3_bucket_is_required_for_non_local_raw_refresh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -5,7 +5,7 @@
   "status": "active",
   "roughPercent": 58,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T23:00:53-04:00",
+  "updatedAt": "2026-05-18T23:05:48-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -134,7 +134,7 @@
         "no-NAT networking review",
         "least-privilege IAM review"
       ],
-      "notes": "Partial implementation committed. Terraform fmt and validate pass, but Docker build verification is blocked because Docker is not installed on this machine. No AWS resources were created or modified."
+      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification is blocked because no container engine is installed on this machine. No AWS resources were created or modified."
     },
     {
       "id": "slice-8-aws-slack-alerts",
@@ -205,14 +205,16 @@
   "childRuns": [],
   "lastVerifiedEvidence": [
     ".jks/slice-7-fargate-infrastructure-evidence.md",
-    "Dockerfile, .dockerignore, Terraform runtime skeleton, prod tfvars example, and Fargate runtime runbook were added.",
-    "Terraform fmt passed for infra/data-lake-refresh.",
-    "Terraform init -backend=false and terraform validate passed for infra/data-lake-refresh.",
-    "Docker build verification is blocked because Docker is not installed locally.",
-    "No terraform apply, AWS resource change, deploy, schedule enablement, or Slack alert was run."
+    "Dockerfile, .dockerignore, Terraform runtime skeleton, prod tfvars example, and Fargate runtime runbook are present under the monorepo boundaries.",
+    "Runner now accepts GHL_API_KEY and GHL_LOCATION_ID from process env for ECS Secrets Manager injection.",
+    "Python compile passed and unittest ran 25 tests: 24 passed, 1 skipped because pyarrow is not installed locally.",
+    "Focused GET-only static check found no non-GET request paths in apps/data-lake/src or apps/data-lake/scripts.",
+    "Terraform fmt, init -backend=false, and validate passed for infra/data-lake-refresh.",
+    "Docker build verification is blocked because no docker, podman, finch, nerdctl, colima, or lima binary is installed locally.",
+    "No terraform plan/apply, AWS resource change, live GHL extraction, deploy, schedule enablement, or Slack alert was run."
   ],
   "blockers": [
-    "Slice 7 Docker image build verification is blocked because Docker is not installed on this machine."
+    "Slice 7 Docker image build verification is blocked because no local container engine is installed on this machine."
   ],
   "guardrails": [
     "No data-lake GHL writes",

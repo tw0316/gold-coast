@@ -18,7 +18,7 @@ data "aws_region" "current" {}
 locals {
   name_prefix    = var.environment == "prod" ? "gold-coast-data-lake" : format("gold-coast-data-lake-%s", var.environment)
   container_name = "ghl-batch-refresh"
-  s3_allowed_prefix = [
+  s3_allowed_prefixes = [
     "raw/ghl/*",
     "checkpoints/ghl/*",
     "manifests/ghl/*",
@@ -39,7 +39,7 @@ resource "aws_ecr_repository" "data_lake" {
 }
 
 resource "aws_cloudwatch_log_group" "refresh" {
-  name              = "/gold-coast/data-lake/ghl-refresh"
+  name              = format("/gold-coast/data-lake/%s/ghl-refresh", var.environment)
   retention_in_days = var.log_retention_days
 }
 
@@ -130,13 +130,21 @@ resource "aws_iam_role_policy" "task" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DataLakeBucketPrefixes"
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
-        Resource = concat(
-          [format("arn:aws:s3:::%s", var.data_lake_bucket)],
-          [for prefix in local.s3_allowed_prefix : format("arn:aws:s3:::%s/%s", var.data_lake_bucket, prefix)]
-        )
+        Sid      = "DataLakeBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = format("arn:aws:s3:::%s", var.data_lake_bucket)
+        Condition = {
+          StringLike = {
+            "s3:prefix" = local.s3_allowed_prefixes
+          }
+        }
+      },
+      {
+        Sid      = "DataLakeBucketObjects"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject"]
+        Resource = [for prefix in local.s3_allowed_prefixes : format("arn:aws:s3:::%s/%s", var.data_lake_bucket, prefix)]
       },
       {
         Sid    = "GlueGoldCoast"
@@ -168,8 +176,8 @@ resource "aws_ecs_task_definition" "refresh" {
   family                   = format("%s-ghl-refresh", local.name_prefix)
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
+  cpu                      = tostring(var.task_cpu)
+  memory                   = tostring(var.task_memory)
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
@@ -178,12 +186,18 @@ resource "aws_ecs_task_definition" "refresh" {
       name      = local.container_name
       image     = format("%s:%s", aws_ecr_repository.data_lake.repository_url, var.image_tag)
       essential = true
-      command   = ["--execute", "--s3-bucket", var.data_lake_bucket, "--download-recordings"]
+      command = concat(
+        ["--execute", "--s3-bucket", var.data_lake_bucket, "--download-recordings"],
+        var.data_lake_s3_prefix == "" ? [] : ["--s3-prefix", var.data_lake_s3_prefix]
+      )
       environment = [
+        { name = "AWS_REGION", value = var.region },
         { name = "DATA_LAKE_BUCKET", value = var.data_lake_bucket },
+        { name = "DATA_LAKE_S3_PREFIX", value = var.data_lake_s3_prefix },
         { name = "GLUE_DATABASE", value = var.glue_database },
         { name = "ATHENA_WORKGROUP", value = var.athena_workgroup },
-        { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name }
+        { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
+        { name = "SOURCE_ENVIRONMENT", value = var.environment }
       ]
       secrets = concat(
         [
@@ -233,6 +247,11 @@ resource "aws_iam_role_policy" "scheduler" {
         Effect   = "Allow"
         Action   = "iam:PassRole"
         Resource = [aws_iam_role.task_execution.arn, aws_iam_role.task.arn]
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
       }
     ]
   })
