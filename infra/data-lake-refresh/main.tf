@@ -25,7 +25,7 @@ locals {
     "recordings/ghl/*",
     "curated/ghl/*",
     "run-status/ghl/*",
-    "athena-results/ghl/*"
+    "athena-results/*"
   ]
 }
 

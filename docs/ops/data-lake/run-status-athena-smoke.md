@@ -63,7 +63,7 @@ Register or refresh the run-status table with:
 aws athena start-query-execution \
   --work-group gold_coast_data_lake \
   --query-execution-context Database=gold_coast \
-  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ghl/smoke/ \
+  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
   --query-string file://$PWD/sql/data-lake/ddl/001_run_status_ghl.sql
 ~~~
 
@@ -83,7 +83,7 @@ Do not point it at s3://gcoffers-data-lake/run-status/ghl/. That broader prefix 
 
 The table exposes `image_tag`, `cloudwatch_log_url`, `smoke_checks`, `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` as nullable top-level columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
 
-Each eligible production refresh runs Athena against the freshly published `snapshot_date` and `run_id` before writing final status. The status artifact's `smoke_checks` array must be non-empty and all check statuses must be `passed`; otherwise the runner marks the run `failed` and publishes `latest-failure.json` instead of advancing `latest-success.json`. Config-missing smoke checks are recorded as `not_run`, which also fails eligible production final validation.
+Each eligible production refresh runs Athena against the freshly published `snapshot_date` and `run_id` before writing final status. The status artifact's `smoke_checks` array must be non-empty and all check statuses must be `passed`; otherwise the runner marks the run `failed` and publishes `latest-failure.json` instead of advancing `latest-success.json`. Config-missing smoke checks are recorded as `not_run`, which also fails eligible production final validation. The Athena workgroup enforces `s3://gcoffers-data-lake/athena-results/` as the actual result location.
 
 ## Smoke Checks
 
@@ -93,19 +93,19 @@ Run these after the deploy-created table exists and after a successful manual or
 aws athena start-query-execution \
   --work-group gold_coast_data_lake \
   --query-execution-context Database=gold_coast \
-  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ghl/smoke/ \
+  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
   --query-string file://$PWD/sql/data-lake/smoke/001_latest_success_freshness.sql
 
 aws athena start-query-execution \
   --work-group gold_coast_data_lake \
   --query-execution-context Database=gold_coast \
-  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ghl/smoke/ \
+  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
   --query-string file://$PWD/sql/data-lake/smoke/002_latest_curated_row_availability.sql
 
 aws athena start-query-execution \
   --work-group gold_coast_data_lake \
   --query-execution-context Database=gold_coast \
-  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ghl/smoke/ \
+  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
   --query-string file://$PWD/sql/data-lake/smoke/003_critical_table_catalog.sql
 ~~~
 
