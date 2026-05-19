@@ -49,6 +49,8 @@ latest-success.json and latest-failure.json are pointers for operators and autom
 
 In production execute mode, the runner uploads these artifacts when `--status-s3-bucket` is provided. If `--status-s3-bucket` is omitted, a non-dry-run execute with `--s3-bucket` uses that bucket for status artifacts too. `--status-s3-prefix` can override the raw-output prefix if a prefixed lake layout is ever used.
 
+Dry-run and `--extractor-dry-run` runs do not create a status S3 uploader, even when `--status-s3-bucket` is supplied.
+
 The immutable `status.json` file is single-line JSON so Athena can read it with the JSON SerDe. Pointer files can remain human-readable because they are excluded from the historical table location.
 
 ## Athena Table
@@ -76,6 +78,8 @@ s3://gcoffers-data-lake/run-status/ghl/runs/
 ~~~
 
 Do not point it at s3://gcoffers-data-lake/run-status/ghl/. That broader prefix includes pointer objects and logs.
+
+The table exposes `image_tag` and `cloudwatch_log_url` as nullable top-level string columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
 
 ## Smoke Checks
 
@@ -110,7 +114,7 @@ aws athena get-query-results --query-execution-id <query-execution-id>
 
 Pass criteria:
 
-- 001_latest_success_freshness.sql returns one row with result = pass.
+- 001_latest_success_freshness.sql returns one row with result = pass and includes `image_tag` plus `cloudwatch_log_url` when the runner provided them.
 - 002_latest_curated_row_availability.sql returns every table with result = pass.
 - 003_critical_table_catalog.sql returns every expected table with result = pass.
 - No query output contains credentials, raw SMS bodies, raw contact dumps, presigned recording URLs, or webhook URLs.

@@ -14,6 +14,8 @@ CREATE EXTERNAL TABLE IF NOT EXISTS gold_coast.run_status_ghl (
     status string,
     source string,
     source_environment string,
+    image_tag string,
+    cloudwatch_log_url string,
     dry_run boolean,
     started_at string,
     completed_at string,

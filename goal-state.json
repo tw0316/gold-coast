@@ -5,7 +5,7 @@
   "status": "active",
   "roughPercent": 78,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T00:23:00-04:00",
+  "updatedAt": "2026-05-19T00:31:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -26,7 +26,7 @@
     "over90PercentMinutes": 15,
     "immediateOn": ["blocked", "decision-needed", "completed"]
   },
-  "lastReportAt": "2026-05-18T23:54:00-04:00",
+  "lastReportAt": "2026-05-19T00:25:00-04:00",
   "finalReport": {
     "sent": false,
     "sentAt": null,
@@ -162,7 +162,7 @@
         "run-status table excludes pointer objects",
         "evidence docs"
       ],
-      "notes": "Verified by owner. Added Athena run-status DDL, smoke SQL, operator docs, single-line historical status files, and S3 run-status/log publishing for non-dry-run execute mode. No live Athena, GHL extraction, AWS change, deploy, schedule enablement, Slack webhook call, or GitHub push was run."
+      "notes": "Verified by owner. Added Athena run-status DDL, smoke SQL, operator docs, single-line historical status files, S3 run-status/log publishing for non-dry-run execute mode, top-level image_tag/cloudwatch_log_url observability fields, and dry-run status-upload protection. No live Athena, GHL extraction, AWS change, deploy, schedule enablement, Slack webhook call, or GitHub push was run."
     },
     {
       "id": "slice-10-enable-schedule-first-run",
@@ -229,10 +229,11 @@
     "Added sql/data-lake/ddl/001_run_status_ghl.sql with LOCATION limited to s3://gcoffers-data-lake/run-status/ghl/runs/ so pointer objects are excluded from historical rows.",
     "Added smoke SQL for latest-success freshness, curated row availability by snapshot_date plus run_id, and critical catalog table presence.",
     "BatchRefreshRunner now writes historical status as single-line JSON and can upload run-status artifacts/logs to S3 for non-dry-run execute mode.",
-    "GHL batch CLI now exposes --status-s3-bucket and --status-s3-prefix; execute mode defaults status artifacts to --s3-bucket when not extractor-dry-run.",
+    "GHL batch CLI exposes --status-s3-bucket, --status-s3-prefix, --image-tag, and --cloudwatch-log-url; execute mode defaults status artifacts to --s3-bucket when not extractor-dry-run.",
+    "Run-status exposes sanitized top-level image_tag and cloudwatch_log_url for deployment/log traceability, and dry-run/extractor-dry-run paths skip S3 status uploads.",
     "Added operator docs for run-status paths and Athena smoke-check commands; consolidated duplicate smoke docs.",
-    "Python compile passed and unittest ran 34 tests: 33 passed, 1 skipped because pyarrow is not installed locally.",
-    "Local dry-run verified one-line historical status, pointer exclusion, JSON validity, CLI help, git diff --check, GET-only GHL scan, and credential/webhook scan.",
+    "Python compile passed and unittest ran 38 tests: 37 passed, 1 skipped because pyarrow is not installed locally.",
+    "Local dry-run verified one-line historical status, top-level observability fields, local log_path for dry-run, pointer exclusion, JSON validity, CLI help, git diff --check, GET-only GHL scan, and credential/webhook scan with only fake test fixtures.",
     "No live Athena query, GHL extraction, AWS resource change, deploy, schedule enablement, Slack webhook call, or GitHub push was run.",
     "Slice 7 Docker image build verification remains a release/deploy blocker and now blocks Slice 10 schedule enablement."
   ],
@@ -240,7 +241,7 @@
     "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path."
   ],
   "releaseBlockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:01:30-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
+    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:30:52-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
   ],
   "guardrails": [
     "No data-lake GHL writes",

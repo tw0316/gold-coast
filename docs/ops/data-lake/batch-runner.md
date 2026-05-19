@@ -68,4 +68,8 @@ s3://<bucket>/run-status/ghl/logs/run=<run_id>.jsonl
 
 Use `--status-s3-bucket` and `--status-s3-prefix` only when run-status artifacts should land somewhere different from raw refresh outputs.
 
+Dry-run and `--extractor-dry-run` runs never create the status S3 uploader, even when `--status-s3-bucket` is supplied.
+
+The run-status payload exposes `image_tag` and `cloudwatch_log_url` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`.
+
 Curated publish, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, and S3 run-status publishing now exist. AWS-native DynamoDB locking and schedule enablement are later slices.

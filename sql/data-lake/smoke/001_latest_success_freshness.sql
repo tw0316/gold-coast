@@ -5,6 +5,8 @@ WITH latest_success AS (
         run_id,
         snapshot_date,
         snapshot_at,
+        image_tag,
+        cloudwatch_log_url,
         completed_at,
         try(from_iso8601_timestamp(completed_at)) AS completed_at_ts
     FROM gold_coast.run_status_ghl
@@ -24,6 +26,8 @@ SELECT
     max(run_id) AS run_id,
     max(snapshot_date) AS snapshot_date,
     max(snapshot_at) AS snapshot_at,
+    max(image_tag) AS image_tag,
+    max(cloudwatch_log_url) AS cloudwatch_log_url,
     max(completed_at) AS completed_at,
     date_diff('minute', max(completed_at_ts), current_timestamp) AS age_minutes,
     120 AS max_allowed_age_minutes

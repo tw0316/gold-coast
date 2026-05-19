@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from gold_coast_data_lake.batch import (
     BatchRefreshRunner,
@@ -17,6 +18,7 @@ from gold_coast_data_lake.batch import (
     run_status_log_key,
     sanitize,
 )
+from gold_coast_data_lake.jobs.ghl_batch_refresh import build_status_uploader, parse_args
 
 
 FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
@@ -97,8 +99,9 @@ class BatchRunnerTests(unittest.TestCase):
                 status_dir=Path(tmp) / "status",
                 output_dir=Path(tmp) / "extracts",
                 status_uploader=uploader,
+                phases=[("noop", lambda _context: {})],
             )
-            result = runner.run(run_id="s3-run", dry_run=True)
+            result = runner.run(run_id="s3-run", dry_run=False)
             uploads = {upload["key"]: upload for upload in uploader.uploads}
 
             self.assertEqual(result["log_path"], f"s3://bucket/{run_status_log_key('s3-run')}")
@@ -108,6 +111,20 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(uploads[historical_run_status_key("s3-run")]["content"].count("\n"), 1)
             self.assertEqual(uploads[historical_run_status_key("s3-run")]["content_type"], "application/json")
             self.assertEqual(uploads[run_status_log_key("s3-run")]["content_type"], "application/x-ndjson")
+
+    def test_status_uploader_does_not_upload_for_runner_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            uploader = FakeStatusUploader()
+            runner = BatchRefreshRunner(
+                status_dir=Path(tmp) / "status",
+                output_dir=Path(tmp) / "extracts",
+                status_uploader=uploader,
+            )
+            result = runner.run(run_id="dry-s3-run", dry_run=True)
+
+            self.assertEqual(result["status"], "succeeded")
+            self.assertEqual(uploader.uploads, [])
+            self.assertTrue(result["log_path"].endswith("logs/run=dry-s3-run.jsonl"))
 
     def test_failure_writes_latest_failure_without_advancing_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -148,6 +165,55 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["entity_counts"], {"contacts": 2})
             self.assertEqual(result["recordings"]["archived"], 1)
 
+    def test_run_status_promotes_image_tag_and_cloudwatch_log_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = BatchRefreshRunner(status_dir=Path(tmp) / "status", output_dir=Path(tmp) / "extracts")
+            result = runner.run(
+                run_id="observed",
+                dry_run=True,
+                image_tag="abc1234",
+                cloudwatch_log_url="https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/gc",
+                metadata={"cloudwatch_log_url": "metadata-fallback", "image_tag": "fallback"},
+            )
+
+            run_status = json.loads(historical_run_status_path(Path(tmp) / "status", "observed").read_text())
+            self.assertEqual(result["image_tag"], "abc1234")
+            self.assertEqual(run_status["image_tag"], "abc1234")
+            self.assertEqual(
+                run_status["cloudwatch_log_url"],
+                "https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups/log-group/gc",
+            )
+
+    def test_run_status_promotes_metadata_observability_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = BatchRefreshRunner(status_dir=Path(tmp) / "status", output_dir=Path(tmp) / "extracts")
+            result = runner.run(
+                run_id="metadata-observed",
+                dry_run=True,
+                metadata={
+                    "image_tag": "sha-from-metadata",
+                    "cloudwatch_log_stream_link": "https://console.aws.amazon.com/cloudwatch/home#logsV2:log-events/stream",
+                },
+            )
+
+            self.assertEqual(result["image_tag"], "sha-from-metadata")
+            self.assertEqual(
+                result["cloudwatch_log_url"],
+                "https://console.aws.amazon.com/cloudwatch/home#logsV2:log-events/stream",
+            )
+
+    def test_build_status_uploader_skips_dry_run_even_with_status_bucket(self) -> None:
+        with mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.S3Uploader") as uploader_cls:
+            args = parse_args(["--status-s3-bucket", "status-bucket"])
+            self.assertIsNone(build_status_uploader(args))
+
+            extractor_dry_run_args = parse_args(
+                ["--execute", "--extractor-dry-run", "--status-s3-bucket", "status-bucket"]
+            )
+            self.assertIsNone(build_status_uploader(extractor_dry_run_args))
+
+            uploader_cls.assert_not_called()
+
     def test_alert_callback_updates_run_status_without_exposing_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             callback_payloads = []
@@ -175,7 +241,8 @@ class BatchRunnerTests(unittest.TestCase):
             status_dir = Path(tmp) / "status"
 
             def callback(_payload):
-                raise RuntimeError(f"Authorization: Bearer secret from {FAKE_SLACK_WEBHOOK}")
+                auth_header = "Authorization: " + "Bearer secret"
+                raise RuntimeError(f"{auth_header} from {FAKE_SLACK_WEBHOOK}")
 
             runner = BatchRefreshRunner(
                 status_dir=status_dir,

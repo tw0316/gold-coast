@@ -136,6 +136,17 @@ def run_status_log_key(run_id: str) -> str:
     return f"{RUN_STATUS_S3_PREFIX}/logs/run={run_id}.jsonl"
 
 
+def optional_status_text(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    cleaned = sanitize(value)
+    if cleaned is None:
+        return None
+    if isinstance(cleaned, str):
+        return cleaned
+    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"))
+
+
 @dataclass
 class BatchRunContext:
     run_id: str
@@ -256,9 +267,18 @@ class BatchRefreshRunner:
         source_environment: str = "production",
         dry_run: bool = True,
         metadata: dict[str, Any] | None = None,
+        image_tag: str | None = None,
+        cloudwatch_log_url: str | None = None,
     ) -> dict[str, Any]:
         started_at = self.now()
         run_id = run_id or format_run_id(started_at)
+        run_metadata = metadata or {}
+        status_image_tag = image_tag if image_tag is not None else run_metadata.get("image_tag")
+        status_cloudwatch_log_url = cloudwatch_log_url
+        if status_cloudwatch_log_url is None:
+            status_cloudwatch_log_url = run_metadata.get("cloudwatch_log_url") or run_metadata.get(
+                "cloudwatch_log_stream_link"
+            )
         context = BatchRunContext(
             run_id=run_id,
             source="ghl",
@@ -267,7 +287,7 @@ class BatchRefreshRunner:
             status_dir=self.status_dir,
             output_dir=self.output_dir,
             started_at=started_at,
-            metadata=metadata or {},
+            metadata=run_metadata,
         )
 
         log = RunLogger(self.status_dir / "logs" / f"run={run_id}.jsonl")
@@ -281,7 +301,7 @@ class BatchRefreshRunner:
             if not lock_acquired:
                 raise RuntimeError("another GHL batch refresh run is active")
 
-            log.write("run_started", {"run_id": run_id, "dry_run": dry_run, "metadata": metadata or {}})
+            log.write("run_started", {"run_id": run_id, "dry_run": dry_run, "metadata": run_metadata})
             if dry_run:
                 phase_results.append({"name": "dry_run_validation", "status": "succeeded"})
                 log.write("phase_succeeded", phase_results[-1])
@@ -310,6 +330,8 @@ class BatchRefreshRunner:
             "status": status,
             "source": "ghl",
             "source_environment": source_environment,
+            "image_tag": optional_status_text(status_image_tag),
+            "cloudwatch_log_url": optional_status_text(status_cloudwatch_log_url),
             "dry_run": dry_run,
             "started_at": isoformat(started_at),
             "completed_at": isoformat(completed_at),
@@ -327,9 +349,9 @@ class BatchRefreshRunner:
             "curated_tables": phase_summary["curated_tables"],
             "smoke_checks": phase_summary["smoke_checks"],
             "phases": phase_results,
-            "log_path": self._log_location(run_id, log.path),
+            "log_path": self._log_location(run_id, log.path, dry_run=dry_run),
             "alert_status": "skipped",
-            "metadata": sanitize(metadata or {}),
+            "metadata": sanitize(run_metadata),
             "error": sanitize(error) if error else None,
         }
         if self.alert_callback:
@@ -343,10 +365,11 @@ class BatchRefreshRunner:
         return payload
 
     def _write_status(self, payload: dict[str, Any]) -> None:
+        status_uploader = None if payload.get("dry_run") else self.status_uploader
         run_path = historical_run_status_path(self.status_dir, str(payload["run_id"]))
         atomic_write_json_line(run_path, sanitize(payload))
-        if self.status_uploader:
-            self.status_uploader.upload_file(
+        if status_uploader:
+            status_uploader.upload_file(
                 run_path,
                 historical_run_status_key(str(payload["run_id"])),
                 content_type="application/json",
@@ -354,8 +377,8 @@ class BatchRefreshRunner:
         if payload["status"] == "succeeded":
             latest_path = latest_success_status_path(self.status_dir)
             atomic_write_json(latest_path, sanitize(payload))
-            if self.status_uploader:
-                self.status_uploader.upload_file(
+            if status_uploader:
+                status_uploader.upload_file(
                     latest_path,
                     latest_success_status_key(),
                     content_type="application/json",
@@ -363,21 +386,21 @@ class BatchRefreshRunner:
         elif payload["status"] == "failed":
             latest_path = latest_failure_status_path(self.status_dir)
             atomic_write_json(latest_path, sanitize(payload))
-            if self.status_uploader:
-                self.status_uploader.upload_file(
+            if status_uploader:
+                status_uploader.upload_file(
                     latest_path,
                     latest_failure_status_key(),
                     content_type="application/json",
                 )
-        if self.status_uploader:
-            self.status_uploader.upload_file(
+        if status_uploader:
+            status_uploader.upload_file(
                 self.status_dir / "logs" / f"run={payload['run_id']}.jsonl",
                 run_status_log_key(str(payload["run_id"])),
                 content_type="application/x-ndjson",
             )
 
-    def _log_location(self, run_id: str, local_path: Path) -> str:
-        if self.status_uploader:
+    def _log_location(self, run_id: str, local_path: Path, *, dry_run: bool) -> str:
+        if self.status_uploader and not dry_run:
             return self.status_uploader.uri(run_status_log_key(run_id))
         return str(local_path)
 

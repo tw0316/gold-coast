@@ -20,6 +20,7 @@ DEFAULT_ENV_FILE = os.environ.get("GHL_ENV_FILE")
 DEFAULT_ALERT_MODE = os.environ.get("ALERT_MODE", "off")
 DEFAULT_SUCCESS_ALERT_UNTIL = os.environ.get("SUCCESS_ALERT_UNTIL")
 DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
+DEFAULT_IMAGE_TAG = os.environ.get("IMAGE_TAG")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -87,6 +88,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--success-alert-until", default=DEFAULT_SUCCESS_ALERT_UNTIL)
     parser.add_argument("--cloudwatch-log-url", default=DEFAULT_CLOUDWATCH_LOG_URL)
+    parser.add_argument("--image-tag", default=DEFAULT_IMAGE_TAG)
     return parser.parse_args(argv)
 
 
@@ -137,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
         run_id=args.run_id,
         source_environment=args.source_environment,
         dry_run=not args.execute,
+        image_tag=args.image_tag,
+        cloudwatch_log_url=args.cloudwatch_log_url,
         metadata={
             "entrypoint": "gold_coast_data_lake.jobs.ghl_batch_refresh",
             "entities": args.entities,
@@ -149,9 +153,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_status_uploader(args: argparse.Namespace) -> S3Uploader | None:
-    bucket = args.status_s3_bucket
-    if bucket is None and args.execute and args.s3_bucket and not args.extractor_dry_run:
-        bucket = args.s3_bucket
+    if not args.execute or args.extractor_dry_run:
+        return None
+    bucket = args.status_s3_bucket or args.s3_bucket
     if bucket is None:
         return None
     prefix = args.status_s3_prefix if args.status_s3_prefix is not None else args.s3_prefix
