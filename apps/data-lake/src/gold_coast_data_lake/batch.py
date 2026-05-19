@@ -163,6 +163,7 @@ class BatchRunContext:
 class LocalTtlLock:
     path: Path
     ttl_seconds: int = 45 * 60
+    provider: str = "local_ttl_file"
 
     def acquire(self, run_id: str, *, now: datetime | None = None) -> bool:
         current_time = now or utc_now()
@@ -197,6 +198,81 @@ class LocalTtlLock:
             return json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return {}
+
+
+@dataclass
+class DynamoDbTtlLock:
+    table_name: str
+    lock_name: str = "ghl-refresh"
+    ttl_seconds: int = 45 * 60
+    client: Any | None = None
+    provider: str = "dynamodb_ttl"
+
+    def __post_init__(self) -> None:
+        if self.client is None:
+            try:
+                import boto3  # type: ignore
+            except ImportError as exc:  # pragma: no cover - exercised in container/runtime packaging
+                raise RuntimeError("boto3 is required for DynamoDB locking") from exc
+            self.client = boto3.client("dynamodb")
+
+    def acquire(self, run_id: str, *, now: datetime | None = None) -> bool:
+        current_time = now or utc_now()
+        expires_at = current_time + timedelta(seconds=self.ttl_seconds)
+        try:
+            self.client.put_item(
+                TableName=self.table_name,
+                Item={
+                    "lock_name": {"S": self.lock_name},
+                    "owner_run_id": {"S": run_id},
+                    "state": {"S": "active"},
+                    "started_at": {"S": isoformat(current_time)},
+                    "expires_at": {"S": isoformat(expires_at)},
+                    "expires_at_epoch": {"N": str(int(expires_at.timestamp()))},
+                    "ttl_seconds": {"N": str(self.ttl_seconds)},
+                },
+                ConditionExpression=(
+                    "attribute_not_exists(lock_name) OR expires_at_epoch < :now_epoch OR #state <> :active"
+                ),
+                ExpressionAttributeNames={"#state": "state"},
+                ExpressionAttributeValues={
+                    ":now_epoch": {"N": str(int(current_time.timestamp()))},
+                    ":active": {"S": "active"},
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            if is_conditional_check_failed(exc):
+                return False
+            raise
+        return True
+
+    def release(self, run_id: str, *, now: datetime | None = None) -> None:
+        try:
+            self.client.update_item(
+                TableName=self.table_name,
+                Key={"lock_name": {"S": self.lock_name}},
+                UpdateExpression="SET #state = :released, released_at = :released_at",
+                ConditionExpression="owner_run_id = :run_id",
+                ExpressionAttributeNames={"#state": "state"},
+                ExpressionAttributeValues={
+                    ":released": {"S": "released"},
+                    ":released_at": {"S": isoformat(now or utc_now())},
+                    ":run_id": {"S": run_id},
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            if is_conditional_check_failed(exc):
+                return
+            raise
+
+
+def is_conditional_check_failed(exc: Exception) -> bool:
+    if exc.__class__.__name__ == "ConditionalCheckFailedException":
+        return True
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        return response.get("Error", {}).get("Code") == "ConditionalCheckFailedException"
+    return False
 
 
 Phase = Callable[[BatchRunContext], dict[str, Any] | None]
@@ -337,7 +413,7 @@ class BatchRefreshRunner:
             "completed_at": isoformat(completed_at),
             "duration_seconds": duration_seconds,
             "lock": {
-                "provider": "local_ttl_file",
+                "provider": getattr(self.lock, "provider", self.lock.__class__.__name__),
                 "ttl_seconds": self.lock.ttl_seconds,
                 "acquired": lock_acquired,
             },

@@ -12,8 +12,10 @@ The checked-in runner is a local foundation for the production GHL batch refresh
 - a safe dry-run manual command
 - execute-mode orchestration for the full core-source raw GHL refresh
 - optional S3 upload for Athena-queryable run-status artifacts
+- AWS DynamoDB TTL locking when `LOCK_TABLE_NAME` is supplied
+- raw refresh followed by curated table publish for production non-dry-run runs
 
-It does not yet run AWS locks, schedule enablement, or live Athena smoke execution.
+It does not enable schedules by itself or run live Athena smoke execution.
 
 ## Safe Manual Command
 
@@ -39,7 +41,9 @@ The immutable per-run status file is separated under `runs/` and written as sing
 
 ## Production Guardrail
 
-`--execute` runs only the raw GHL refresh phase. It requires production GHL config from `--env-file`, `GHL_ENV_FILE`, or process env variables injected by ECS Secrets Manager.
+`--execute` runs the raw GHL refresh phase. For production non-dry-run runs, it then builds curated Parquet tables from the fresh manifest and updates Glue partitions.
+
+It requires production GHL config from `--env-file`, `GHL_ENV_FILE`, or process env variables injected by ECS Secrets Manager.
 
 For bounded local operator verification, use explicit limits and local output paths:
 
@@ -57,6 +61,8 @@ PYTHONPATH=src python3 -m gold_coast_data_lake.jobs.ghl_batch_refresh \
 
 The raw refresh phase uses the package GET-only `GHLClient`. Recording downloads require `--s3-bucket` and are disabled by `--extractor-dry-run`.
 
+When `LOCK_TABLE_NAME` is present, the runner uses a DynamoDB conditional TTL lock named `ghl-refresh` before the production run starts. The fallback local file lock is only for dry-runs and local operator checks.
+
 When `--execute --s3-bucket <bucket>` runs without `--extractor-dry-run`, the runner uploads durable run-status artifacts to the same bucket:
 
 ~~~text
@@ -72,4 +78,4 @@ Dry-run and `--extractor-dry-run` runs never create the status S3 uploader, even
 
 The run-status payload exposes `image_tag` and `cloudwatch_log_url` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`.
 
-Curated publish, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, and S3 run-status publishing now exist. AWS-native DynamoDB locking and schedule enablement are later slices.
+Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step.

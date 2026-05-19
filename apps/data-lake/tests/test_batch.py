@@ -9,6 +9,7 @@ from unittest import mock
 
 from gold_coast_data_lake.batch import (
     BatchRefreshRunner,
+    DynamoDbTtlLock,
     LocalTtlLock,
     historical_run_status_key,
     historical_run_status_path,
@@ -18,7 +19,13 @@ from gold_coast_data_lake.batch import (
     run_status_log_key,
     sanitize,
 )
-from gold_coast_data_lake.jobs.ghl_batch_refresh import build_status_uploader, parse_args
+from gold_coast_data_lake.jobs.ghl_batch_refresh import (
+    build_lock,
+    build_production_refresh_phase,
+    build_status_uploader,
+    join_s3_prefix,
+    parse_args,
+)
 
 
 FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
@@ -40,6 +47,10 @@ class FakeStatusUploader:
 
     def uri(self, relative_key):
         return f"s3://bucket/{relative_key}"
+
+
+class ConditionalFailure(Exception):
+    response = {"Error": {"Code": "ConditionalCheckFailedException"}}
 
 
 class BatchRunnerTests(unittest.TestCase):
@@ -67,6 +78,28 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertTrue(lock.acquire("run1", now=now))
             self.assertFalse(lock.acquire("run2", now=now))
             self.assertTrue(lock.acquire("run2", now=later))
+
+    def test_dynamodb_ttl_lock_uses_conditional_put_and_owner_release(self) -> None:
+        client = mock.Mock()
+        lock = DynamoDbTtlLock("locks", client=client, ttl_seconds=60)
+        now = datetime(2026, 5, 18, 22, 0, tzinfo=timezone.utc)
+
+        self.assertTrue(lock.acquire("run1", now=now))
+        put_call = client.put_item.call_args.kwargs
+        self.assertEqual(put_call["TableName"], "locks")
+        self.assertEqual(put_call["Item"]["lock_name"], {"S": "ghl-refresh"})
+        self.assertEqual(put_call["Item"]["owner_run_id"], {"S": "run1"})
+        self.assertIn("expires_at_epoch", put_call["Item"])
+        self.assertIn("ConditionExpression", put_call)
+
+        client.put_item.side_effect = ConditionalFailure()
+        self.assertFalse(lock.acquire("run2", now=now))
+
+        client.put_item.side_effect = None
+        lock.release("run1", now=now)
+        release_call = client.update_item.call_args.kwargs
+        self.assertEqual(release_call["Key"], {"lock_name": {"S": "ghl-refresh"}})
+        self.assertEqual(release_call["ExpressionAttributeValues"][":run_id"], {"S": "run1"})
 
     def test_dry_run_writes_immutable_status_and_latest_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -213,6 +246,50 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertIsNone(build_status_uploader(extractor_dry_run_args))
 
             uploader_cls.assert_not_called()
+
+    def test_build_lock_uses_dynamodb_only_for_execute_non_dry_run(self) -> None:
+        with mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.DynamoDbTtlLock") as lock_cls:
+            args = parse_args(["--execute", "--lock-table-name", "locks"])
+            self.assertEqual(build_lock(args), lock_cls.return_value)
+            lock_cls.assert_called_once_with(table_name="locks", lock_name="ghl-refresh")
+
+            lock_cls.reset_mock()
+            dry_run_args = parse_args(["--execute", "--extractor-dry-run", "--lock-table-name", "locks"])
+            self.assertIsNone(build_lock(dry_run_args))
+            lock_cls.assert_not_called()
+
+    def test_join_s3_prefix_skips_empty_parts(self) -> None:
+        self.assertEqual(join_s3_prefix("", "curated/ghl"), "curated/ghl")
+        self.assertEqual(join_s3_prefix("prod", "/curated/ghl/"), "prod/curated/ghl")
+
+    def test_production_phase_builds_curated_tables_from_raw_manifest(self) -> None:
+        args = parse_args(["--execute", "--s3-bucket", "lake", "--s3-prefix", "prod", "--glue-database", "gold"])
+        raw_config = mock.Mock()
+        context = mock.Mock()
+        context.started_at = datetime(2026, 5, 18, 22, 0, tzinfo=timezone.utc)
+
+        with (
+            mock.patch(
+                "gold_coast_data_lake.jobs.ghl_batch_refresh.run_ghl_raw_refresh",
+                return_value={"manifest_s3_uri": "s3://lake/manifests/ghl/run=run1.json", "entity_counts": {"contacts": 1}},
+            ) as raw_refresh,
+            mock.patch(
+                "gold_coast_data_lake.jobs.ghl_batch_refresh.run_curated_build",
+                return_value={"table_counts": {"contacts": 1}, "latest_success": {"run_id": "run1"}},
+            ) as curated_build,
+        ):
+            result = build_production_refresh_phase(raw_config, args)(context)
+
+        raw_refresh.assert_called_once_with(context, raw_config)
+        curated_build.assert_called_once_with(
+            manifest_uri="s3://lake/manifests/ghl/run=run1.json",
+            snapshot_date="2026-05-18",
+            local_output_dir=args.curated_output_dir,
+            s3_bucket="lake",
+            s3_prefix="prod/curated/ghl",
+            glue_database="gold",
+        )
+        self.assertEqual(result["curated_tables"], {"contacts": 1})
 
     def test_alert_callback_updates_run_status_without_exposing_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -9,9 +9,15 @@ from pathlib import Path
 import sys
 
 from gold_coast_data_lake.alerts import AlertConfig, alert_callback
-from gold_coast_data_lake.batch import BatchRefreshRunner
+from gold_coast_data_lake.batch import BatchRefreshRunner, BatchRunContext, DynamoDbTtlLock, Phase
+from gold_coast_data_lake.curated import DEFAULT_CURATED_PREFIX, DEFAULT_GLUE_DATABASE, run_curated_build
 from gold_coast_data_lake.extractor import ENTITY_ALIASES
-from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES, RawRefreshConfig, build_ghl_raw_refresh_phase
+from gold_coast_data_lake.raw_refresh import (
+    DEFAULT_RAW_REFRESH_ENTITIES,
+    RawRefreshConfig,
+    build_ghl_raw_refresh_phase,
+    run_ghl_raw_refresh,
+)
 from gold_coast_data_lake.storage import S3Uploader
 
 
@@ -21,6 +27,8 @@ DEFAULT_ALERT_MODE = os.environ.get("ALERT_MODE", "off")
 DEFAULT_SUCCESS_ALERT_UNTIL = os.environ.get("SUCCESS_ALERT_UNTIL")
 DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
 DEFAULT_IMAGE_TAG = os.environ.get("IMAGE_TAG")
+DEFAULT_LOCK_TABLE_NAME = os.environ.get("LOCK_TABLE_NAME")
+DEFAULT_GLUE_DATABASE_ENV = os.environ.get("GLUE_DATABASE", DEFAULT_GLUE_DATABASE)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -54,6 +62,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--s3-bucket", default=None, help="Optional S3 bucket for raw/checkpoint/manifest uploads.")
     parser.add_argument("--s3-prefix", default="", help="Optional S3 prefix under the bucket.")
     parser.add_argument(
+        "--curated-s3-prefix",
+        default=DEFAULT_CURATED_PREFIX,
+        help="Curated table prefix. Combined with --s3-prefix when a bucket-root prefix is supplied.",
+    )
+    parser.add_argument("--curated-output-dir", default=str(PROJECT_ROOT / "data" / "curated"))
+    parser.add_argument("--glue-database", default=DEFAULT_GLUE_DATABASE_ENV)
+    parser.add_argument("--skip-curated", action="store_true", help="Run raw refresh only. Not for production schedule.")
+    parser.add_argument("--skip-glue", action="store_true", help="Skip Glue table/partition updates.")
+    parser.add_argument(
         "--status-s3-bucket",
         default=None,
         help="Optional S3 bucket for run-status artifacts. Defaults to --s3-bucket for execute-mode non-dry-run runs.",
@@ -80,6 +97,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Run production raw-refresh phases. Requires GHL config from --env-file or process env.",
     )
+    parser.add_argument("--lock-table-name", default=DEFAULT_LOCK_TABLE_NAME)
+    parser.add_argument("--lock-name", default="ghl-refresh")
     parser.add_argument(
         "--alert-mode",
         default=DEFAULT_ALERT_MODE,
@@ -117,11 +136,15 @@ def main(argv: list[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             max_retries=args.max_retries,
         )
-        phases.append(("raw_refresh", build_ghl_raw_refresh_phase(raw_config)))
+        if args.extractor_dry_run or args.skip_curated:
+            phases.append(("raw_refresh", build_ghl_raw_refresh_phase(raw_config)))
+        else:
+            phases.append(("raw_refresh_and_curated_publish", build_production_refresh_phase(raw_config, args)))
 
     runner = BatchRefreshRunner(
         status_dir=args.status_dir,
         output_dir=args.output_dir,
+        lock=build_lock(args),
         phases=phases,
         status_uploader=status_uploader,
         alert_callback=None
@@ -160,6 +183,39 @@ def build_status_uploader(args: argparse.Namespace) -> S3Uploader | None:
         return None
     prefix = args.status_s3_prefix if args.status_s3_prefix is not None else args.s3_prefix
     return S3Uploader(bucket, prefix)
+
+
+def build_lock(args: argparse.Namespace) -> DynamoDbTtlLock | None:
+    if not args.execute or args.extractor_dry_run or not args.lock_table_name:
+        return None
+    return DynamoDbTtlLock(table_name=args.lock_table_name, lock_name=args.lock_name)
+
+
+def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.Namespace) -> Phase:
+    def phase(context: BatchRunContext) -> dict[str, object]:
+        raw_result = run_ghl_raw_refresh(context, raw_config)
+        manifest_uri = raw_result.get("manifest_s3_uri")
+        if not manifest_uri:
+            raise RuntimeError("raw refresh did not publish a manifest_s3_uri for curated build")
+        curated_summary = run_curated_build(
+            manifest_uri=str(manifest_uri),
+            snapshot_date=context.started_at.date().isoformat(),
+            local_output_dir=args.curated_output_dir,
+            s3_bucket=args.s3_bucket,
+            s3_prefix=join_s3_prefix(args.s3_prefix, args.curated_s3_prefix),
+            glue_database=None if args.skip_glue else args.glue_database,
+        )
+        return {
+            **raw_result,
+            "curated_tables": curated_summary.get("table_counts", {}),
+            "curated": curated_summary,
+        }
+
+    return phase
+
+
+def join_s3_prefix(*parts: str | None) -> str:
+    return "/".join(part.strip("/") for part in parts if part and part.strip("/"))
 
 
 if __name__ == "__main__":

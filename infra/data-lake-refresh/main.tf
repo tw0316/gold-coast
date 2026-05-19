@@ -214,6 +214,7 @@ resource "aws_ecs_task_definition" "refresh" {
         { name = "ATHENA_WORKGROUP", value = var.athena_workgroup },
         { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
         { name = "SOURCE_ENVIRONMENT", value = var.environment },
+        { name = "IMAGE_TAG", value = var.image_tag },
         { name = "ALERT_MODE", value = var.alert_mode },
         { name = "SUCCESS_ALERT_UNTIL", value = var.success_alert_until == null ? "" : var.success_alert_until }
       ]

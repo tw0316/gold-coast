@@ -59,8 +59,10 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 - No NAT Gateway is required.
 - GHL credentials are injected as GHL_API_KEY and GHL_LOCATION_ID from Secrets Manager.
 - The runner also supports GHL_ENV_FILE for local operator runs, but Fargate uses injected env vars.
+- `LOCK_TABLE_NAME` is injected from Terraform and enables the DynamoDB conditional TTL lock before production work begins.
+- Production non-dry-run tasks run the GET-only raw refresh, then build curated Parquet tables from the fresh manifest and update Glue partitions.
 - Execute-mode Fargate runs upload immutable run status and sanitized JSONL logs under `run-status/ghl/` in the data lake bucket. Historical Athena rows read only `run-status/ghl/runs/`; pointer files stay outside that table location.
-- Pass `IMAGE_TAG=<immutable image tag>` to the task environment when wiring the task definition or run-task override. The CLI reads it through `--image-tag` and writes it to the top-level run-status `image_tag` field.
+- Terraform injects `IMAGE_TAG=<immutable image tag>` into the task definition. The CLI reads it through `--image-tag` and writes it to the top-level run-status `image_tag` field.
 - `CLOUDWATCH_LOG_URL` remains the supported env var for the run's CloudWatch log stream link. The runner writes it to the top-level run-status `cloudwatch_log_url` field.
 - Slack webhook injection uses `SLACK_WEBHOOK_URL` from Secrets Manager. The secret ARN must point to the reusable Gold Coast tech-alerts webhook for Slack channel `C0B4JTC5VPF`; never place the webhook URL in tfvars, docs, logs, or status files.
 - `ALERT_MODE=failure-only` is the deployed default and posts failures only.
