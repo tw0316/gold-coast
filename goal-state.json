@@ -5,7 +5,7 @@
   "status": "active",
   "roughPercent": 68,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T00:02:00-04:00",
+  "updatedAt": "2026-05-19T00:06:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -134,7 +134,7 @@
         "no-NAT networking review",
         "least-privilege IAM review"
       ],
-      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification remains blocked because no container engine is installed on this machine. Rechecked 2026-05-18T23:43:00-04:00. No AWS resources were created or modified."
+      "notes": "Partial implementation verified. App package accepts Fargate-injected GHL env secrets, Terraform lives under infra/data-lake-refresh, Python tests and Terraform validate pass, but Docker build verification remains blocked because no container engine is installed on this machine. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices. Rechecked 2026-05-18T23:43:00-04:00. No AWS resources were created or modified."
     },
     {
       "id": "slice-8-aws-slack-alerts",
@@ -153,7 +153,7 @@
     {
       "id": "slice-9-athena-smoke-run-status",
       "title": "Add Athena smoke checks, run-status Athena table, and evidence docs",
-      "status": "pending",
+      "status": "next",
       "startedAt": null,
       "completedAt": null,
       "expectedEvidence": [
@@ -211,7 +211,7 @@
       "startedAt": "2026-05-18T23:53:00-04:00",
       "completedAt": "2026-05-19T00:02:00-04:00",
       "expectedEvidence": [".jks/slice-8-aws-slack-alerts-evidence.md"],
-      "notes": "Owner verified local artifacts directly. Current cron requester did not list an active child, but Slice 8 evidence and working tree were present and passed the narrow verification gate."
+      "notes": "Worker returned completion. Owner verified local artifacts directly and accepted after the narrow verification gate passed."
     }
   ],
   "lastVerifiedEvidence": [
@@ -226,8 +226,9 @@
     "No Slack webhook call, live GHL extraction, AWS resource change, deploy, schedule enablement, or GitHub push was run.",
     "Slice 7 Docker image build verification remains a scoped deployment blocker because no local container engine is installed."
   ],
-  "blockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:01:30-04:00. This blocks deploy/schedule enablement, but Slice 8 code/docs/tests were verified locally."
+  "blockers": [],
+  "releaseBlockers": [
+    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:01:30-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
   ],
   "guardrails": [
     "No data-lake GHL writes",

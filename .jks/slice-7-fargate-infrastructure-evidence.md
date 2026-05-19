@@ -114,7 +114,7 @@ for b in docker podman finch nerdctl colima limactl lima; do command -v "$b"; do
 
 Result: no docker, podman, finch, nerdctl, colima, limactl, or lima binary found locally.
 
-Decision: keep Slice 7 blocked. Do not start Slice 8 while container build verification remains incomplete.
+Decision at that tick: keep Slice 7 blocked. It blocks deploy/schedule enablement until container build verification is completed or an approved AWS-native build verification path is used.
 
 Additional guardrails confirmed for this tick:
 
@@ -133,7 +133,7 @@ for c in docker podman finch nerdctl colima limactl lima; do command -v $c && $c
 
 Result: no docker, podman, finch, nerdctl, colima, limactl, or lima binary found locally.
 
-Decision: keep Slice 7 blocked. Do not start Slice 8 while container build verification remains incomplete.
+Decision at that tick: keep Slice 7 blocked. It blocks deploy/schedule enablement until container build verification is completed or an approved AWS-native build verification path is used.
 
 Additional guardrails confirmed for this tick:
 
@@ -141,3 +141,7 @@ Additional guardrails confirmed for this tick:
 - No AWS resources were created or modified.
 - No live GHL extraction was run.
 - No deploy, schedule enablement, or Slack alert was run.
+
+## Owner Clarification: 2026-05-19 00:05 ET
+
+Tej corrected the owner/worker boundary: the JKS owner should not self-implement follow-on slices. Slice 7 Docker verification remains a release/deploy blocker, but it does not block worker-owned local slices that do not require container runtime, AWS changes, live GHL extraction, schedule enablement, or Slack webhook calls.
