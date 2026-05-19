@@ -600,3 +600,143 @@ Guardrails confirmed for this tick:
 - No deploy, EventBridge schedule enablement, or first production refresh was run.
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
+
+## 2026-05-19 03:45 ET Owner Recheck
+
+Slice 10 remains blocked before start. This tick advanced the bounded blocker recheck only; no deploy or production run was attempted.
+
+Container/build tool availability check:
+
+~~~text
+for t in docker colima podman nerdctl finch lima limactl buildctl kaniko executor buildah img earthly; do
+  if command -v "$t" >/dev/null 2>&1; then
+    printf '%s=%s\n' "$t" "$(command -v "$t")"
+  else
+    printf '%s=missing\n' "$t"
+  fi
+done
+~~~
+
+Result:
+
+- docker: unavailable
+- colima: unavailable
+- podman: unavailable
+- nerdctl: unavailable
+- finch: unavailable
+- lima: unavailable
+- limactl: unavailable
+- buildctl: unavailable
+- kaniko: unavailable
+- executor: unavailable
+- buildah: unavailable
+- img: unavailable
+- earthly: unavailable
+
+Container app/path check:
+
+~~~text
+/Applications/Docker.app
+/Applications/OrbStack.app
+/Applications/Podman Desktop.app
+/usr/local/bin/docker
+/opt/homebrew/bin/docker
+/Applications/Docker.app/Contents/Resources/bin/docker
+~~~
+
+Result: all checked paths are missing.
+
+Additional local reconciliation:
+
+- Required local artifacts are present: Dockerfile, pyproject, refresh Terraform entrypoint, batch-runner docs, Fargate runtime docs, run-status Athena smoke docs, run-status DDL, and current Slice 10/11 evidence files.
+- goal-state.json validated as JSON before this state update.
+- EventBridge Scheduler remains disabled by default through schedule_enabled=false.
+- Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh; the only NAT hit was documentation text saying no NAT Gateway is required.
+- Focused GHL mutation scan found no mutating GHL calls under apps/data-lake/src/gold_coast_data_lake or apps/data-lake/scripts.
+- Focused high-risk secret pattern filename scan found no committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL env assignments, or direct Slack webhook env assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.
+
+Decision:
+
+Keep Slice 10 blocked. Do not deploy, enable EventBridge Scheduler, run a production refresh, or modify AWS resources until one of these happens:
+
+- A container build tool is available and apps/data-lake/Dockerfile build verification passes.
+- Tej explicitly approves an alternate AWS-native build verification path.
+
+Guardrails confirmed for this tick:
+
+- No AWS resources were created or modified.
+- No terraform plan or apply was run.
+- No live GHL extraction was run.
+- No deploy, schedule enablement, or first production refresh was run.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
+
+## 2026-05-19 04:00 ET Owner Recheck
+
+Slice 10 remains blocked before start. This tick advanced only the bounded deploy/schedule blocker recheck; no AWS deployment or production refresh was attempted.
+
+Container/build tool availability check:
+
+~~~text
+for t in docker colima podman nerdctl finch lima limactl buildctl kaniko executor buildah img earthly; do
+  if command -v "$t" >/dev/null 2>&1; then
+    printf '%s=%s\n' "$t" "$(command -v "$t")"
+  else
+    printf '%s=missing\n' "$t"
+  fi
+done
+~~~
+
+Result:
+
+- docker: unavailable
+- colima: unavailable
+- podman: unavailable
+- nerdctl: unavailable
+- finch: unavailable
+- lima: unavailable
+- limactl: unavailable
+- buildctl: unavailable
+- kaniko: unavailable
+- executor: unavailable
+- buildah: unavailable
+- img: unavailable
+- earthly: unavailable
+
+Container app/path check:
+
+~~~text
+/Applications/Docker.app
+/Applications/OrbStack.app
+/Applications/Podman Desktop.app
+/usr/local/bin/docker
+/opt/homebrew/bin/docker
+/Applications/Docker.app/Contents/Resources/bin/docker
+~~~
+
+Result: all checked paths are missing.
+
+Additional local reconciliation:
+
+- Required local artifacts are present: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, batch-runner docs, Fargate runtime docs, run-status Athena smoke docs, run-status DDL, and current Slice 10/11 evidence files.
+- goal-state.json validated as JSON before this state update.
+- EventBridge Scheduler remains configured as rate(30 minutes) and disabled by default through schedule_enabled=false.
+- Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh.
+- Focused GHL mutation scan found no mutating GHL calls under apps/data-lake/src/gold_coast_data_lake or apps/data-lake/scripts.
+- Focused high-risk secret pattern filename scan found no committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL env assignments, or direct Slack webhook env assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.
+
+Decision:
+
+Keep Slice 10 blocked. Do not deploy, enable EventBridge Scheduler, run a production refresh, or modify AWS resources until one of these happens:
+
+- A container build tool is available and apps/data-lake/Dockerfile build verification passes.
+- Tej explicitly approves an alternate AWS-native build verification path.
+
+Guardrails confirmed for this tick:
+
+- No AWS resources were created or modified.
+- No terraform plan or apply was run.
+- No live GHL extraction was run.
+- No deploy, schedule enablement, or first production refresh was run.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
