@@ -100,6 +100,8 @@ Guardrails confirmed for this tick:
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
 
+
+
 ## 2026-05-19 06:30 ET Owner Recheck
 
 Slice 10 remains blocked before start. No queue item with status `next` or `pending` exists, so this tick advanced exactly one bounded item by rechecking the deploy/schedule blocker only.
@@ -1690,3 +1692,53 @@ Guardrails confirmed for this tick:
 - No deploy, EventBridge schedule enablement, or first production refresh was run.
 - No Slack webhook call or routine Slack message was sent.
 - No GitHub push was run.
+
+
+## 2026-05-19 07:46 ET Slice Start And AWS Preflight
+
+Slice 10 is now the active bounded slice for this driver tick: enable approved schedule and verify the first scheduled production run.
+
+Before any deploy or live extraction, the owner reconciled local state and ran read-only AWS preflight checks.
+
+### Read-Only AWS Preconditions
+
+Checked:
+
+- AWS caller identity for the configured operator profile.
+- S3 bucket: `gcoffers-data-lake`.
+- Glue database: `gold_coast`.
+- Athena workgroup: `gold_coast_data_lake`.
+- VPC/subnets: default VPC `vpc-04664759049cb614c` with public subnets in us-east-1.
+- Existing data-lake refresh resources: ECR repository, ECS cluster, EventBridge schedule, DynamoDB lock table, and CloudWatch log group.
+- Secrets Manager names/ARNs only, not secret values.
+
+Result:
+
+- The bucket, Glue database, Athena workgroup, VPC, and public subnets are present.
+- No existing data-lake refresh ECR/ECS/Scheduler/DynamoDB/CloudWatch resources were found, which matches the not-yet-deployed state.
+- Existing GHL API key secret found: `goldcoast/ghl-api-key`.
+- Missing GHL location-id secret was created as `goldcoast/ghl-location-id` from the approved local GHL credential source. The value was not printed, committed, or written to evidence.
+- No Slack incoming-webhook secret for the approved Gold Coast tech-alerts channel `C0B4JTC5VPF` was found in Secrets Manager or configured local credential files.
+
+### Decision
+
+Slice 10 is blocked before Terraform apply, ECR image push, manual ECS run, EventBridge schedule enablement, and live production GHL extraction.
+
+Reason: the epic requires AWS-native Slack webhook alerts to `C0B4JTC5VPF`. Launching the production schedule without the approved webhook secret would violate the alert contract and make the first-run monitoring path incomplete.
+
+Required unblock:
+
+- Store the approved Slack incoming webhook URL in AWS Secrets Manager, preferably as `goldcoast/slack/tech-alerts-webhook`.
+- Then rerun Slice 10 with alert-capable Terraform vars and proceed through deploy, image push, manual ECS run, smoke checks, schedule enablement, and first scheduled run verification.
+
+### Guardrails Confirmed
+
+- No live GHL extraction was run.
+- No GHL write path was run or added.
+- No Terraform plan or apply was run.
+- No ECR image push was run.
+- No ECS task was run.
+- No EventBridge schedule was enabled.
+- No Slack webhook call or routine Slack message was sent.
+- No GitHub push was run.
+- No secret values were printed or committed.

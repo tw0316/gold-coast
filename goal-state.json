@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 84,
+  "roughPercent": 85,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T07:40:16-04:00",
+  "updatedAt": "2026-05-19T07:50:07-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -167,8 +167,8 @@
     {
       "id": "slice-10-enable-schedule-first-run",
       "title": "Enable approved schedule and verify the first scheduled production run",
-      "status": "next",
-      "startedAt": null,
+      "status": "blocked",
+      "startedAt": "2026-05-19T07:46:00-04:00",
       "completedAt": null,
       "expectedEvidence": [
         ".jks/slice-10-enable-schedule-first-run-evidence.md",
@@ -177,7 +177,7 @@
         "first scheduled run status",
         "latest-success verification"
       ],
-      "notes": "Unblocked for the next driver tick after Slice 7 Docker image build verification and ARM64 Fargate runtime-platform validation passed locally by 2026-05-19T07:40:16-04:00 using isolated ARM64 Colima profile gold-coast-build. EventBridge remains schedule_enabled=false and no AWS deploy, schedule enablement, production refresh, live GHL extraction, Slack webhook call, or GitHub push was run in the verification tick."
+      "notes": "Started Slice 10 preflight. Read-only AWS checks confirmed the data-lake bucket, Glue database, Athena workgroup, default VPC, and public subnets are available. Created missing Secrets Manager secret goldcoast/ghl-location-id from the approved local GHL credential source without exposing the value. Blocked before Terraform apply, image push, manual run, schedule enablement, or live GHL extraction because no Slack incoming-webhook secret for C0B4JTC5VPF was found; launching the production schedule without the approved AWS-owned alert path would violate the epic alert contract."
     },
     {
       "id": "slice-11-final-acceptance",
@@ -225,24 +225,33 @@
     }
   ],
   "lastVerifiedEvidence": [
-    ".jks/slice-7-fargate-infrastructure-evidence.md",
     ".jks/slice-10-enable-schedule-first-run-evidence.md",
-    "Rechecked release blocker at 2026-05-19T07:40:16-04:00: Docker CLI and Colima are now available.",
-    "An x86_64 Colima attempt required extra emulation dependencies and was abandoned; isolated native ARM64 profile colima-gold-coast-build is available and matches the explicit ARM64 Fargate task runtime.",
-    "Docker build passed: docker --context colima-gold-coast-build build --platform linux/arm64 -t gold-coast-data-lake:efc79ff . from apps/data-lake.",
-    "Image smoke passed: docker image inspect returned linux/arm64 image sha256:8c5879b59dc9aaffaf953babfa92122c7fb8795a64153eb69ac7355568a85f8c, docker run --rm gold-coast-data-lake:efc79ff --help returned CLI usage, and a mounted container dry-run wrote latest-success/status/log artifacts with image_tag=efc79ff.",
-    "Architecture alignment passed: ECS task runtime_platform uses var.task_cpu_architecture, defaults to ARM64, prod tfvars/docs are aligned to linux/arm64, and terraform fmt/init -backend=false/validate passed.",
-    "Required future deploy/acceptance artifacts exist under their actual paths: apps/data-lake/Dockerfile, apps/data-lake/pyproject.toml, infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, docs/ops/data-lake/batch-runner.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/run-status-athena-smoke.md, docs/ops/data-lake/query-library.md, sql/data-lake/ddl/001_run_status_ghl.sql, and Slice 10/11 evidence files.",
-    "goal-state.json validated as JSON before update.",
-    "EventBridge Scheduler remains rate(30 minutes) and disabled by default through schedule_enabled=false.",
-    "Focused no-NAT scan found no NAT Gateway resource/configuration under infra/data-lake-refresh; the only NAT text is a variable description documenting the no-NAT design.",
-    "Focused GHL mutation scan found no data-lake GHL write path; focused GET contract scan confirmed the LeadConnector client refuses non-GET methods and sends method=GET. The Slack alert helper is outside the GHL client path.",
-    "Focused high-risk secret pattern filename scan returned no matches for committed Slack webhook URLs, Slack tokens, AWS access keys, GitHub tokens, private keys, direct GHL_API_KEY assignments, or direct SLACK_WEBHOOK_URL assignments under apps/data-lake, infra/data-lake-refresh, docs/ops, or .jks.",
-    "No live GHL extraction, AWS resource change, terraform plan/apply, deploy, schedule enablement, first production refresh, Slack webhook call, routine Slack message, or GitHub push was run.",
-    "Slice 10 is now set to next; the next driver tick may start deploy/schedule/first-run work only under Slice 10 ownership."
+    "Slice 10 preflight started at 2026-05-19T07:46:00-04:00.",
+    "Read-only AWS preflight passed for gcoffers-data-lake, Glue database gold_coast, Athena workgroup gold_coast_data_lake, default VPC vpc-04664759049cb614c, and public subnets in us-east-1.",
+    "Existing Secrets Manager secret goldcoast/ghl-api-key was found.",
+    "Created missing Secrets Manager secret goldcoast/ghl-location-id from the approved local GHL credential source without printing or committing the value.",
+    "No Secrets Manager secret or local configured credential file was found for a Slack incoming webhook targeting C0B4JTC5VPF.",
+    "Decision: block Slice 10 before Terraform apply, image push, manual ECS run, EventBridge schedule enablement, first production GHL extraction, or Slack webhook call until the approved Slack webhook secret exists.",
+    "No live GHL extraction, Terraform plan/apply, ECR image push, ECS run, schedule enablement, Slack webhook call, routine Slack message, or GitHub push was run."
   ],
-  "blockers": [],
-  "releaseBlockers": [],
+  "blockers": [
+    {
+      "id": "slice-10-missing-slack-webhook-secret",
+      "sliceId": "slice-10-enable-schedule-first-run",
+      "createdAt": "2026-05-19T07:50:07-04:00",
+      "status": "blocked",
+      "notes": "Production launch requires the approved AWS-owned Slack webhook path for C0B4JTC5VPF. No Slack incoming-webhook secret was found in Secrets Manager or configured local credential files. Need the webhook URL stored in Secrets Manager, for example as goldcoast/slack/tech-alerts-webhook, before deploying/enabling the schedule with alerts."
+    }
+  ],
+  "releaseBlockers": [
+    {
+      "id": "slice-10-missing-slack-webhook-secret",
+      "sliceId": "slice-10-enable-schedule-first-run",
+      "createdAt": "2026-05-19T07:50:07-04:00",
+      "status": "blocked",
+      "notes": "Do not enable the 30-minute production schedule or call the Slack alert path until the approved C0B4JTC5VPF webhook secret exists in AWS Secrets Manager."
+    }
+  ],
   "guardrails": [
     "No data-lake GHL writes",
     "Preserve website lead-write behavior",
@@ -250,5 +259,13 @@
     "No NAT Gateway without approval",
     "No credential exposure"
   ],
-  "resourceManifest": []
+  "resourceManifest": [
+    {
+      "type": "aws-secretsmanager-secret",
+      "name": "goldcoast/ghl-location-id",
+      "region": "us-east-1",
+      "createdAt": "2026-05-19T07:50:07-04:00",
+      "notes": "Contains the GHL location ID value from the approved local credential source. Secret value was not logged or committed."
+    }
+  ]
 }
