@@ -28,8 +28,8 @@ SELECT
     CASE
         WHEN count(*) = 1
          AND max(completed_at_ts) >= current_timestamp - INTERVAL '120' MINUTE
-        THEN 'pass'
-        ELSE 'fail'
+	        THEN 'passed'
+	        ELSE 'failed'
     END AS result,
     max(run_id) AS run_id,
     max(snapshot_date) AS snapshot_date,

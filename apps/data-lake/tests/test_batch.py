@@ -25,6 +25,7 @@ from gold_coast_data_lake.jobs.ghl_batch_refresh import (
     build_status_uploader,
     join_s3_prefix,
     parse_args,
+    resolve_athena_output_location,
 )
 from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES
 
@@ -48,6 +49,20 @@ def production_metadata(**overrides):
     }
     metadata.update(overrides)
     return metadata
+
+
+def passed_smoke_check(**overrides):
+    check = {
+        "name": "athena_curated_snapshot",
+        "check_name": "athena_curated_snapshot",
+        "status": "passed",
+        "checked_at": "2026-05-18T22:01:00Z",
+        "queried_tables": ["contacts"],
+        "freshness_result": {"status": "passed", "age_minutes": 1, "max_age_minutes": 120},
+        "row_availability_result": {"status": "passed", "table_counts": {"contacts": 1}, "missing_tables": []},
+    }
+    check.update(overrides)
+    return check
 
 
 class FakeStatusUploader:
@@ -158,6 +173,7 @@ class BatchRunnerTests(unittest.TestCase):
                         lambda _context: {
                             "manifest_s3_uri": "s3://bucket/manifests/ghl/run=s3-run.json",
                             "curated_tables": {"contacts": 1},
+                            "smoke_checks": [passed_smoke_check()],
                         },
                     )
                 ],
@@ -202,6 +218,7 @@ class BatchRunnerTests(unittest.TestCase):
                         lambda _context: {
                             "manifest_s3_uri": "s3://bucket/manifests/ghl/run=success.json",
                             "curated_tables": {"contacts": 1},
+                            "smoke_checks": [passed_smoke_check()],
                         },
                     )
                 ],
@@ -258,6 +275,7 @@ class BatchRunnerTests(unittest.TestCase):
                         lambda _context: {
                             "manifest_s3_uri": "s3://bucket/manifests/ghl/run=baseline.json",
                             "curated_tables": {"contacts": 1},
+                            "smoke_checks": [passed_smoke_check()],
                         },
                     )
                 ],
@@ -299,6 +317,7 @@ class BatchRunnerTests(unittest.TestCase):
         cases = [
             ("extractor_dry_run", {"extractor_dry_run": True}, "extractor_dry_run"),
             ("skip_curated", {"skip_curated": True}, "skip_curated"),
+            ("skip_glue", {"skip_glue": True}, "skip_glue"),
             ("max_items", {"max_items": 1}, "max_items"),
             ("max_pages", {"max_pages": 1}, "max_pages"),
             ("entity_subset", {"entities": ["contacts"]}, "entity_subset"),
@@ -368,6 +387,7 @@ class BatchRunnerTests(unittest.TestCase):
                     "manifest_s3_uri": "s3://bucket/manifests/ghl/run=prod.json",
                     "entity_counts": {"contacts": 2},
                     "curated_tables": {"contacts": 2},
+                    "smoke_checks": [passed_smoke_check()],
                 }
 
             runner = BatchRefreshRunner(
@@ -383,6 +403,56 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["latest_pointer_publish_target"], "latest-success.json")
             self.assertIsNone(result["latest_pointer_skip_reason"])
             self.assertEqual(latest_success["run_id"], "prod")
+
+    def test_eligible_production_success_without_smoke_checks_fails_final_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+
+            def curated_phase(_context):
+                return {
+                    "manifest_s3_uri": "s3://bucket/manifests/ghl/run=prod.json",
+                    "curated_tables": {"contacts": 2},
+                }
+
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[("raw_refresh_and_curated_publish", curated_phase)],
+            )
+            result = runner.run(run_id="prod", dry_run=False, metadata=production_metadata())
+            latest_failure = json.loads(latest_failure_status_path(status_dir).read_text(encoding="utf-8"))
+
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["latest_pointers_published"])
+            self.assertEqual(result["latest_pointer_publish_target"], "latest-failure.json")
+            self.assertEqual(result["error"]["message"], "eligible production refresh completed without smoke_checks")
+            self.assertEqual(latest_failure["run_id"], "prod")
+            self.assertFalse(latest_success_status_path(status_dir).exists())
+
+    def test_eligible_production_success_with_failed_or_not_run_smoke_fails_final_validation(self) -> None:
+        for smoke_status in ("failed", "not_run"):
+            with self.subTest(smoke_status=smoke_status), tempfile.TemporaryDirectory() as tmp:
+                status_dir = Path(tmp) / "status"
+
+                def curated_phase(_context):
+                    return {
+                        "manifest_s3_uri": f"s3://bucket/manifests/ghl/run={smoke_status}.json",
+                        "curated_tables": {"contacts": 2},
+                        "smoke_checks": [passed_smoke_check(status=smoke_status)],
+                    }
+
+                runner = BatchRefreshRunner(
+                    status_dir=status_dir,
+                    output_dir=Path(tmp) / "extracts",
+                    phases=[("raw_refresh_and_curated_publish", curated_phase)],
+                )
+                result = runner.run(run_id=smoke_status, dry_run=False, metadata=production_metadata())
+
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(
+                    result["error"]["message"],
+                    "eligible production refresh smoke checks did not pass: athena_curated_snapshot",
+                )
 
     def test_run_status_promotes_image_tag_and_cloudwatch_log_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -463,6 +533,10 @@ class BatchRunnerTests(unittest.TestCase):
                 "gold_coast_data_lake.jobs.ghl_batch_refresh.run_curated_build",
                 return_value={"table_counts": {"contacts": 1}, "latest_success": {"run_id": "run1"}},
             ) as curated_build,
+            mock.patch(
+                "gold_coast_data_lake.jobs.ghl_batch_refresh.run_athena_smoke_checks",
+                return_value=[passed_smoke_check()],
+            ) as smoke_checks,
         ):
             result = build_production_refresh_phase(raw_config, args)(context)
 
@@ -476,6 +550,16 @@ class BatchRunnerTests(unittest.TestCase):
             glue_database="gold",
         )
         self.assertEqual(result["curated_tables"], {"contacts": 1})
+        smoke_checks.assert_called_once_with(
+            run_id="run1",
+            snapshot_date="2026-05-18",
+            database="gold",
+            workgroup="gold_coast_data_lake",
+            output_location="s3://lake/prod/athena-results/ghl/smoke/",
+            table_counts={"contacts": 1},
+        )
+        self.assertEqual(result["smoke_checks"], [passed_smoke_check()])
+        self.assertEqual(resolve_athena_output_location(args), "s3://lake/prod/athena-results/ghl/smoke/")
 
     def test_alert_callback_updates_run_status_without_exposing_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -27,7 +27,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS gold_coast.run_status_ghl (
     entity_counts map<string,bigint>,
     recordings struct<attempted:bigint,archived:bigint,skipped_existing:bigint,unavailable:bigint>,
     curated_tables map<string,bigint>,
-    smoke_checks array<struct<check_name:string,name:string,status:string,query_execution_id:string,sql_file:string,checked_at:string>>,
+    smoke_checks array<struct<check_name:string,name:string,status:string,checked_at:string,queried_tables:array<string>,query_execution_ids:array<string>,freshness_result:struct<status:string,snapshot_at:string,age_minutes:double,max_age_minutes:int,query_execution_id:string>,row_availability_result:struct<status:string,table_counts:map<string,bigint>,missing_tables:array<string>,failed_tables:array<string>,query_execution_id:string>,error:string>>,
     log_path string,
     latest_pointers_published boolean,
     latest_pointer_publish_target string,

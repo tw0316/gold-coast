@@ -185,6 +185,8 @@ def latest_pointer_skip_reason(
         return "extractor_dry_run"
     if metadata.get("skip_curated"):
         return "skip_curated"
+    if metadata.get("skip_glue"):
+        return "skip_glue"
     if metadata.get("max_items") is not None:
         return "max_items"
     if metadata.get("max_pages") is not None:
@@ -419,6 +421,45 @@ def summarize_phase_results(phase_results: list[dict[str, Any]]) -> dict[str, An
     return summary
 
 
+def final_validation_error(
+    *,
+    dry_run: bool,
+    source_environment: str,
+    metadata: dict[str, Any],
+    phase_summary: dict[str, Any],
+) -> dict[str, str] | None:
+    pointer_skip_reason = latest_pointer_skip_reason(
+        dry_run=dry_run,
+        source_environment=source_environment,
+        metadata=metadata,
+        status="succeeded",
+        phase_summary=phase_summary,
+    )
+    if pointer_skip_reason is not None:
+        return None
+
+    smoke_checks = phase_summary.get("smoke_checks")
+    if not isinstance(smoke_checks, list) or not smoke_checks:
+        return {
+            "class": "RuntimeError",
+            "message": "eligible production refresh completed without smoke_checks",
+        }
+
+    invalid_checks = []
+    for check in smoke_checks:
+        if not isinstance(check, dict):
+            invalid_checks.append("unknown")
+            continue
+        if check.get("status") != "passed":
+            invalid_checks.append(str(check.get("name") or check.get("check_name") or "unknown"))
+    if invalid_checks:
+        return {
+            "class": "RuntimeError",
+            "message": "eligible production refresh smoke checks did not pass: " + ", ".join(invalid_checks),
+        }
+    return None
+
+
 class BatchRefreshRunner:
     def __init__(
         self,
@@ -504,6 +545,17 @@ class BatchRefreshRunner:
 
         duration_seconds = max(0.0, (completed_at - started_at).total_seconds())
         phase_summary = summarize_phase_results(phase_results)
+        if status == "succeeded":
+            validation_error = final_validation_error(
+                dry_run=dry_run,
+                source_environment=source_environment,
+                metadata=run_metadata,
+                phase_summary=phase_summary,
+            )
+            if validation_error:
+                status = "failed"
+                error = validation_error
+                log.write("run_failed", {"error": error, "stage": "final_validation"})
         pointer_skip_reason = latest_pointer_skip_reason(
             dry_run=dry_run,
             source_environment=source_environment,

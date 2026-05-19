@@ -75,7 +75,7 @@ SELECT
     e.table_name,
     coalesce(o.row_count, 0) AS row_count,
     e.min_rows,
-    CASE WHEN coalesce(o.row_count, 0) >= e.min_rows THEN 'pass' ELSE 'fail' END AS result
+	    CASE WHEN coalesce(o.row_count, 0) >= e.min_rows THEN 'passed' ELSE 'failed' END AS result
 FROM expected e
 LEFT JOIN observed o ON e.table_name = o.table_name
 ORDER BY e.table_name;

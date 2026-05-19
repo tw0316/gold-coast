@@ -26,7 +26,7 @@ Local project root: `/Users/jarvis/LocalRepos/gold-coast/apps/data-lake`
 - No query uses transcription, call summaries, or coaching analysis.
 - No query depends on dashboards, Slack scorecards, or GHL writes.
 
-Run-status smoke checks use `gold_coast.run_status_ghl`, backed only by `s3://gcoffers-data-lake/run-status/ghl/runs/`. Pointer files such as `latest-success.json` and `latest-failure.json` are not historical rows. `image_tag` and `cloudwatch_log_url` are top-level nullable strings for deployment/log traceability.
+Run-status smoke checks use `gold_coast.run_status_ghl`, backed only by `s3://gcoffers-data-lake/run-status/ghl/runs/`. Pointer files such as `latest-success.json` and `latest-failure.json` are not historical rows. `image_tag`, `cloudwatch_log_url`, and `smoke_checks` are top-level fields for deployment/log traceability and in-run Athena evidence.
 
 ## Acceptance Queries
 

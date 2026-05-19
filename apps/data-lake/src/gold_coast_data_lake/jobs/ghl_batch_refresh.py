@@ -18,6 +18,7 @@ from gold_coast_data_lake.raw_refresh import (
     build_ghl_raw_refresh_phase,
     run_ghl_raw_refresh,
 )
+from gold_coast_data_lake.smoke import default_athena_output_location, run_athena_smoke_checks
 from gold_coast_data_lake.storage import S3Uploader
 
 
@@ -29,6 +30,8 @@ DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
 DEFAULT_IMAGE_TAG = os.environ.get("IMAGE_TAG")
 DEFAULT_LOCK_TABLE_NAME = os.environ.get("LOCK_TABLE_NAME")
 DEFAULT_GLUE_DATABASE_ENV = os.environ.get("GLUE_DATABASE", DEFAULT_GLUE_DATABASE)
+DEFAULT_ATHENA_WORKGROUP_ENV = os.environ.get("ATHENA_WORKGROUP", "gold_coast_data_lake")
+DEFAULT_ATHENA_OUTPUT_LOCATION_ENV = os.environ.get("ATHENA_OUTPUT_LOCATION")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -68,6 +71,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--curated-output-dir", default=str(PROJECT_ROOT / "data" / "curated"))
     parser.add_argument("--glue-database", default=DEFAULT_GLUE_DATABASE_ENV)
+    parser.add_argument("--athena-workgroup", default=DEFAULT_ATHENA_WORKGROUP_ENV)
+    parser.add_argument("--athena-output-location", default=DEFAULT_ATHENA_OUTPUT_LOCATION_ENV)
     parser.add_argument("--skip-curated", action="store_true", help="Run raw refresh only. Not for production schedule.")
     parser.add_argument("--skip-glue", action="store_true", help="Skip Glue table/partition updates.")
     parser.add_argument(
@@ -170,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             "default_entities": list(DEFAULT_RAW_REFRESH_ENTITIES),
             "extractor_dry_run": args.extractor_dry_run,
             "skip_curated": args.skip_curated,
+            "skip_glue": args.skip_glue,
             "max_items": args.max_items,
             "max_pages": args.max_pages,
             "pipeline_ids": args.pipeline_id,
@@ -212,10 +218,21 @@ def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.
             s3_prefix=join_s3_prefix(args.s3_prefix, args.curated_s3_prefix),
             glue_database=None if args.skip_glue else args.glue_database,
         )
+        latest_success = curated_summary.get("latest_success")
+        latest_success_run_id = latest_success.get("run_id") if isinstance(latest_success, dict) else None
+        smoke_checks = run_athena_smoke_checks(
+            run_id=str(curated_summary.get("run_id") or latest_success_run_id or context.run_id),
+            snapshot_date=str(curated_summary.get("snapshot_date") or context.started_at.date().isoformat()),
+            database=None if args.skip_glue else args.glue_database,
+            workgroup=args.athena_workgroup,
+            output_location=resolve_athena_output_location(args),
+            table_counts=curated_summary.get("table_counts", {}),
+        )
         return {
             **raw_result,
             "curated_tables": curated_summary.get("table_counts", {}),
             "curated": curated_summary,
+            "smoke_checks": smoke_checks,
         }
 
     return phase
@@ -223,6 +240,10 @@ def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.
 
 def join_s3_prefix(*parts: str | None) -> str:
     return "/".join(part.strip("/") for part in parts if part and part.strip("/"))
+
+
+def resolve_athena_output_location(args: argparse.Namespace) -> str | None:
+    return args.athena_output_location or default_athena_output_location(args.s3_bucket, args.s3_prefix)
 
 
 if __name__ == "__main__":

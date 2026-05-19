@@ -2,7 +2,7 @@
 
 ## Scope
 
-This doc covers the production GHL batch refresh run-status path contract and the Athena smoke checks operators run after deploy or after a manual production refresh.
+This doc covers the production GHL batch refresh run-status path contract, the in-run Athena smoke result captured in each production status artifact, and the operator smoke queries used after deploy or manual refresh.
 
 No dashboard is required. The checks use Athena SQL files under sql/data-lake/.
 
@@ -51,7 +51,7 @@ In production execute mode, the runner uploads these artifacts when `--status-s3
 
 Runner dry-runs do not create a status S3 uploader. Execute-mode diagnostics, including `--extractor-dry-run`, may upload immutable historical status/log artifacts when a status bucket is supplied, but they do not publish `latest-success.json` or `latest-failure.json`.
 
-`latest-success.json` and `latest-failure.json` are published only for eligible production refresh runs. Ineligible runs include runner dry-runs, extractor dry-runs, `--skip-curated`, `--max-items`, `--max-pages`, entity subsets, pipeline/conversation/message filters, non-production environments, and successful runs missing a manifest or curated-table output. Every status payload includes `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` so operators can see why a pointer did or did not move.
+`latest-success.json` and `latest-failure.json` are published only for eligible production refresh runs. Ineligible runs include runner dry-runs, extractor dry-runs, `--skip-curated`, `--skip-glue`, `--max-items`, `--max-pages`, entity subsets, pipeline/conversation/message filters, non-production environments, and successful runs missing a manifest or curated-table output. Every status payload includes `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` so operators can see why a pointer did or did not move.
 
 The immutable `status.json` file is single-line JSON so Athena can read it with the JSON SerDe. Pointer files can remain human-readable because they are excluded from the historical table location.
 
@@ -81,7 +81,9 @@ s3://gcoffers-data-lake/run-status/ghl/runs/
 
 Do not point it at s3://gcoffers-data-lake/run-status/ghl/. That broader prefix includes pointer objects and logs.
 
-The table exposes `image_tag`, `cloudwatch_log_url`, `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` as nullable top-level columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
+The table exposes `image_tag`, `cloudwatch_log_url`, `smoke_checks`, `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` as nullable top-level columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
+
+Each eligible production refresh runs Athena against the freshly published `snapshot_date` and `run_id` before writing final status. The status artifact's `smoke_checks` array must be non-empty and all check statuses must be `passed`; otherwise the runner marks the run `failed` and publishes `latest-failure.json` instead of advancing `latest-success.json`. Config-missing smoke checks are recorded as `not_run`, which also fails eligible production final validation.
 
 ## Smoke Checks
 
@@ -116,9 +118,9 @@ aws athena get-query-results --query-execution-id <query-execution-id>
 
 Pass criteria:
 
-- 001_latest_success_freshness.sql returns one row with result = pass and includes `image_tag` plus `cloudwatch_log_url` when the runner provided them.
-- 002_latest_curated_row_availability.sql returns every table with result = pass.
-- 003_critical_table_catalog.sql returns every expected table with result = pass.
+- 001_latest_success_freshness.sql returns one row with result = `passed` and includes `image_tag` plus `cloudwatch_log_url` when the runner provided them.
+- 002_latest_curated_row_availability.sql returns every table with result = `passed`.
+- 003_critical_table_catalog.sql returns every expected table with result = `passed`.
 - No query output contains credentials, raw SMS bodies, raw contact dumps, presigned recording URLs, or webhook URLs.
 
 The freshness check allows 120 minutes. The production cadence is 30 minutes, but the wider smoke threshold avoids false failure during first deploy, manual verification, or a temporarily paused schedule.

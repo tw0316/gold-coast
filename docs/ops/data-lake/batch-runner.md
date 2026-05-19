@@ -14,8 +14,9 @@ The checked-in runner is a local foundation for the production GHL batch refresh
 - optional S3 upload for Athena-queryable run-status artifacts
 - AWS DynamoDB TTL locking when `LOCK_TABLE_NAME` is supplied
 - raw refresh followed by curated table publish for production non-dry-run runs
+- in-run Athena smoke checks for the freshly published curated partition
 
-It does not enable schedules by itself or run live Athena smoke execution.
+It does not enable schedules by itself.
 
 ## Safe Manual Command
 
@@ -76,6 +77,6 @@ Use `--status-s3-bucket` and `--status-s3-prefix` only when run-status artifacts
 
 Dry-run and `--extractor-dry-run` runs never create the status S3 uploader, even when `--status-s3-bucket` is supplied.
 
-The run-status payload exposes `image_tag` and `cloudwatch_log_url` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`.
+The run-status payload exposes `image_tag`, `cloudwatch_log_url`, and `smoke_checks` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`. `smoke_checks` uses `passed`, `failed`, or `not_run`; eligible production success fails final validation unless smoke checks are non-empty and passed.
 
-Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step.
+Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, in-run smoke status capture, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step.

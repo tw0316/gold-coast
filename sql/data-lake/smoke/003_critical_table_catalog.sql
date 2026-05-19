@@ -22,7 +22,7 @@ catalog AS (
 SELECT
     'critical_table_catalog' AS check_name,
     e.table_name,
-    CASE WHEN c.table_name IS NULL THEN 'fail' ELSE 'pass' END AS result,
+	    CASE WHEN c.table_name IS NULL THEN 'failed' ELSE 'passed' END AS result,
     c.table_type
 FROM expected e
 LEFT JOIN catalog c ON e.table_name = c.table_name
