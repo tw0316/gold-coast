@@ -35,12 +35,13 @@ apps/
   website/       Static gcoffers.com website, deployed to the existing S3 buckets
   deals/         Investor deals portal prototype
   tools/         Internal browser tools
+  data-lake/     Read-only Gold Coast data lake source extractor and curated table tooling
 services/
   lead-handler/  Lambda source for website lead capture
 infra/
   website/       Existing Terraform for website, API Gateway, Lambda, and DNS
 sql/
-  data-lake/     Reserved for Gold Coast analytical SQL
+  data-lake/     Gold Coast analytical SQL and acceptance queries
 docs/
   ops/           Operating docs, deployment standards, and compliance tickets
   product/       Product specs and PRDs
@@ -65,6 +66,13 @@ No build step needed. Edit HTML/CSS/JS directly in `apps/website/` and deploy.
 cd apps/website && python3 -m http.server 8080
 ```
 
+Data lake local checks:
+
+```bash
+cd apps/data-lake
+PYTHONPATH=src python3 -m pytest tests
+```
+
 ## Infrastructure
 
 Existing website AWS resources are managed via Terraform in `infra/website/`.
@@ -78,4 +86,4 @@ terraform apply -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
 
 ## Standards
 
-See [docs/ops/website-standards.md](docs/ops/website-standards.md) for full development standards, testing checklist, and deployment procedures.
+See [docs/ops/website-standards.md](docs/ops/website-standards.md) for website standards and [docs/ops/data-lake/](docs/ops/data-lake/) for data-lake operating docs.

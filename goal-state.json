@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 10,
+  "roughPercent": 18,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T22:14:00-04:00",
+  "updatedAt": "2026-05-18T22:30:37-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -33,7 +33,7 @@
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-1-monorepo-refactor",
+  "lastCompletedSlice": "slice-2-data-lake-import",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -53,11 +53,31 @@
     {
       "id": "slice-2-data-lake-import",
       "title": "Import V1 data-lake code, SQL, docs, and tests into monorepo boundaries",
+      "status": "completed",
+      "startedAt": "2026-05-18T22:27:00-04:00",
+      "completedAt": "2026-05-18T22:30:37-04:00",
+      "expectedEvidence": [
+        ".jks/slice-2-data-lake-import-evidence.md",
+        "apps/data-lake package import",
+        "sql/data-lake acceptance SQL import",
+        "docs/ops data-lake docs import",
+        "data-lake test suite"
+      ],
+      "notes": "Verified. V1 data-lake app, SQL, docs, and tests were imported into monorepo boundaries with monorepo path updates and credential-path hardening only."
+    },
+    {
+      "id": "slice-3-batch-runner",
+      "title": "Implement batch runner with run ID, 45-minute DynamoDB TTL lock, status output, sanitized durable logs, and safe manual command",
       "status": "next",
       "startedAt": null,
       "completedAt": null,
-      "expectedEvidence": [],
-      "notes": ""
+      "expectedEvidence": [
+        ".jks/slice-3-batch-runner-evidence.md",
+        "batch runner module and CLI",
+        "focused runner unit tests",
+        "sanitized status/log contract docs"
+      ],
+      "notes": "Next tick only. Do not create AWS resources, deploy infrastructure, or run live GHL extraction before the runner is implemented and locally verified."
     }
   ],
   "childReliability": {
@@ -70,10 +90,11 @@
   },
   "childRuns": [],
   "lastVerifiedEvidence": [
-    ".jks/slice-1-monorepo-refactor-evidence.md",
-    "Static checksum comparison passed for moved website/deals/tools files.",
-    "Local HTTP smoke returned 200 for /, /get-your-offer/, /privacy-policy/, /terms/, /css/styles.css, /js/main.js, and /assets/logo-goldcoast.png.",
-    "Shell, Python, JavaScript, JSON, and Terraform format checks passed."
+    ".jks/slice-2-data-lake-import-evidence.md",
+    "V1 data-lake app, tests, SQL, and docs were imported into apps/data-lake, sql/data-lake, and docs/ops/data-lake.",
+    "Unit tests passed under unittest: 13 run, 12 passed, 1 skipped because pyarrow is not installed locally.",
+    "Python syntax compile passed for imported scripts, package modules, and tests.",
+    "Bounded scans found no data-lake non-GET GHL calls and no credential values in imported artifacts."
   ],
   "blockers": [],
   "guardrails": [

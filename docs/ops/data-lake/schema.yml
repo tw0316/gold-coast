@@ -1,0 +1,476 @@
+version: 2
+
+models:
+  - name: contacts
+    description: "Current GHL contact table for seller identity, attribution, tags, custom fields, and contactability."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/contacts/"
+      partition_key: "snapshot_date"
+      grain: "One row per GHL contact per snapshot_date."
+      raw_entity: "contacts"
+      source_endpoint: "GET /contacts/?locationId=..."
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "High"
+      join_keys:
+        - "contact_id"
+      caveats:
+        - "Latest-known contact state only, not a point-in-time contact history."
+        - "JSON columns preserve nested source fields as strings."
+    columns:
+      - name: contact_id
+        description: "GHL contact ID."
+        tests:
+          - not_null
+      - name: location_id
+        description: "GHL location ID for the Gold Coast account."
+      - name: contact_name
+        description: "Full contact name from GHL."
+      - name: first_name
+        description: "First name from GHL firstName or firstNameRaw."
+      - name: last_name
+        description: "Last name from GHL lastName or lastNameRaw."
+      - name: phone
+        description: "Primary contact phone number. PII."
+      - name: email
+        description: "Primary contact email address. PII."
+      - name: source
+        description: "Contact source value from GHL."
+      - name: assigned_to_user_id
+        description: "Current GHL user assigned to the contact, when present."
+      - name: contact_type
+        description: "GHL contact type."
+      - name: city
+        description: "Contact city."
+      - name: state
+        description: "Contact state."
+      - name: postal_code
+        description: "Contact postal code."
+      - name: country
+        description: "Contact country."
+      - name: tags_json
+        description: "GHL tags serialized as JSON text."
+      - name: custom_fields_json
+        description: "GHL custom fields serialized as JSON text."
+      - name: attributions_json
+        description: "GHL attribution data serialized as JSON text."
+      - name: date_added
+        description: "Source contact creation timestamp normalized to Athena timestamp."
+      - name: date_updated
+        description: "Source contact update timestamp normalized to Athena timestamp."
+      - name: raw_json
+        description: "Full source contact record serialized as JSON text."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: opportunities
+    description: "Current GHL opportunity table. In the MVP, a lead is a GHL opportunity."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/opportunities/"
+      partition_key: "snapshot_date"
+      grain: "One row per GHL opportunity per snapshot_date."
+      raw_entity: "opportunities"
+      source_endpoint: "GET /opportunities/search?location_id=...&pipeline_id=..."
+      enrichment_source: "GET /opportunities/pipelines?locationId=... for pipeline and stage names."
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "High"
+      join_keys:
+        - "opportunity_id"
+        - "contact_id"
+        - "pipeline_id"
+        - "pipeline_stage_id"
+      caveats:
+        - "Latest-known opportunity state only. Full stage movement history is not implemented in MVP."
+        - "Speed-to-lead starts at created_at."
+        - "Schema supports Dispositions as another pipeline without redesign."
+    columns:
+      - name: opportunity_id
+        description: "GHL opportunity ID."
+        tests:
+          - not_null
+      - name: contact_id
+        description: "GHL contact ID associated with the opportunity."
+      - name: location_id
+        description: "GHL location ID."
+      - name: opportunity_name
+        description: "Opportunity name from GHL."
+      - name: pipeline_id
+        description: "GHL pipeline ID."
+      - name: pipeline_name
+        description: "GHL pipeline name from the pipelines endpoint."
+      - name: pipeline_stage_id
+        description: "Current GHL pipeline stage ID."
+      - name: pipeline_stage_name
+        description: "Current GHL pipeline stage name from the pipelines endpoint."
+      - name: pipeline_stage_position
+        description: "Current stage position in the source pipeline."
+      - name: status
+        description: "Current GHL opportunity status."
+      - name: source
+        description: "Opportunity lead source."
+      - name: assigned_to_user_id
+        description: "Current GHL owner assigned to the opportunity."
+      - name: monetary_value
+        description: "Opportunity monetary value from GHL, when present."
+      - name: effective_probability
+        description: "Opportunity effective probability from GHL, when present."
+      - name: created_at
+        description: "Opportunity creation timestamp. This is the lead start timestamp for speed-to-lead."
+      - name: updated_at
+        description: "Opportunity update timestamp."
+      - name: last_stage_change_at
+        description: "Last stage change timestamp from the opportunity payload, when present."
+      - name: last_status_change_at
+        description: "Last status change timestamp from the opportunity payload, when present."
+      - name: contact_name
+        description: "Embedded contact name from the opportunity payload. PII."
+      - name: contact_phone
+        description: "Embedded contact phone from the opportunity payload. PII."
+      - name: contact_email
+        description: "Embedded contact email from the opportunity payload. PII."
+      - name: custom_fields_json
+        description: "Opportunity custom fields serialized as JSON text."
+      - name: attributions_json
+        description: "Opportunity attribution data serialized as JSON text."
+      - name: raw_json
+        description: "Full source opportunity record serialized as JSON text."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: messages
+    description: "GHL conversation message and activity table for SMS, email, Facebook, Instagram, activity events, and raw call message rows."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/messages/"
+      partition_key: "snapshot_date"
+      grain: "One row per GHL conversation message/activity per snapshot_date."
+      raw_entity: "messages"
+      source_endpoint: "GET /conversations/{conversationId}/messages"
+      discovery_endpoint: "GET /conversations/search?locationId=..."
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "High"
+      join_keys:
+        - "message_id"
+        - "conversation_id"
+        - "contact_id"
+      caveats:
+        - "SMS bodies are stored in full by MVP requirement."
+        - "Inbound messages often have no actor_user_id and should be treated as unattributed."
+        - "Use calls for call analytics because it includes fetched detail and recording metadata."
+    columns:
+      - name: message_id
+        description: "GHL message ID."
+        tests:
+          - not_null
+      - name: conversation_id
+        description: "GHL conversation ID."
+      - name: contact_id
+        description: "GHL contact ID associated with the message."
+      - name: location_id
+        description: "GHL location ID."
+      - name: message_type
+        description: "GHL message type such as TYPE_SMS, TYPE_CALL, TYPE_EMAIL, TYPE_FACEBOOK, or TYPE_INSTAGRAM."
+      - name: direction
+        description: "Message direction, usually inbound or outbound."
+      - name: status
+        description: "Source message status."
+      - name: body
+        description: "Message body where present. SMS text is stored in full. PII."
+      - name: from_phone
+        description: "Source from phone value where present. PII."
+      - name: to_phone
+        description: "Source to phone value where present. PII."
+      - name: content_type
+        description: "Source content type where present."
+      - name: actor_user_id
+        description: "GHL userId on the event. Use this for activity attribution when present."
+      - name: source
+        description: "Message source value from GHL."
+      - name: date_added
+        description: "Message creation timestamp."
+      - name: date_updated
+        description: "Message update timestamp."
+      - name: attachments_json
+        description: "Message attachments serialized as JSON text."
+      - name: activity_json
+        description: "Nested activity payload serialized as JSON text."
+      - name: meta_json
+        description: "Nested message metadata serialized as JSON text."
+      - name: error_json
+        description: "Nested source error payload serialized as JSON text."
+      - name: raw_json
+        description: "Full source message record serialized as JSON text."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: calls
+    description: "GHL call metadata table built from fetched call message detail and enriched with recording archive metadata."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/calls/"
+      partition_key: "snapshot_date"
+      grain: "One row per fetched GHL call message detail per snapshot_date."
+      raw_entity: "call_message_details"
+      source_endpoint: "GET /conversations/messages/{messageId}"
+      recording_source_endpoint: "GET /conversations/messages/{messageId}/locations/{locationId}/recording"
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "High"
+      join_keys:
+        - "call_message_id"
+        - "conversation_id"
+        - "contact_id"
+      caveats:
+        - "actor_user_id is the event actor and the correct call attribution field."
+        - "status and call_status both exist because source payloads expose message status and meta.call.status separately."
+        - "Recording columns are metadata references only. No audio is embedded in the table."
+        - "No transcription, call summary, sentiment, or coaching fields are in MVP."
+    columns:
+      - name: call_message_id
+        description: "GHL call message ID."
+        tests:
+          - not_null
+      - name: conversation_id
+        description: "GHL conversation ID."
+      - name: contact_id
+        description: "GHL contact ID associated with the call."
+      - name: location_id
+        description: "GHL location ID."
+      - name: actor_user_id
+        description: "GHL userId on the call event. Use this for activity attribution."
+      - name: direction
+        description: "Call direction, usually inbound or outbound."
+      - name: status
+        description: "Message-level call status from the call detail payload."
+      - name: call_status
+        description: "Nested meta.call.status from the call detail payload."
+      - name: duration_seconds
+        description: "Call duration in seconds from meta.call.duration."
+      - name: from_phone
+        description: "Source from phone value where present. PII."
+      - name: to_phone
+        description: "Source to phone value where present. PII."
+      - name: source
+        description: "Call source value from GHL."
+      - name: alt_id
+        description: "Alternate source ID from the call detail payload, when present."
+      - name: has_recording
+        description: "True when the recording was archived as a private encrypted S3 object."
+      - name: recording_s3_uri
+        description: "Private S3 URI for archived recording. Sensitive reference, not audio content."
+      - name: recording_object_key
+        description: "Private S3 object key for archived recording. Sensitive reference, not audio content."
+      - name: recording_content_type
+        description: "Recording content type observed during archive, such as audio/x-wav."
+      - name: recording_byte_count
+        description: "Archived recording byte count."
+      - name: recording_sha256
+        description: "SHA-256 checksum of archived recording bytes."
+      - name: recording_archival_status
+        description: "Recording archive status, commonly archived or unavailable."
+      - name: recording_unavailable_reason
+        description: "Reason a recording was unavailable, when applicable."
+      - name: date_added
+        description: "Call message creation timestamp."
+      - name: date_updated
+        description: "Call message update timestamp."
+      - name: raw_json
+        description: "Full source call detail record serialized as JSON text."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: call_recordings
+    description: "Recording archive ledger with one row per recording archive attempt."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/call_recordings/"
+      partition_key: "snapshot_date"
+      grain: "One row per GHL call recording archive attempt per snapshot_date."
+      raw_entity: "extractor manifest recordings array"
+      source_endpoint: "GET /conversations/messages/{messageId}/locations/{locationId}/recording"
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "High"
+      join_keys:
+        - "message_id"
+      caveats:
+        - "Audio is stored only as private encrypted S3 objects, never in tables."
+        - "Unavailable rows are expected when GHL has no recording for a call message."
+    columns:
+      - name: message_id
+        description: "GHL call message ID for the recording attempt."
+        tests:
+          - not_null
+      - name: archival_status
+        description: "Archive status, commonly archived or unavailable."
+        tests:
+          - not_null
+      - name: s3_uri
+        description: "Private S3 URI for archived recording. Sensitive reference."
+      - name: object_key
+        description: "Private S3 object key for archived recording. Sensitive reference."
+      - name: content_type
+        description: "Recording content type observed during archive."
+      - name: byte_count
+        description: "Archived recording byte count."
+      - name: sha256
+        description: "SHA-256 checksum of archived recording bytes."
+      - name: unavailable_reason
+        description: "Reason the recording was unavailable, when applicable."
+      - name: archived_at
+        description: "Timestamp when the archive attempt was recorded."
+      - name: endpoint
+        description: "GHL recording endpoint path used for the archive attempt. Does not include credentials."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: mart_lead_response
+    description: "Lead response mart for speed-to-lead, first outbound touch, first outbound phone call, completed call, and activity counts."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/mart_lead_response/"
+      partition_key: "snapshot_date"
+      grain: "One row per GHL opportunity per snapshot_date."
+      raw_entity: "derived from opportunities, messages, and calls"
+      source_endpoint: "Derived table, no direct GHL endpoint."
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "Moderate"
+      join_keys:
+        - "opportunity_id"
+        - "contact_id"
+      caveats:
+        - "lead_created_at is opportunity created_at."
+        - "minutes_to_first_outbound_call is the primary phone speed-to-lead metric."
+        - "first_response_at is implemented as the earlier of first outbound call and first outbound non-call message. It is first outbound touch, not seller reply."
+        - "Activity counts include events for the same contact on or after opportunity creation."
+    columns:
+      - name: opportunity_id
+        description: "GHL opportunity ID."
+        tests:
+          - not_null
+      - name: contact_id
+        description: "GHL contact ID associated with the opportunity."
+      - name: assigned_to_user_id
+        description: "Current GHL opportunity owner."
+      - name: pipeline_stage_name
+        description: "Current opportunity pipeline stage name."
+      - name: opportunity_status
+        description: "Current opportunity status."
+      - name: lead_created_at
+        description: "Lead start timestamp, sourced from opportunities.created_at."
+      - name: first_outbound_call_at
+        description: "First outbound call timestamp on or after lead_created_at for the same contact."
+      - name: first_outbound_call_user_id
+        description: "Actor user ID for the first outbound call."
+      - name: minutes_to_first_outbound_call
+        description: "Minutes from lead_created_at to first_outbound_call_at."
+      - name: first_completed_call_at
+        description: "First completed call timestamp on or after lead_created_at for the same contact."
+      - name: minutes_to_first_completed_call
+        description: "Minutes from lead_created_at to first_completed_call_at."
+      - name: first_outbound_message_at
+        description: "First outbound non-call message timestamp on or after lead_created_at for the same contact."
+      - name: first_outbound_message_type
+        description: "Message type for the first outbound non-call message."
+      - name: minutes_to_first_outbound_message
+        description: "Minutes from lead_created_at to first_outbound_message_at."
+      - name: first_response_at
+        description: "Earliest first outbound call or first outbound message timestamp. This is first outbound touch."
+      - name: minutes_to_first_response
+        description: "Minutes from lead_created_at to first_response_at."
+      - name: call_count
+        description: "Count of call detail rows for the same contact on or after lead_created_at."
+      - name: completed_call_count
+        description: "Count of completed calls for the same contact on or after lead_created_at."
+      - name: message_count
+        description: "Count of non-call messages for the same contact on or after lead_created_at."
+      - name: outbound_activity_count
+        description: "Count of outbound calls and non-call messages after lead creation."
+      - name: inbound_activity_count
+        description: "Count of inbound calls and non-call messages after lead creation."
+      - name: has_contact_attempt
+        description: "True when at least one outbound call or outbound message exists after lead creation."
+      - name: has_completed_call
+        description: "True when at least one completed call exists after lead creation."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null
+
+  - name: mart_rep_activity_daily
+    description: "Daily rep activity mart attributed to the actor on call/message events."
+    meta:
+      glue_database: "gold_coast"
+      table_type: "external_parquet"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/mart_rep_activity_daily/"
+      partition_key: "snapshot_date"
+      grain: "One row per activity_date and actor_user_id per snapshot_date."
+      raw_entity: "derived from messages and calls"
+      source_endpoint: "Derived table, no direct GHL endpoint."
+      refresh_cadence: "Snapshot partition; current verified snapshot_date is 2026-05-18. Use max(snapshot_date) for latest-state queries."
+      pii_level: "Moderate"
+      join_keys:
+        - "activity_date"
+        - "actor_user_id"
+      caveats:
+        - "Activity attribution uses event actor_user_id, not opportunity owner."
+        - "Inbound messages without userId are grouped under unknown."
+        - "No user dimension exists in MVP, so actor_user_id is a raw GHL user ID."
+    columns:
+      - name: activity_date
+        description: "Date of the activity event in ISO YYYY-MM-DD format."
+        tests:
+          - not_null
+      - name: actor_user_id
+        description: "GHL user ID on the event, or unknown when missing."
+        tests:
+          - not_null
+      - name: calls_total
+        description: "Total calls for the actor/date."
+      - name: calls_outbound
+        description: "Outbound calls for the actor/date."
+      - name: calls_inbound
+        description: "Inbound calls for the actor/date."
+      - name: calls_completed
+        description: "Completed calls for the actor/date."
+      - name: call_duration_seconds
+        description: "Total call duration seconds for the actor/date."
+      - name: messages_total
+        description: "Total non-call messages for the actor/date."
+      - name: messages_outbound
+        description: "Outbound non-call messages for the actor/date."
+      - name: messages_inbound
+        description: "Inbound non-call messages for the actor/date."
+      - name: sms_messages
+        description: "SMS and SMS reaction messages for the actor/date."
+      - name: email_messages
+        description: "Email messages for the actor/date."
+      - name: facebook_messages
+        description: "Facebook messages for the actor/date."
+      - name: instagram_messages
+        description: "Instagram messages for the actor/date."
+      - name: unique_contacts_touched
+        description: "Distinct contact IDs touched by calls or non-call messages for the actor/date."
+      - name: first_activity_at
+        description: "First event timestamp for the actor/date."
+      - name: last_activity_at
+        description: "Last event timestamp for the actor/date."
+      - name: snapshot_date
+        description: "Glue partition date for the curated snapshot."
+        tests:
+          - not_null

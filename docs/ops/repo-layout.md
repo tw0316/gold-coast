@@ -12,7 +12,7 @@ services/
 infra/
   website/       Existing Terraform for the website stack
 sql/
-  data-lake/     Reserved for analytical SQL
+  data-lake/     Analytical SQL and acceptance queries
 docs/
   ops/           Runbooks, standards, compliance tickets
   product/       PRDs and product specs
@@ -23,4 +23,6 @@ docs/
 - `scripts/deploy.sh` still deploys the website contents to the existing S3 bucket root.
 - The public website URL structure remains unchanged because files under `apps/website/` are synced as bucket-root objects.
 - `infra/website/main.tf` still packages the lead handler Lambda, now from `services/lead-handler/`.
-- Data-lake code and infrastructure must land in the reserved app/infra/sql boundaries, not in the website app.
+- Data-lake code lives in `apps/data-lake/`.
+- Data-lake SQL lives in `sql/data-lake/`.
+- Future data-lake refresh infrastructure must land under `infra/data-lake-refresh/`, not in the website app or website Terraform.
