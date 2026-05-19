@@ -18,6 +18,7 @@ DEFAULT_SNAPSHOT_DATE = "2026-05-18"
 TABLE_ORDER = [
     "contacts",
     "opportunities",
+    "opportunity_stage_history",
     "messages",
     "calls",
     "call_recordings",
@@ -63,6 +64,11 @@ class GlueTableResult:
     table_location: str
     partition_location: str
     action: str
+
+
+RUN_METADATA_COLUMNS = [
+    ColumnSpec("snapshot_at", "timestamp", "timestamp"),
+]
 
 
 SCHEMAS: dict[str, list[ColumnSpec]] = {
@@ -113,6 +119,19 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("custom_fields_json", "string", "string"),
         ColumnSpec("attributions_json", "string", "string"),
         ColumnSpec("raw_json", "string", "string"),
+    ],
+    "opportunity_stage_history": [
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("pipeline_id", "string", "string"),
+        ColumnSpec("pipeline_stage_id", "string", "string"),
+        ColumnSpec("pipeline_stage_name", "string", "string"),
+        ColumnSpec("status", "string", "string"),
+        ColumnSpec("assigned_to_user_id", "string", "string"),
+        ColumnSpec("observed_at", "timestamp", "timestamp"),
+        ColumnSpec("last_stage_change_at", "timestamp", "timestamp"),
+        ColumnSpec("last_status_change_at", "timestamp", "timestamp"),
+        ColumnSpec("stage_status_key", "string", "string"),
     ],
     "messages": [
         ColumnSpec("message_id", "string", "string"),
@@ -221,6 +240,10 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
 }
 
 
+for schema in SCHEMAS.values():
+    schema[:0] = RUN_METADATA_COLUMNS
+
+
 def parse_s3_uri(uri: str) -> S3Uri:
     if not uri.startswith("s3://"):
         raise ValueError(f"not an S3 URI: {uri}")
@@ -268,11 +291,13 @@ def build_curated_tables(
     raw: dict[str, list[dict[str, Any]]],
     manifest: dict[str, Any],
 ) -> dict[str, TableData]:
+    snapshot_at = manifest_snapshot_at(manifest)
     stage_lookup = build_stage_lookup(raw.get("pipelines", []))
     recording_lookup = build_recording_lookup(manifest.get("recordings", []))
 
     contacts = build_contacts(raw.get("contacts", []))
     opportunities = build_opportunities(raw.get("opportunities", []), stage_lookup)
+    opportunity_stage_history = build_opportunity_stage_history(opportunities, snapshot_at)
     messages = build_messages(raw.get("messages", []))
     calls = build_calls(raw.get("call_message_details", []), recording_lookup)
     call_recordings = build_call_recordings(manifest.get("recordings", []))
@@ -282,6 +307,7 @@ def build_curated_tables(
     rows_by_table = {
         "contacts": contacts,
         "opportunities": opportunities,
+        "opportunity_stage_history": opportunity_stage_history,
         "messages": messages,
         "calls": calls,
         "call_recordings": call_recordings,
@@ -289,9 +315,22 @@ def build_curated_tables(
         "mart_rep_activity_daily": rep_activity,
     }
     return {
-        name: TableData(name=name, columns=SCHEMAS[name], rows=rows_by_table[name])
+        name: TableData(name=name, columns=SCHEMAS[name], rows=with_snapshot_at(rows_by_table[name], snapshot_at))
         for name in TABLE_ORDER
     }
+
+
+def manifest_snapshot_at(manifest: dict[str, Any]) -> datetime | None:
+    return parse_timestamp(
+        manifest.get("snapshot_at")
+        or manifest.get("finished_at")
+        or manifest.get("completed_at")
+        or manifest.get("started_at")
+    )
+
+
+def with_snapshot_at(rows: Iterable[dict[str, Any]], snapshot_at: datetime | None) -> list[dict[str, Any]]:
+    return [{**row, "snapshot_at": snapshot_at} for row in rows]
 
 
 def build_stage_lookup(pipelines: Iterable[dict[str, Any]]) -> dict[tuple[str | None, str | None], dict[str, Any]]:
@@ -386,6 +425,38 @@ def build_opportunities(
             }
         )
     return sorted(rows, key=lambda row: row.get("created_at") or datetime.min)
+
+
+def build_opportunity_stage_history(
+    opportunities: Iterable[dict[str, Any]],
+    snapshot_at: datetime | None,
+) -> list[dict[str, Any]]:
+    rows = []
+    for opportunity in opportunities:
+        stage_status_key = "|".join(
+            str(value or "")
+            for value in (
+                opportunity.get("pipeline_id"),
+                opportunity.get("pipeline_stage_id"),
+                opportunity.get("status"),
+            )
+        )
+        rows.append(
+            {
+                "opportunity_id": opportunity.get("opportunity_id"),
+                "contact_id": opportunity.get("contact_id"),
+                "pipeline_id": opportunity.get("pipeline_id"),
+                "pipeline_stage_id": opportunity.get("pipeline_stage_id"),
+                "pipeline_stage_name": opportunity.get("pipeline_stage_name"),
+                "status": opportunity.get("status"),
+                "assigned_to_user_id": opportunity.get("assigned_to_user_id"),
+                "observed_at": snapshot_at,
+                "last_stage_change_at": opportunity.get("last_stage_change_at"),
+                "last_status_change_at": opportunity.get("last_status_change_at"),
+                "stage_status_key": stage_status_key,
+            }
+        )
+    return sorted(rows, key=lambda row: (row.get("opportunity_id") or "", row.get("observed_at") or datetime.min))
 
 
 def build_messages(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -601,6 +672,7 @@ def build_mart_rep_activity_daily(
 def write_curated_tables(
     tables: dict[str, TableData],
     *,
+    run_id: str,
     snapshot_date: str,
     local_output_dir: str | Path,
     s3_bucket: str | None = None,
@@ -615,9 +687,10 @@ def write_curated_tables(
         s3_client = boto3.client("s3")
 
     written: list[WrittenTable] = []
+    partition_path = f"snapshot_date={snapshot_date}/run={run_id}"
     for table_name in TABLE_ORDER:
         table = tables[table_name]
-        local_dir = output_dir / table_name / f"snapshot_date={snapshot_date}"
+        local_dir = output_dir / table_name / partition_path
         local_dir.mkdir(parents=True, exist_ok=True)
         local_path = local_dir / "part-00000.parquet"
         write_parquet(table, local_path)
@@ -625,7 +698,7 @@ def write_curated_tables(
         key = None
         uri = None
         if s3_client and s3_bucket:
-            key = f"{s3_prefix.strip('/')}/{table_name}/snapshot_date={snapshot_date}/part-00000.parquet"
+            key = f"{s3_prefix.strip('/')}/{table_name}/{partition_path}/part-00000.parquet"
             s3_client.upload_file(
                 str(local_path),
                 s3_bucket,
@@ -665,6 +738,7 @@ def create_or_update_glue_tables(
     database_name: str,
     s3_bucket: str,
     s3_prefix: str,
+    run_id: str,
     snapshot_date: str,
 ) -> list[GlueTableResult]:
     import boto3  # type: ignore
@@ -674,7 +748,7 @@ def create_or_update_glue_tables(
     results: list[GlueTableResult] = []
     for table_name in TABLE_ORDER:
         table_location = f"s3://{s3_bucket}/{s3_prefix.strip('/')}/{table_name}/"
-        partition_location = f"{table_location}snapshot_date={snapshot_date}/"
+        partition_location = f"{table_location}snapshot_date={snapshot_date}/run={run_id}/"
         table_input = glue_table_input(table_name, table_location)
         try:
             glue.get_table(DatabaseName=database_name, Name=table_name)
@@ -687,7 +761,7 @@ def create_or_update_glue_tables(
             action = "created"
 
         partition_input = {
-            "Values": [snapshot_date],
+            "Values": [snapshot_date, run_id],
             "StorageDescriptor": storage_descriptor(table_name, partition_location),
             "Parameters": {"classification": "parquet"},
         }
@@ -695,12 +769,12 @@ def create_or_update_glue_tables(
             glue.get_partition(
                 DatabaseName=database_name,
                 TableName=table_name,
-                PartitionValues=[snapshot_date],
+                PartitionValues=[snapshot_date, run_id],
             )
             glue.update_partition(
                 DatabaseName=database_name,
                 TableName=table_name,
-                PartitionValueList=[snapshot_date],
+                PartitionValueList=[snapshot_date, run_id],
                 PartitionInput=partition_input,
             )
         except ClientError as exc:
@@ -732,7 +806,10 @@ def glue_table_input(table_name: str, location: str) -> dict[str, Any]:
             "classification": "parquet",
             "parquet.compression": "SNAPPY",
         },
-        "PartitionKeys": [{"Name": "snapshot_date", "Type": "string"}],
+        "PartitionKeys": [
+            {"Name": "snapshot_date", "Type": "string"},
+            {"Name": "run_id", "Type": "string"},
+        ],
         "StorageDescriptor": storage_descriptor(table_name, location),
     }
 
@@ -965,9 +1042,12 @@ def run_curated_build(
     glue_database: str | None = DEFAULT_GLUE_DATABASE,
 ) -> dict[str, Any]:
     manifest, raw = load_manifest_and_raw(manifest_uri)
+    run_id = str(manifest.get("run_id") or "unknown-run")
+    snapshot_at = manifest_snapshot_at(manifest)
     tables = build_curated_tables(raw, manifest)
     written = write_curated_tables(
         tables,
+        run_id=run_id,
         snapshot_date=snapshot_date,
         local_output_dir=local_output_dir,
         s3_bucket=s3_bucket,
@@ -979,13 +1059,44 @@ def run_curated_build(
             database_name=glue_database,
             s3_bucket=s3_bucket,
             s3_prefix=s3_prefix,
+            run_id=run_id,
             snapshot_date=snapshot_date,
         )
+    counts = table_counts(tables)
+    written_tables = written_summary(written)
     return {
         "manifest_uri": manifest_uri,
-        "run_id": manifest.get("run_id"),
+        "run_id": run_id,
         "snapshot_date": snapshot_date,
-        "table_counts": table_counts(tables),
-        "written": written_summary(written),
+        "snapshot_at": snapshot_at.isoformat() if snapshot_at else None,
+        "table_counts": counts,
+        "written": written_tables,
         "glue": glue_summary(glue_results),
+        "latest_success": latest_success_payload(
+            manifest_uri=manifest_uri,
+            run_id=run_id,
+            snapshot_date=snapshot_date,
+            snapshot_at=snapshot_at,
+            table_counts=counts,
+            written=written_tables,
+        ),
+    }
+
+
+def latest_success_payload(
+    *,
+    manifest_uri: str,
+    run_id: str,
+    snapshot_date: str,
+    snapshot_at: datetime | None,
+    table_counts: dict[str, int],
+    written: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "snapshot_date": snapshot_date,
+        "snapshot_at": snapshot_at.isoformat() if snapshot_at else None,
+        "manifest_uri": manifest_uri,
+        "table_counts": table_counts,
+        "written": written,
     }

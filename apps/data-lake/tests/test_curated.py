@@ -22,6 +22,7 @@ from gold_coast_data_lake.curated import (
 def sample_raw() -> tuple[dict, dict]:
     manifest = {
         "run_id": "20260518T080441Z",
+        "finished_at": "2026-05-18T10:10:00Z",
         "recordings": [
             {
                 "message_id": "call1",
@@ -125,6 +126,7 @@ class CuratedTests(unittest.TestCase):
         tables = build_curated_tables(raw, manifest)
 
         self.assertEqual(list(tables), TABLE_ORDER)
+        self.assertEqual(tables["contacts"].rows[0]["snapshot_at"].isoformat(), "2026-05-18T10:10:00")
         self.assertEqual(tables["opportunities"].rows[0]["pipeline_stage_name"], "New Leads")
         self.assertTrue(tables["calls"].rows[0]["has_recording"])
         self.assertEqual(tables["calls"].rows[0]["recording_archival_status"], "archived")
@@ -133,6 +135,15 @@ class CuratedTests(unittest.TestCase):
         self.assertEqual(lead["minutes_to_first_outbound_call"], 3.0)
         self.assertEqual(lead["minutes_to_first_outbound_message"], 5.0)
         self.assertTrue(lead["has_completed_call"])
+
+    def test_stage_history_snapshot_preserves_current_stage_state(self) -> None:
+        manifest, raw = sample_raw()
+        tables = build_curated_tables(raw, manifest)
+        row = tables["opportunity_stage_history"].rows[0]
+        self.assertEqual(row["opportunity_id"], "opp1")
+        self.assertEqual(row["pipeline_stage_name"], "New Leads")
+        self.assertEqual(row["stage_status_key"], "pipe1|stage1|open")
+        self.assertEqual(row["observed_at"].isoformat(), "2026-05-18T10:10:00")
 
     def test_rep_activity_uses_event_actor_not_opportunity_owner(self) -> None:
         manifest, raw = sample_raw()
@@ -146,7 +157,10 @@ class CuratedTests(unittest.TestCase):
 
     def test_glue_table_is_partitioned_by_snapshot_date(self) -> None:
         table_input = glue_table_input("contacts", "s3://bucket/curated/ghl/contacts/")
-        self.assertEqual(table_input["PartitionKeys"], [{"Name": "snapshot_date", "Type": "string"}])
+        self.assertEqual(
+            table_input["PartitionKeys"],
+            [{"Name": "snapshot_date", "Type": "string"}, {"Name": "run_id", "Type": "string"}],
+        )
         self.assertEqual(table_input["StorageDescriptor"]["Location"], "s3://bucket/curated/ghl/contacts/")
 
     def test_local_parquet_write_round_trips_row_counts(self) -> None:
@@ -158,10 +172,16 @@ class CuratedTests(unittest.TestCase):
         manifest, raw = sample_raw()
         tables = build_curated_tables(raw, manifest)
         with tempfile.TemporaryDirectory() as tmp:
-            written = write_curated_tables(tables, snapshot_date="2026-05-18", local_output_dir=tmp)
+            written = write_curated_tables(
+                tables,
+                run_id="20260518T080441Z",
+                snapshot_date="2026-05-18",
+                local_output_dir=tmp,
+            )
             counts = {item.name: item.row_count for item in written}
             self.assertEqual(counts["contacts"], 1)
             for item in written:
+                self.assertIn("run=20260518T080441Z", item.local_path)
                 parquet = pq.read_table(item.local_path)
                 self.assertEqual(parquet.num_rows, item.row_count)
 

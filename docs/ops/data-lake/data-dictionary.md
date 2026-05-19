@@ -21,7 +21,7 @@ MVP guardrails:
 - No credentials or raw secrets belong in docs, SQL, logs, or query output.
 - Call recordings are private encrypted S3 objects only. Tables store metadata and object references, not audio payloads.
 
-All tables are external Parquet Glue tables partitioned by `snapshot_date`. Query the latest partition unless a historical snapshot comparison is intentional.
+All tables are external Parquet Glue tables partitioned by `snapshot_date` and `run_id`. Curated rows include `snapshot_at` so repeated same-day refreshes have unambiguous freshness. Query the latest successful run unless a historical snapshot comparison is intentional.
 
 GHL remains the first source namespace inside the source-agnostic Gold Coast data lake. Source-specific objects stay under `raw/ghl/`, `curated/ghl/`, `recordings/ghl/`, `manifests/ghl/`, and `checkpoints/ghl/`.
 
@@ -31,6 +31,7 @@ GHL remains the first source namespace inside the source-agnostic Gold Coast dat
 | --- | --- | ---: | --- |
 | `contacts` | One row per GHL contact | 175 | High |
 | `opportunities` | One row per GHL opportunity | 120 | High |
+| `opportunity_stage_history` | One row per opportunity per successful refresh snapshot | 120 | Moderate |
 | `messages` | One row per GHL conversation message/activity | 1,547 | High |
 | `calls` | One row per fetched GHL call message detail | 193 | High |
 | `call_recordings` | One row per recording archive attempt | 193 | High |
@@ -44,7 +45,7 @@ GHL remains the first source namespace inside the source-agnostic Gold Coast dat
 - `calls.call_message_id` = `call_recordings.message_id`
 - `opportunities.opportunity_id` = `mart_lead_response.opportunity_id`
 - `messages.actor_user_id` and `calls.actor_user_id` identify the event actor. Do not substitute current opportunity owner for activity attribution.
-- Every join across curated tables should include matching `snapshot_date`.
+- Every join across curated tables should include matching `snapshot_date` and `run_id` partitions. Within Parquet rows, `snapshot_at` is the freshness timestamp.
 
 ## contacts
 

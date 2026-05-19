@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 42,
+  "roughPercent": 52,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T22:49:08-04:00",
+  "updatedAt": "2026-05-18T22:55:20-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -33,7 +33,7 @@
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-5-recording-archive-idempotency",
+  "lastCompletedSlice": "slice-6-curated-latest-stage-history",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -110,21 +110,21 @@
     {
       "id": "slice-6-curated-latest-stage-history",
       "title": "Add run-safe curated publishing, latest-success freshness semantics, immutable run-status files, and lightweight stage-history snapshot/diff support",
-      "status": "next",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-05-18T22:50:00-04:00",
+      "completedAt": "2026-05-18T22:55:20-04:00",
       "expectedEvidence": [
         ".jks/slice-6-curated-latest-stage-history-evidence.md",
         "curated publish unit tests",
         "same-day multi-run freshness tests",
         "stage-history snapshot/diff verification"
       ],
-      "notes": "Do not replace prior known-good curated data until smoke checks pass."
+      "notes": "Verified. Curated output now uses snapshot_date/run_id partition semantics, rows carry snapshot_at, latest-success payload is produced only after writes, and opportunity_stage_history captures lightweight stage/status snapshots."
     },
     {
       "id": "slice-7-fargate-infrastructure",
       "title": "Add container packaging, ECR image tagging, ECS Fargate task definition, IAM, public-subnet/no-NAT networking, and EventBridge Scheduler at 30-minute cadence",
-      "status": "pending",
+      "status": "next",
       "startedAt": null,
       "completedAt": null,
       "expectedEvidence": [
@@ -204,16 +204,14 @@
   },
   "childRuns": [],
   "lastVerifiedEvidence": [
-    ".jks/slice-4-production-raw-refresh-orchestration-evidence.md",
-    ".jks/slice-5-recording-archive-idempotency-evidence.md",
-    "Execute-mode raw refresh orchestration added under apps/data-lake using the existing GET-only extractor.",
-    "Recording archive keys are stable by message ID and existing archived recordings are skipped before download.",
-    "Unit tests passed under unittest: 23 run, 22 passed, 1 skipped because pyarrow is not installed locally.",
+    ".jks/slice-6-curated-latest-stage-history-evidence.md",
+    "Curated publish semantics now write under snapshot_date/run_id partitions.",
+    "Curated rows include snapshot_at from the raw manifest.",
+    "Opportunity stage/status snapshots are emitted in opportunity_stage_history for future time-in-stage diffs.",
+    "Latest-success payload is built only after curated writes complete.",
+    "Unit tests passed under unittest: 24 run, 23 passed, 1 skipped because pyarrow is not installed locally.",
     "Python syntax compile passed for data-lake scripts, package modules, job modules, and tests.",
-    "Manual local orchestration fixture succeeded and wrote manifest, raw files, checkpoints, and run status for all six core entities.",
-    "CLI guard checks passed without live GHL calls: default dry-run succeeded and missing env-file execute failed safely.",
-    "Static scan found no forbidden GHL mutation calls under apps/data-lake/src or apps/data-lake/scripts.",
-    "No live GHL extraction, AWS resource change, deploy, schedule, or Slack alert was run."
+    "No live GHL extraction, AWS resource change, Glue update, deploy, schedule, or Slack alert was run."
   ],
   "blockers": [],
   "guardrails": [
