@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 18,
+  "roughPercent": 25,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T22:30:37-04:00",
+  "updatedAt": "2026-05-18T22:39:53-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -26,14 +26,14 @@
     "over90PercentMinutes": 15,
     "immediateOn": ["blocked", "decision-needed", "completed"]
   },
-  "lastReportAt": null,
+  "lastReportAt": "2026-05-18T22:32:00-04:00",
   "finalReport": {
     "sent": false,
     "sentAt": null,
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-2-data-lake-import",
+  "lastCompletedSlice": "slice-3-batch-runner",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -68,16 +68,30 @@
     {
       "id": "slice-3-batch-runner",
       "title": "Implement batch runner with run ID, 45-minute DynamoDB TTL lock, status output, sanitized durable logs, and safe manual command",
-      "status": "next",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-05-18T22:32:00-04:00",
+      "completedAt": "2026-05-18T22:39:53-04:00",
       "expectedEvidence": [
         ".jks/slice-3-batch-runner-evidence.md",
         "batch runner module and CLI",
         "focused runner unit tests",
         "sanitized status/log contract docs"
       ],
-      "notes": "Next tick only. Do not create AWS resources, deploy infrastructure, or run live GHL extraction before the runner is implemented and locally verified."
+      "notes": "Verified. Local batch runner foundation writes run IDs, 45-minute TTL lock metadata, immutable status files, sanitized logs, and safe manual dry-run output. Execute mode deliberately fails until production extraction orchestration lands."
+    },
+    {
+      "id": "slice-4-production-raw-refresh-orchestration",
+      "title": "Add production raw refresh orchestration using the existing GET-only extractor and full core-source refresh strategy",
+      "status": "next",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-4-production-raw-refresh-orchestration-evidence.md",
+        "manual local orchestration run against controlled output paths",
+        "GET-only static check",
+        "raw manifest/status/checkpoint contract verification"
+      ],
+      "notes": "Local orchestration only until verified. Do not create AWS resources, deploy infrastructure, enable scheduling, or send Slack alerts in this slice."
     }
   ],
   "childReliability": {
@@ -90,11 +104,12 @@
   },
   "childRuns": [],
   "lastVerifiedEvidence": [
-    ".jks/slice-2-data-lake-import-evidence.md",
-    "V1 data-lake app, tests, SQL, and docs were imported into apps/data-lake, sql/data-lake, and docs/ops/data-lake.",
-    "Unit tests passed under unittest: 13 run, 12 passed, 1 skipped because pyarrow is not installed locally.",
-    "Python syntax compile passed for imported scripts, package modules, and tests.",
-    "Bounded scans found no data-lake non-GET GHL calls and no credential values in imported artifacts."
+    ".jks/slice-3-batch-runner-evidence.md",
+    "Batch runner foundation added under apps/data-lake with safe dry-run CLI.",
+    "Unit tests passed under unittest: 17 run, 16 passed, 1 skipped because pyarrow is not installed locally.",
+    "Python syntax compile passed for data-lake scripts, package modules, job modules, and tests.",
+    "Manual dry-run succeeded and wrote immutable run status plus latest-success.",
+    "Execute mode failed deliberately with NotImplementedError and wrote latest-failure without advancing latest-success."
   ],
   "blockers": [],
   "guardrails": [
