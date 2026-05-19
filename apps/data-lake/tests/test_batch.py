@@ -132,7 +132,15 @@ class BatchRunnerTests(unittest.TestCase):
                 status_dir=Path(tmp) / "status",
                 output_dir=Path(tmp) / "extracts",
                 status_uploader=uploader,
-                phases=[("noop", lambda _context: {})],
+                phases=[
+                    (
+                        "publish",
+                        lambda _context: {
+                            "manifest_s3_uri": "s3://bucket/manifests/ghl/run=s3-run.json",
+                            "curated_tables": {"contacts": 1},
+                        },
+                    )
+                ],
             )
             result = runner.run(run_id="s3-run", dry_run=False)
             uploads = {upload["key"]: upload for upload in uploader.uploads}
@@ -197,6 +205,55 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(result["manifest_s3_uri"], "s3://bucket/manifests/ghl/run=run1.json")
             self.assertEqual(result["entity_counts"], {"contacts": 2})
             self.assertEqual(result["recordings"]["archived"], 1)
+            self.assertFalse(result["latest_success_eligible"])
+            self.assertFalse(latest_success_status_path(status_dir).exists())
+
+    def test_non_dry_raw_only_success_does_not_advance_latest_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+            baseline = BatchRefreshRunner(status_dir=status_dir, output_dir=Path(tmp) / "extracts")
+            baseline.run(run_id="baseline", dry_run=True)
+
+            def raw_only_phase(_context):
+                return {
+                    "manifest_s3_uri": "s3://bucket/manifests/ghl/run=diag.json",
+                    "entity_counts": {"contacts": 1},
+                }
+
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[("raw_refresh", raw_only_phase)],
+            )
+            result = runner.run(run_id="diag", dry_run=False)
+            latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
+
+            self.assertEqual(result["status"], "succeeded")
+            self.assertFalse(result["latest_success_eligible"])
+            self.assertEqual(latest_success["run_id"], "baseline")
+
+    def test_non_dry_curated_success_advances_latest_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+
+            def curated_phase(_context):
+                return {
+                    "manifest_s3_uri": "s3://bucket/manifests/ghl/run=prod.json",
+                    "entity_counts": {"contacts": 2},
+                    "curated_tables": {"contacts": 2},
+                }
+
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[("raw_refresh_and_curated_publish", curated_phase)],
+            )
+            result = runner.run(run_id="prod", dry_run=False)
+            latest_success = json.loads(latest_success_status_path(status_dir).read_text(encoding="utf-8"))
+
+            self.assertEqual(result["status"], "succeeded")
+            self.assertTrue(result["latest_success_eligible"])
+            self.assertEqual(latest_success["run_id"], "prod")
 
     def test_run_status_promotes_image_tag_and_cloudwatch_log_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

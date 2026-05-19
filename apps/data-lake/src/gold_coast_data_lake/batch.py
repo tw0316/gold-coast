@@ -401,6 +401,9 @@ class BatchRefreshRunner:
 
         duration_seconds = max(0.0, (completed_at - started_at).total_seconds())
         phase_summary = summarize_phase_results(phase_results)
+        latest_success_eligible = dry_run or bool(
+            phase_summary["manifest_s3_uri"] and phase_summary["curated_tables"]
+        )
         payload = {
             "run_id": run_id,
             "status": status,
@@ -426,6 +429,7 @@ class BatchRefreshRunner:
             "smoke_checks": phase_summary["smoke_checks"],
             "phases": phase_results,
             "log_path": self._log_location(run_id, log.path, dry_run=dry_run),
+            "latest_success_eligible": latest_success_eligible,
             "alert_status": "skipped",
             "metadata": sanitize(run_metadata),
             "error": sanitize(error) if error else None,
@@ -450,7 +454,7 @@ class BatchRefreshRunner:
                 historical_run_status_key(str(payload["run_id"])),
                 content_type="application/json",
             )
-        if payload["status"] == "succeeded":
+        if payload["status"] == "succeeded" and payload.get("latest_success_eligible", True):
             latest_path = latest_success_status_path(self.status_dir)
             atomic_write_json(latest_path, sanitize(payload))
             if status_uploader:
