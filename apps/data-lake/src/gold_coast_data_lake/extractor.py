@@ -7,7 +7,7 @@ from typing import Any, Iterable
 from urllib.parse import parse_qsl, urlparse
 
 from .client import GHLAPIError, GHLClient, extension_for_content_type
-from .storage import LocalRunStorage, S3Uploader, recording_object_key
+from .storage import LocalRunStorage, S3Uploader, recording_object_key, recording_object_prefix
 
 
 ENTITY_CONTACTS = "contacts"
@@ -299,6 +299,20 @@ class GHLRawExtractor:
 
         self.recording_attempts += 1
         endpoint = f"/conversations/messages/{message_id}/locations/{self.location_id}/recording"
+        existing_key = self.s3_uploader.find_key_by_prefix(f"{recording_object_prefix(message_id)}.")
+        if existing_key:
+            self.storage.add_recording(
+                {
+                    "message_id": message_id,
+                    "endpoint": endpoint,
+                    "object_key": existing_key,
+                    "s3_uri": self.s3_uploader.uri(existing_key),
+                    "archival_status": "skipped_existing",
+                    "archived_at": self.storage.started_at.isoformat(),
+                }
+            )
+            return
+
         temp_path = self.storage.temp_recording_path(".bin")
         try:
             try:

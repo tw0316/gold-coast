@@ -31,9 +31,13 @@ def manifest_object_key(run_id: str) -> str:
     return f"manifests/ghl/run={run_id}.json"
 
 
-def recording_object_key(message_id: str, ingest_date: str, extension: str) -> str:
+def recording_object_prefix(message_id: str) -> str:
     safe_message_id = "".join(ch for ch in message_id if ch.isalnum() or ch in {"-", "_"})
-    return f"recordings/ghl/ingest_date={ingest_date}/message_id={safe_message_id}{extension}"
+    return f"recordings/ghl/message_id={safe_message_id}"
+
+
+def recording_object_key(message_id: str, ingest_date: str, extension: str) -> str:
+    return f"{recording_object_prefix(message_id)}{extension}"
 
 
 @dataclass
@@ -64,6 +68,20 @@ class S3Uploader:
 
     def uri(self, relative_key: str) -> str:
         return f"s3://{self.bucket}/{self.key(relative_key)}"
+
+    def find_key_by_prefix(self, relative_prefix: str) -> str | None:
+        response = self.client.list_objects_v2(
+            Bucket=self.bucket,
+            Prefix=self.key(relative_prefix),
+            MaxKeys=1,
+        )
+        contents = response.get("Contents") or []
+        if not contents:
+            return None
+        key = str(contents[0]["Key"])
+        if self.prefix and key.startswith(f"{self.prefix}/"):
+            return key[len(self.prefix) + 1 :]
+        return key
 
     def upload_file(self, path: Path, relative_key: str, *, content_type: str | None = None) -> str:
         extra_args: dict[str, str] = {"ServerSideEncryption": "AES256"}

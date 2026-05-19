@@ -30,7 +30,7 @@ Local staging mirrors the S3 object layout:
     raw/ghl/entity=<entity>/ingest_date=YYYY-MM-DD/run=<run_id>.jsonl
     checkpoints/ghl/entity=<entity>.json
     manifests/ghl/run=<run_id>.json
-    recordings/ghl/ingest_date=YYYY-MM-DD/message_id=<messageId>.<ext>
+    recordings/ghl/message_id=<messageId>.<ext>
 
 Raw JSONL records are envelope objects:
 
@@ -77,7 +77,7 @@ Do not run a full recording backfill from this slice. For a controlled single-re
       --max-recordings 1 \
       --s3-bucket gcoffers-data-lake
 
-The upload uses ServerSideEncryption=AES256. The local temporary audio file is removed after upload.
+Recording keys are stable by GHL call message ID so recurring runs can skip already archived audio instead of redownloading the same recording under a new date partition. The upload uses ServerSideEncryption=AES256. The local temporary audio file is removed after upload.
 
 ## Checkpoints And Manifests
 

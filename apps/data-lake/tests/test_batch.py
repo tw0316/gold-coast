@@ -72,6 +72,28 @@ class BatchRunnerTests(unittest.TestCase):
             self.assertEqual(latest_failure["run_id"], "failed")
             self.assertEqual(latest_failure["error"]["class"], "NotImplementedError")
 
+    def test_execute_phase_results_are_promoted_to_run_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status_dir = Path(tmp) / "status"
+
+            def phase(_context):
+                return {
+                    "manifest_s3_uri": "s3://bucket/manifests/ghl/run=run1.json",
+                    "entity_counts": {"contacts": 2},
+                    "recordings": {"attempted": 1, "archived": 1, "skipped_existing": 0, "unavailable": 0},
+                }
+
+            runner = BatchRefreshRunner(
+                status_dir=status_dir,
+                output_dir=Path(tmp) / "extracts",
+                phases=[("raw_refresh", phase)],
+            )
+            result = runner.run(run_id="run1", dry_run=False)
+            self.assertEqual(result["status"], "succeeded")
+            self.assertEqual(result["manifest_s3_uri"], "s3://bucket/manifests/ghl/run=run1.json")
+            self.assertEqual(result["entity_counts"], {"contacts": 2})
+            self.assertEqual(result["recordings"]["archived"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

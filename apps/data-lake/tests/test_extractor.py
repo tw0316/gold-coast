@@ -19,7 +19,7 @@ from gold_coast_data_lake.extractor import (
     extract_items,
     normalize_entities,
 )
-from gold_coast_data_lake.storage import LocalRunStorage, raw_object_key
+from gold_coast_data_lake.storage import LocalRunStorage, raw_object_key, recording_object_key
 
 
 class FakeClient:
@@ -47,8 +47,26 @@ class MissingRecordingClient:
 
 
 class FakeUploader:
+    def find_key_by_prefix(self, relative_prefix: str) -> str | None:
+        return None
+
+    def uri(self, relative_key: str) -> str:
+        return f"s3://bucket/{relative_key}"
+
     def upload_file(self, path: Path, relative_key: str, *, content_type: str | None = None) -> str:
         return f"s3://bucket/{relative_key}"
+
+
+class ExistingRecordingUploader(FakeUploader):
+    def __init__(self) -> None:
+        self.uploads = 0
+
+    def find_key_by_prefix(self, relative_prefix: str) -> str | None:
+        return f"{relative_prefix}wav"
+
+    def upload_file(self, path: Path, relative_key: str, *, content_type: str | None = None) -> str:
+        self.uploads += 1
+        return super().upload_file(path, relative_key, content_type=content_type)
 
 
 class ConversationPagingClient:
@@ -84,6 +102,10 @@ class ExtractorTests(unittest.TestCase):
     def test_raw_object_key_is_partitioned_for_s3_raw_storage(self) -> None:
         key = raw_object_key("contacts", "20260518T010203Z", "2026-05-18")
         self.assertEqual(key, "raw/ghl/entity=contacts/ingest_date=2026-05-18/run=20260518T010203Z.jsonl")
+
+    def test_recording_object_key_is_stable_by_message_id(self) -> None:
+        key = recording_object_key("call 1", "2026-05-18", ".wav")
+        self.assertEqual(key, "recordings/ghl/message_id=call1.wav")
 
     def test_entity_aliases(self) -> None:
         self.assertEqual(normalize_entities(["call-details"]), ["call_message_details"])
@@ -147,6 +169,22 @@ class ExtractorTests(unittest.TestCase):
             self.assertEqual(storage.recordings[0]["message_id"], "msg1")
             self.assertEqual(storage.recordings[0]["archival_status"], "unavailable")
             self.assertEqual(storage.recordings[0]["reason"], "message_does_not_have_recording")
+
+    def test_existing_recording_key_is_not_redownloaded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = LocalRunStorage(tmp, run_id="20260518T010203Z")
+            uploader = ExistingRecordingUploader()
+            extractor = GHLRawExtractor(
+                MissingRecordingClient(),  # type: ignore[arg-type]
+                storage,
+                location_id="loc",
+                s3_uploader=uploader,  # type: ignore[arg-type]
+                options=ExtractOptions(download_recordings=True, max_recordings=1),
+            )
+            extractor.archive_recording("msg1")
+            self.assertEqual(uploader.uploads, 0)
+            self.assertEqual(storage.recordings[0]["archival_status"], "skipped_existing")
+            self.assertEqual(storage.recordings[0]["object_key"], "recordings/ghl/message_id=msg1.wav")
 
     def test_conversation_search_uses_start_after_date_pagination(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

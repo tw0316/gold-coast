@@ -132,6 +132,43 @@ class LocalTtlLock:
 Phase = Callable[[BatchRunContext], dict[str, Any] | None]
 
 
+def summarize_phase_results(phase_results: list[dict[str, Any]]) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "manifest_s3_uri": None,
+        "entity_counts": {},
+        "recordings": {
+            "attempted": 0,
+            "archived": 0,
+            "skipped_existing": 0,
+            "unavailable": 0,
+        },
+        "curated_tables": {},
+        "smoke_checks": [],
+    }
+    for phase_result in phase_results:
+        result = phase_result.get("result")
+        if not isinstance(result, dict):
+            continue
+        if result.get("manifest_s3_uri"):
+            summary["manifest_s3_uri"] = result["manifest_s3_uri"]
+        entity_counts = result.get("entity_counts")
+        if isinstance(entity_counts, dict):
+            summary["entity_counts"].update(entity_counts)
+        recording_counts = result.get("recordings")
+        if isinstance(recording_counts, dict):
+            for key in summary["recordings"]:
+                value = recording_counts.get(key)
+                if isinstance(value, int):
+                    summary["recordings"][key] += value
+        curated_tables = result.get("curated_tables")
+        if isinstance(curated_tables, dict):
+            summary["curated_tables"].update(curated_tables)
+        smoke_checks = result.get("smoke_checks")
+        if isinstance(smoke_checks, list):
+            summary["smoke_checks"].extend(smoke_checks)
+    return summary
+
+
 class BatchRefreshRunner:
     def __init__(
         self,
@@ -203,6 +240,7 @@ class BatchRefreshRunner:
                 self.lock.release(run_id, now=completed_at)
 
         duration_seconds = max(0.0, (completed_at - started_at).total_seconds())
+        phase_summary = summarize_phase_results(phase_results)
         payload = {
             "run_id": run_id,
             "status": status,
@@ -217,18 +255,13 @@ class BatchRefreshRunner:
                 "ttl_seconds": self.lock.ttl_seconds,
                 "acquired": lock_acquired,
             },
-            "manifest_s3_uri": None,
+            "manifest_s3_uri": phase_summary["manifest_s3_uri"],
             "snapshot_date": completed_at.date().isoformat(),
             "snapshot_at": isoformat(completed_at),
-            "entity_counts": {},
-            "recordings": {
-                "attempted": 0,
-                "archived": 0,
-                "skipped_existing": 0,
-                "unavailable": 0,
-            },
-            "curated_tables": {},
-            "smoke_checks": [],
+            "entity_counts": phase_summary["entity_counts"],
+            "recordings": phase_summary["recordings"],
+            "curated_tables": phase_summary["curated_tables"],
+            "smoke_checks": phase_summary["smoke_checks"],
             "phases": phase_results,
             "log_path": str(log.path),
             "alert_status": "skipped",

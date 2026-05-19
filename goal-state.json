@@ -3,9 +3,9 @@
   "goalId": "gold-coast-data-lake-batch-refresh",
   "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
   "status": "active",
-  "roughPercent": 25,
+  "roughPercent": 42,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-18T22:39:53-04:00",
+  "updatedAt": "2026-05-18T22:49:08-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -33,7 +33,7 @@
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-3-batch-runner",
+  "lastCompletedSlice": "slice-5-recording-archive-idempotency",
   "queue": [
     {
       "id": "slice-1-monorepo-refactor",
@@ -82,16 +82,116 @@
     {
       "id": "slice-4-production-raw-refresh-orchestration",
       "title": "Add production raw refresh orchestration using the existing GET-only extractor and full core-source refresh strategy",
-      "status": "next",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-05-18T22:43:00-04:00",
+      "completedAt": "2026-05-18T22:48:40-04:00",
       "expectedEvidence": [
         ".jks/slice-4-production-raw-refresh-orchestration-evidence.md",
         "manual local orchestration run against controlled output paths",
         "GET-only static check",
         "raw manifest/status/checkpoint contract verification"
       ],
-      "notes": "Local orchestration only until verified. Do not create AWS resources, deploy infrastructure, enable scheduling, or send Slack alerts in this slice."
+      "notes": "Verified. Execute-mode raw refresh orchestration is wired through the batch runner, locally verified with a fake GET-only client and controlled output paths. No live GHL extraction or AWS resource changes were run."
+    },
+    {
+      "id": "slice-5-recording-archive-idempotency",
+      "title": "Add idempotent recording archival skip logic keyed by stable GHL call message ID",
+      "status": "completed",
+      "startedAt": "2026-05-18T22:44:00-04:00",
+      "completedAt": "2026-05-18T22:49:08-04:00",
+      "expectedEvidence": [
+        ".jks/slice-5-recording-archive-idempotency-evidence.md",
+        "stable recording key tests",
+        "existing-object skip tests",
+        "bounded static review for no recording URL exposure"
+      ],
+      "notes": "Verified. Recording archive keys are stable by message ID and existing archived recordings are skipped before download. No live recording downloads were run."
+    },
+    {
+      "id": "slice-6-curated-latest-stage-history",
+      "title": "Add run-safe curated publishing, latest-success freshness semantics, immutable run-status files, and lightweight stage-history snapshot/diff support",
+      "status": "next",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-6-curated-latest-stage-history-evidence.md",
+        "curated publish unit tests",
+        "same-day multi-run freshness tests",
+        "stage-history snapshot/diff verification"
+      ],
+      "notes": "Do not replace prior known-good curated data until smoke checks pass."
+    },
+    {
+      "id": "slice-7-fargate-infrastructure",
+      "title": "Add container packaging, ECR image tagging, ECS Fargate task definition, IAM, public-subnet/no-NAT networking, and EventBridge Scheduler at 30-minute cadence",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-7-fargate-infrastructure-evidence.md",
+        "Docker build verification",
+        "Terraform/IaC plan review",
+        "no-NAT networking review",
+        "least-privilege IAM review"
+      ],
+      "notes": "Do not create or modify AWS resources until local app/package verification passes for this slice."
+    },
+    {
+      "id": "slice-8-aws-slack-alerts",
+      "title": "Add AWS-native Slack webhook alerts to C0B4JTC5VPF",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-8-aws-slack-alerts-evidence.md",
+        "sanitized alert payload tests",
+        "Secrets Manager reference docs",
+        "no webhook URL exposure scan"
+      ],
+      "notes": "Do not post routine Slack messages from JKS; deployed runtime alerting only."
+    },
+    {
+      "id": "slice-9-athena-smoke-run-status",
+      "title": "Add Athena smoke checks, run-status Athena table, and evidence docs",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-9-athena-smoke-run-status-evidence.md",
+        "Athena smoke-check command",
+        "run-status table excludes pointer objects",
+        "evidence docs"
+      ],
+      "notes": "Keep pointer objects out of historical run-status rows."
+    },
+    {
+      "id": "slice-10-enable-schedule-first-run",
+      "title": "Enable approved schedule and verify the first scheduled production run",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-10-enable-schedule-first-run-evidence.md",
+        "manual AWS run evidence",
+        "EventBridge schedule evidence",
+        "first scheduled run status",
+        "latest-success verification"
+      ],
+      "notes": "Requires prior infrastructure, alerting, smoke checks, and approval-safe deploy path."
+    },
+    {
+      "id": "slice-11-final-acceptance",
+      "title": "Final acceptance and evidence bundle",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/slice-11-final-acceptance-evidence.md",
+        "final acceptance checklist",
+        "operator runbook links",
+        "reporter final update"
+      ],
+      "notes": "Do not mark goal complete until final report is sent and recorded."
     }
   ],
   "childReliability": {
@@ -104,12 +204,16 @@
   },
   "childRuns": [],
   "lastVerifiedEvidence": [
-    ".jks/slice-3-batch-runner-evidence.md",
-    "Batch runner foundation added under apps/data-lake with safe dry-run CLI.",
-    "Unit tests passed under unittest: 17 run, 16 passed, 1 skipped because pyarrow is not installed locally.",
+    ".jks/slice-4-production-raw-refresh-orchestration-evidence.md",
+    ".jks/slice-5-recording-archive-idempotency-evidence.md",
+    "Execute-mode raw refresh orchestration added under apps/data-lake using the existing GET-only extractor.",
+    "Recording archive keys are stable by message ID and existing archived recordings are skipped before download.",
+    "Unit tests passed under unittest: 23 run, 22 passed, 1 skipped because pyarrow is not installed locally.",
     "Python syntax compile passed for data-lake scripts, package modules, job modules, and tests.",
-    "Manual dry-run succeeded and wrote immutable run status plus latest-success.",
-    "Execute mode failed deliberately with NotImplementedError and wrote latest-failure without advancing latest-success."
+    "Manual local orchestration fixture succeeded and wrote manifest, raw files, checkpoints, and run status for all six core entities.",
+    "CLI guard checks passed without live GHL calls: default dry-run succeeded and missing env-file execute failed safely.",
+    "Static scan found no forbidden GHL mutation calls under apps/data-lake/src or apps/data-lake/scripts.",
+    "No live GHL extraction, AWS resource change, deploy, schedule, or Slack alert was run."
   ],
   "blockers": [],
   "guardrails": [
