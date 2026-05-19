@@ -5,7 +5,7 @@
   "status": "active",
   "roughPercent": 78,
   "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T00:44:38-04:00",
+  "updatedAt": "2026-05-19T01:13:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
   "crons": {
     "driver": {
@@ -26,7 +26,7 @@
     "over90PercentMinutes": 15,
     "immediateOn": ["blocked", "decision-needed", "completed"]
   },
-  "lastReportAt": "2026-05-19T00:25:00-04:00",
+  "lastReportAt": "2026-05-19T01:11:37-04:00",
   "finalReport": {
     "sent": false,
     "sentAt": null,
@@ -177,7 +177,7 @@
         "first scheduled run status",
         "latest-success verification"
       ],
-      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T00:44:38-04:00: docker, colima, podman, and nerdctl are unavailable locally. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
+      "notes": "Blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T01:13:00-04:00: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, and executor are unavailable locally. Do not deploy, enable schedule, or run first production refresh before that release blocker is cleared."
     },
     {
       "id": "slice-11-final-acceptance",
@@ -225,23 +225,21 @@
     }
   ],
   "lastVerifiedEvidence": [
-    ".jks/slice-9-athena-smoke-run-status-evidence.md",
-    "Added sql/data-lake/ddl/001_run_status_ghl.sql with LOCATION limited to s3://gcoffers-data-lake/run-status/ghl/runs/ so pointer objects are excluded from historical rows.",
-    "Added smoke SQL for latest-success freshness, curated row availability by snapshot_date plus run_id, and critical catalog table presence.",
-    "BatchRefreshRunner now writes historical status as single-line JSON and can upload run-status artifacts/logs to S3 for non-dry-run execute mode.",
-    "GHL batch CLI exposes --status-s3-bucket, --status-s3-prefix, --image-tag, and --cloudwatch-log-url; execute mode defaults status artifacts to --s3-bucket when not extractor-dry-run.",
-    "Run-status exposes sanitized top-level image_tag and cloudwatch_log_url for deployment/log traceability, and dry-run/extractor-dry-run paths skip S3 status uploads.",
-    "Added operator docs for run-status paths and Athena smoke-check commands; consolidated duplicate smoke docs.",
-    "Python compile passed and unittest ran 38 tests: 37 passed, 1 skipped because pyarrow is not installed locally.",
-    "Local dry-run verified one-line historical status, top-level observability fields, local log_path for dry-run, pointer exclusion, JSON validity, CLI help, git diff --check, GET-only GHL scan, and credential/webhook scan with only fake test fixtures.",
-    "No live Athena query, GHL extraction, AWS resource change, deploy, schedule enablement, Slack webhook call, or GitHub push was run.",
-    "Slice 7 Docker image build verification remains a release/deploy blocker and now blocks Slice 10 schedule enablement."
+    ".jks/slice-10-enable-schedule-first-run-evidence.md",
+    "Rechecked Slice 10 at 2026-05-19T01:13:00-04:00 before starting deploy/schedule/first-run work.",
+    "Container/build tools remain unavailable locally: docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, and executor were not found.",
+    "Dockerfile/package contract inspected: apps/data-lake/Dockerfile still installs the package and runs python -m gold_coast_data_lake.jobs.ghl_batch_refresh; pyproject still declares boto3 and pyarrow.",
+    "EventBridge Scheduler remains rate(30 minutes) and disabled by default through schedule_enabled=false.",
+    "Focused scan found no mutating GHL calls under apps/data-lake/src or apps/data-lake/scripts.",
+    "Focused secret/webhook scan found only sanitizer code references and test assertions, not committed webhook URLs, tokens, or private keys.",
+    "No live GHL extraction, AWS resource change, terraform plan/apply, deploy, schedule enablement, first production refresh, Slack webhook call, routine Slack message, or GitHub push was run.",
+    "Slice 10 remains blocked until container build verification passes or Tej explicitly approves an alternate AWS-native build verification path."
   ],
   "blockers": [
-    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T00:44:38-04:00; docker, colima, podman, and nerdctl are unavailable locally."
+    "Slice 10 schedule enablement/first production run is blocked until Slice 7 Docker image build verification is resolved or Tej approves an alternate AWS-native build verification path. Rechecked 2026-05-19T01:13:00-04:00; docker, colima, podman, nerdctl, finch, lima, limactl, buildctl, kaniko, and executor are unavailable locally."
   ],
   "releaseBlockers": [
-    "Slice 7 Docker image build verification remains blocked because no local container engine is installed on this machine; rechecked 2026-05-19T00:44:38-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
+    "Slice 7 Docker image build verification remains blocked because no local container/build engine is installed on this machine; rechecked 2026-05-19T01:13:00-04:00. This blocks deploy/schedule/final acceptance, not non-dependent local worker slices."
   ],
   "guardrails": [
     "No data-lake GHL writes",
