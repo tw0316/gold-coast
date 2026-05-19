@@ -6,7 +6,7 @@ set -euo pipefail
 
 ENV="${1:-staging}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SITE_DIR="$PROJECT_ROOT/site"
+SITE_DIR="$PROJECT_ROOT/apps/website"
 
 # Environment config
 if [[ "$ENV" == "staging" ]]; then
@@ -28,6 +28,11 @@ echo "  Environment: $ENV"
 echo "  Bucket: $BUCKET"
 echo "  CloudFront: $CF_DIST"
 echo "========================================="
+
+if [[ ! -d "$SITE_DIR" ]]; then
+  echo "Website source directory not found: $SITE_DIR"
+  exit 1
+fi
 
 # Step 1: Upload to S3
 echo ""

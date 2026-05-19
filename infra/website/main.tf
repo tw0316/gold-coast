@@ -19,10 +19,10 @@ provider "aws" {
 }
 
 locals {
-  bucket_name      = var.environment == "prod" ? "gcoffers-site" : "gcoffers-site-staging"
-  leads_bucket     = "goldcoast-leads"
-  domain_name      = var.environment == "prod" ? var.domain : "staging.${var.domain}"
-  is_staging       = var.environment == "staging"
+  bucket_name  = var.environment == "prod" ? "gcoffers-site" : "gcoffers-site-staging"
+  leads_bucket = "goldcoast-leads"
+  domain_name  = var.environment == "prod" ? var.domain : "staging.${var.domain}"
+  is_staging   = var.environment == "staging"
 }
 
 # ==========================================================================
@@ -46,10 +46,10 @@ locals {
 # ACM Certificate (wildcard)
 # ==========================================================================
 resource "aws_acm_certificate" "cert" {
-  provider          = aws.us_east_1
-  domain_name       = var.domain
+  provider                  = aws.us_east_1
+  domain_name               = var.domain
   subject_alternative_names = ["*.${var.domain}"]
-  validation_method = "DNS"
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -355,8 +355,8 @@ resource "aws_iam_role" "lambda" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
+        Action    = "sts:AssumeRole"
+        Effect    = "Allow"
         Principal = { Service = "lambda.amazonaws.com" }
       }
     ]
@@ -394,7 +394,7 @@ resource "aws_iam_role_policy" "lambda" {
 # ==========================================================================
 data "archive_file" "lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda"
+  source_dir  = "${path.module}/../../services/lead-handler"
   output_path = "${path.module}/.build/lambda.zip"
 }
 

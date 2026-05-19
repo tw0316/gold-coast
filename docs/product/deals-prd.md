@@ -450,14 +450,14 @@ The deal portal inherits the seller site's design tokens:
 
 ### Monorepo structure
 
-The deals portal lives in the same repo as the seller site (`goldcoast-website/`). Directory layout:
+The deals portal lives in the same repo as the seller site. Directory layout after the monorepo refactor:
 
 ```
-goldcoast-website/
-├── site/              ← seller site (gcoffers.com) — existing
-├── deals/             ← investor portal (deals.gcoffers.com) — NEW
-├── lambda/            ← shared Lambda functions (seller + buyer)
-├── infra/             ← shared Terraform/infra
+gold-coast/
+├── apps/website/             ← seller site (gcoffers.com)
+├── apps/deals/               ← investor portal (deals.gcoffers.com)
+├── services/lead-handler/    ← shared Lambda functions (seller + buyer)
+├── infra/website/            ← website Terraform/infra
 ├── scripts/           ← deploy scripts (both sites)
 ├── shared/            ← shared assets (logo, brand files)
 ├── docs/              ← PRDs, specs

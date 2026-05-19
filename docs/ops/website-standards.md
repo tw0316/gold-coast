@@ -182,10 +182,13 @@ style: adjust hero CTA button spacing
 
 ## File Structure
 ```
-goldcoast-website/
+gold-coast/
 ├── docs/
-│   └── STANDARDS.md          # This file
-├── site/
+│   ├── ops/
+│   │   └── website-standards.md
+│   └── product/
+├── apps/
+│   └── website/
 │   ├── index.html            # Homepage (hero + Step 1 form)
 │   ├── get-your-offer/
 │   │   └── index.html        # Step 2 form
@@ -201,15 +204,19 @@ goldcoast-website/
 │       ├── logo.svg
 │       ├── favicon.ico
 │       └── og-image.jpg
-├── lambda/
-│   ├── index.js              # Form handler
-│   ├── package.json
-│   └── test.js               # Local test script
+├── services/
+│   └── lead-handler/
+│       ├── index.js          # Form handler
+│       ├── package.json
+│       └── test.js           # Local test script
 ├── infra/
-│   ├── main.tf               # Terraform (or CDK)
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── staging.tfvars
+│   └── website/
+│       ├── main.tf           # Terraform (or CDK)
+│       ├── variables.tf
+│       ├── outputs.tf
+│       └── staging.tfvars
+├── sql/
+│   └── data-lake/
 ├── scripts/
 │   ├── deploy.sh             # Deploy script
 │   └── setup.sh              # One-time infra setup

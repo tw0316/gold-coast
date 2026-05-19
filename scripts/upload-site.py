@@ -4,8 +4,6 @@ import os
 import mimetypes
 from pathlib import Path
 
-import os
-
 s = boto3.Session(
     aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
     aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
@@ -13,8 +11,9 @@ s = boto3.Session(
 )
 
 s3 = s.client('s3')
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BUCKET = 'gcoffers-site'
-SITE_DIR = Path('/Users/jarvis/Projects/goldcoast-website/site')
+SITE_DIR = PROJECT_ROOT / 'apps' / 'website'
 
 print(f"Uploading site to s3://{BUCKET}/", flush=True)
 

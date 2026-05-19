@@ -246,7 +246,8 @@ print("\n6. Creating Lambda function...")
 import zipfile
 import io
 
-lambda_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'lambda')
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+lambda_dir = os.path.join(repo_root, 'services', 'lead-handler')
 zip_buffer = io.BytesIO()
 with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
     for filename in ['index.js', 'package.json']:

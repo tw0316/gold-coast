@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "goalId": "gold-coast-data-lake-batch-refresh",
+  "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
+  "status": "active",
+  "roughPercent": 10,
+  "createdAt": "2026-05-18T21:55:00-04:00",
+  "updatedAt": "2026-05-18T22:14:00-04:00",
+  "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
+  "crons": {
+    "driver": {
+      "id": "cdc91a06-8342-47ea-8625-e77a7b19ca41",
+      "cadence": "15 minutes during build",
+      "status": "active"
+    },
+    "reporter": {
+      "id": "4f0b9c10-0640-4a16-843c-4ad9c37d7a8c",
+      "cadence": "variable JKS reporting policy",
+      "status": "active"
+    }
+  },
+  "reportingPolicy": {
+    "firstUpdateAfterMinutes": 15,
+    "under70PercentMinutes": 60,
+    "from70To90PercentMinutes": 30,
+    "over90PercentMinutes": 15,
+    "immediateOn": ["blocked", "decision-needed", "completed"]
+  },
+  "lastReportAt": null,
+  "finalReport": {
+    "sent": false,
+    "sentAt": null,
+    "messageId": null
+  },
+  "activeSlice": null,
+  "lastCompletedSlice": "slice-1-monorepo-refactor",
+  "queue": [
+    {
+      "id": "slice-1-monorepo-refactor",
+      "title": "Refactor repo into monorepo skeleton while preserving existing website behavior",
+      "status": "completed",
+      "startedAt": "2026-05-18T21:55:00-04:00",
+      "completedAt": "2026-05-18T22:10:00-04:00",
+      "expectedEvidence": [
+        ".jks/slice-1-monorepo-refactor-evidence.md",
+        "git status",
+        "path checksum comparison",
+        "static website local smoke",
+        "lambda syntax checks"
+      ],
+      "notes": "Verified. Existing website source bytes and local HTTP behavior were preserved."
+    },
+    {
+      "id": "slice-2-data-lake-import",
+      "title": "Import V1 data-lake code, SQL, docs, and tests into monorepo boundaries",
+      "status": "next",
+      "startedAt": null,
+      "completedAt": null,
+      "expectedEvidence": [],
+      "notes": ""
+    }
+  ],
+  "childReliability": {
+    "spawned": 0,
+    "completed": 0,
+    "stale": 0,
+    "replaced": 0,
+    "failed": 0,
+    "lastIssue": null
+  },
+  "childRuns": [],
+  "lastVerifiedEvidence": [
+    ".jks/slice-1-monorepo-refactor-evidence.md",
+    "Static checksum comparison passed for moved website/deals/tools files.",
+    "Local HTTP smoke returned 200 for /, /get-your-offer/, /privacy-policy/, /terms/, /css/styles.css, /js/main.js, and /assets/logo-goldcoast.png.",
+    "Shell, Python, JavaScript, JSON, and Terraform format checks passed."
+  ],
+  "blockers": [],
+  "guardrails": [
+    "No data-lake GHL writes",
+    "Preserve website lead-write behavior",
+    "No local/OpenClaw cron dependency in deployed operations",
+    "No NAT Gateway without approval",
+    "No credential exposure"
+  ],
+  "resourceManifest": []
+}

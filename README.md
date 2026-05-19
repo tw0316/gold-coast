@@ -1,6 +1,6 @@
 # Gold Coast Home Buyers — gcoffers.com
 
-Lead generation website for Gold Coast Home Buyers, a South Florida real estate wholesaling business.
+Gold Coast Home Buyers production monorepo. The current production surface is the gcoffers.com lead generation website for a South Florida real estate wholesaling business.
 
 ## Stack
 
@@ -28,6 +28,24 @@ Lead generation website for Gold Coast Home Buyers, a South Florida real estate 
 ./scripts/deploy.sh prod
 ```
 
+## Repository Layout
+
+```text
+apps/
+  website/       Static gcoffers.com website, deployed to the existing S3 buckets
+  deals/         Investor deals portal prototype
+  tools/         Internal browser tools
+services/
+  lead-handler/  Lambda source for website lead capture
+infra/
+  website/       Existing Terraform for website, API Gateway, Lambda, and DNS
+sql/
+  data-lake/     Reserved for Gold Coast analytical SQL
+docs/
+  ops/           Operating docs, deployment standards, and compliance tickets
+  product/       Product specs and PRDs
+```
+
 ## Architecture
 
 ```
@@ -40,19 +58,19 @@ Form submissions hit Lambda via API Gateway. Lambda writes to S3 first (source o
 
 ## Development
 
-No build step needed. Edit HTML/CSS/JS directly in `site/` and deploy.
+No build step needed. Edit HTML/CSS/JS directly in `apps/website/` and deploy.
 
 ```bash
 # Preview locally
-cd site && python3 -m http.server 8080
+cd apps/website && python3 -m http.server 8080
 ```
 
 ## Infrastructure
 
-All AWS resources are managed via Terraform in `infra/`.
+Existing website AWS resources are managed via Terraform in `infra/website/`.
 
 ```bash
-cd infra
+cd infra/website
 terraform init
 terraform plan -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
 terraform apply -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
@@ -60,4 +78,4 @@ terraform apply -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
 
 ## Standards
 
-See [docs/STANDARDS.md](docs/STANDARDS.md) for full development standards, testing checklist, and deployment procedures.
+See [docs/ops/website-standards.md](docs/ops/website-standards.md) for full development standards, testing checklist, and deployment procedures.
