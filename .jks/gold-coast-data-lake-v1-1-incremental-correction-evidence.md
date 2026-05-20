@@ -145,3 +145,28 @@ Final duplicate/grain smoke query:
 - 5beb0092-457d-4e84-b7e0-44d5372db2ef, passed with zero duplicate/null keys across core stable IDs and reporting mart grains.
 
 Cleanup remains approval-gated. No S3 deletion or Glue cleanup was run.
+
+## 2026-05-19 20:51 ET Rev 7 Runtime Smoke Hardening Deploy
+
+Runtime smoke hardening was deployed after validation found reporting mart grain checks should be explicit in live in-run smoke, not only operator SQL.
+
+- Commit/image: 25d481057420fb09abfa71b2be8f0aa0f0514061.
+- ECS task definition: gold-coast-data-lake-ghl-refresh:7.
+- EventBridge schedule: ENABLED at rate(1 hour).
+- Manual production run: 20260520T004655Z.
+- Latest-success status: succeeded.
+- Snapshot at: 2026-05-20T00:48:58.075894Z.
+- In-run smoke status: passed.
+
+The live duplicate/grain smoke now checks and passes:
+
+- contacts_latest.contact_id
+- opportunities_latest.opportunity_id
+- messages.message_id
+- calls.call_message_id
+- call_recordings.message_id
+- opportunity_stage_history.transition_key
+- lead_response.opportunity_id
+- rep_activity_daily.activity_date+actor_user_id
+
+Cleanup remains approval-gated. No S3 deletion or Glue cleanup was run.

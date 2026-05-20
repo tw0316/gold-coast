@@ -5,7 +5,7 @@
   "status": "completed",
   "roughPercent": 100,
   "createdAt": "2026-05-19T20:29:00-04:00",
-  "updatedAt": "2026-05-19T20:45:00-04:00",
+  "updatedAt": "2026-05-19T20:53:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-v1-1-incremental-correction.md",
   "crons": {
     "driver": {
@@ -30,10 +30,10 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-05-19T20:45:00-04:00",
+  "lastReportAt": "2026-05-19T20:53:00-04:00",
   "finalReport": {
-    "sent": false,
-    "sentAt": null,
+    "sent": true,
+    "sentAt": "2026-05-19T20:53:00-04:00",
     "messageId": null
   },
   "activeSlice": null,
@@ -79,7 +79,7 @@
         "aws glue get-tables",
         "s3 latest-success status"
       ],
-      "notes": "EventBridge schedule is ENABLED at rate(1 hour), target task definition is rev 6, image tag is d3656922160254c2a1efa1fd15b951ce41c2166f, core tables point to curated/ghl/v1_1/core, reporting marts point to curated/ghl/v1_1/reporting, and latest-success run 20260520T002801Z passed in-run smoke."
+      "notes": "EventBridge schedule is ENABLED at rate(1 hour), target task definition was rev 6 at initial validation, image tag was d3656922160254c2a1efa1fd15b951ce41c2166f, core tables point to curated/ghl/v1_1/core, reporting marts point to curated/ghl/v1_1/reporting, and latest-success run 20260520T002801Z passed in-run smoke."
     },
     {
       "id": "slice-4-athena-validation",
@@ -108,7 +108,7 @@
         "docs/ops/data-lake/athena-mcp-guidance.md",
         ".jks/v1-1-smoke-sql-patch-evidence.md"
       ],
-      "notes": "Added stage-history, lead_response, and rep_activity_daily duplicate/grain smoke coverage; added MCP guidance; fixed stale app/run-status docs."
+      "notes": "Added stage-history, lead_response, and rep_activity_daily duplicate/grain smoke coverage; added MCP guidance; fixed stale app/run-status docs; committed as 25d481057420fb09abfa71b2be8f0aa0f0514061."
     },
     {
       "id": "slice-6-record-state-and-approval-gate",
@@ -121,7 +121,7 @@
         "goal-state.json",
         ".jks/v1-1-validation-reconciliation-evidence.md"
       ],
-      "notes": "Old V1 generated snapshot prefixes are retained and cleanup remains blocked pending explicit Tej approval. No S3 deletion or Glue cleanup was run."
+      "notes": "Old V1 generated snapshot prefixes are retained and cleanup remains blocked pending explicit Tej approval. No S3 deletion or Glue cleanup was run. Runtime smoke hardening was deployed to ECS task definition rev 7 and manually validated with production run 20260520T004655Z."
     }
   ],
   "childReliability": {
@@ -162,8 +162,10 @@
     "apps/data-lake pytest passed: 53 passed",
     "terraform init -backend=false/fmt/validate passed",
     "EventBridge schedule gold-coast-data-lake-ghl-refresh ENABLED at rate(1 hour)",
-    "latest-success run 20260520T002801Z succeeded with image d3656922160254c2a1efa1fd15b951ce41c2166f",
+    "latest-success run 20260520T004655Z succeeded with image 25d481057420fb09abfa71b2be8f0aa0f0514061",
+    "ECS task definition gold-coast-data-lake-ghl-refresh:7 deployed and manually validated",
     "Athena smoke passed: cc8c99d8, 9d9a424e, 06ee62b8, 5beb0092",
+    "Live rev7 in-run smoke passed: freshness 21049029, row availability c7b3e5ce, duplicate/grain 66819eda",
     "All 15 acceptance SQL files succeeded",
     "Old V1 generated prefixes remain present in S3 and were not deleted"
   ],
@@ -205,4 +207,3 @@
     }
   ]
 }
-

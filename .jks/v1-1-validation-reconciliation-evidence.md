@@ -100,4 +100,38 @@ Smoke query IDs from this validation pass:
 ## Remaining Approval Gate
 
 Cleanup is the only remaining gate. The candidate cleanup paths remain documented in docs/ops/data-lake/v1-1-cleanup-plan.md and must not be executed without explicit Tej approval.
++
+## 2026-05-19 20:51 ET Rev 7 Runtime Smoke Hardening Deploy
+
+After repo validation found reporting mart grain checks were not explicit in runtime smoke, the runtime smoke checker was hardened and shipped.
+
+Commit/image:
+
+- Commit: 25d481057420fb09abfa71b2be8f0aa0f0514061.
+- Image: 108750423275.dkr.ecr.us-east-1.amazonaws.com/gold-coast-data-lake:25d481057420fb09abfa71b2be8f0aa0f0514061.
+- ECS task definition: gold-coast-data-lake-ghl-refresh:7.
+- EventBridge schedule: ENABLED at rate(1 hour).
+
+Deploy verification:
+
+- Docker ARM64 build passed.
+- ECR push passed.
+- Terraform apply updated the scheduler target from task definition rev 6 to rev 7.
+- Manual production ECS run succeeded: task arn:aws:ecs:us-east-1:108750423275:task/gold-coast-data-lake/836a8de8ef7a4277bd685a91e2058eb6.
+- Manual run ID: 20260520T004655Z.
+- Latest-success status: succeeded.
+- Snapshot at: 2026-05-20T00:48:58.075894Z.
+
+Live in-run duplicate/grain smoke passed with zero duplicate/null keys for:
+
+- contacts_latest.contact_id
+- opportunities_latest.opportunity_id
+- messages.message_id
+- calls.call_message_id
+- call_recordings.message_id
+- opportunity_stage_history.transition_key
+- lead_response.opportunity_id
+- rep_activity_daily.activity_date+actor_user_id
+
+Cleanup remains approval-gated. No S3 deletion or Glue cleanup was run.
 
