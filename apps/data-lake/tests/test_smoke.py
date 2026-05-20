@@ -19,14 +19,22 @@ class FakeAthenaClient:
                 }
             ],
             "query-2": [
-                {"table_name": "contacts", "row_count": "10", "min_rows": "1", "status": "passed"},
-                {"table_name": "opportunities", "row_count": "2", "min_rows": "1", "status": "passed"},
-                {"table_name": "opportunity_stage_history", "row_count": "2", "min_rows": "1", "status": "passed"},
-                {"table_name": "messages", "row_count": "20", "min_rows": "1", "status": "passed"},
-                {"table_name": "calls", "row_count": "4", "min_rows": "1", "status": "passed"},
-                {"table_name": "call_recordings", "row_count": "4", "min_rows": "1", "status": "passed"},
-                {"table_name": "mart_lead_response", "row_count": "2", "min_rows": "1", "status": "passed"},
-                {"table_name": "mart_rep_activity_daily", "row_count": "1", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.contacts_latest", "row_count": "10", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.opportunities_latest", "row_count": "2", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.opportunity_stage_history", "row_count": "2", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.messages", "row_count": "20", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.calls", "row_count": "4", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast.call_recordings", "row_count": "4", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast_reporting.lead_response", "row_count": "2", "min_rows": "1", "status": "passed"},
+                {"table_name": "gold_coast_reporting.rep_activity_daily", "row_count": "1", "min_rows": "1", "status": "passed"},
+            ],
+            "query-3": [
+                {"check_name": "contacts_latest.contact_id", "table_name": "gold_coast.contacts_latest", "key_column": "contact_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "opportunities_latest.opportunity_id", "table_name": "gold_coast.opportunities_latest", "key_column": "opportunity_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "messages.message_id", "table_name": "gold_coast.messages", "key_column": "message_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "calls.call_message_id", "table_name": "gold_coast.calls", "key_column": "call_message_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "call_recordings.message_id", "table_name": "gold_coast.call_recordings", "key_column": "message_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "opportunity_stage_history.transition_key", "table_name": "gold_coast.opportunity_stage_history", "key_column": "transition_key", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
             ],
         }
 
@@ -61,6 +69,7 @@ class AthenaSmokeTests(unittest.TestCase):
             run_id="run1",
             snapshot_date="2026-05-19",
             database="gold_coast",
+            reporting_database="gold_coast_reporting",
             workgroup="gold_coast_data_lake",
             output_location="s3://gcoffers-data-lake/athena-results/ghl/smoke/",
             table_counts={"contacts": 10},
@@ -73,21 +82,24 @@ class AthenaSmokeTests(unittest.TestCase):
         check = checks[0]
         self.assertEqual(check["status"], "passed")
         self.assertEqual(check["checked_at"], "2026-05-19T16:01:00Z")
-        self.assertIn("contacts", check["queried_tables"])
-        self.assertIn("messages", check["queried_tables"])
-        self.assertEqual(check["query_execution_ids"], ["query-1", "query-2"])
+        self.assertIn("gold_coast.contacts_latest", check["queried_tables"])
+        self.assertIn("gold_coast.messages", check["queried_tables"])
+        self.assertIn("gold_coast_reporting.lead_response", check["queried_tables"])
+        self.assertEqual(check["query_execution_ids"], ["query-1", "query-2", "query-3"])
         self.assertEqual(check["freshness_result"]["status"], "passed")
         self.assertEqual(check["row_availability_result"]["status"], "passed")
-        self.assertEqual(check["row_availability_result"]["table_counts"]["contacts"], 10)
-        self.assertEqual(len(client.queries), 2)
-        self.assertIn("snapshot_date = '2026-05-19'", client.queries[0]["QueryString"])
-        self.assertIn("run_id = 'run1'", client.queries[1]["QueryString"])
+        self.assertEqual(check["row_availability_result"]["table_counts"]["gold_coast.contacts_latest"], 10)
+        self.assertEqual(check["duplicate_result"]["status"], "passed")
+        self.assertEqual(len(client.queries), 3)
+        self.assertIn('"gold_coast"."contacts_latest"', client.queries[0]["QueryString"])
+        self.assertIn('"gold_coast_reporting"."lead_response"', client.queries[1]["QueryString"])
 
     def test_run_athena_smoke_checks_returns_not_run_when_config_is_missing(self) -> None:
         checks = run_athena_smoke_checks(
             run_id="run1",
             snapshot_date="2026-05-19",
             database="gold_coast",
+            reporting_database="gold_coast_reporting",
             workgroup="gold_coast_data_lake",
             output_location=None,
             table_counts={"contacts": 10},

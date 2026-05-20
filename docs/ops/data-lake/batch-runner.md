@@ -14,7 +14,7 @@ The checked-in runner is a local foundation for the production GHL batch refresh
 - optional S3 upload for Athena-queryable run-status artifacts
 - AWS DynamoDB TTL locking when `LOCK_TABLE_NAME` is supplied
 - raw refresh followed by curated table publish for production non-dry-run runs
-- in-run Athena smoke checks for the freshly published curated partition
+- in-run Athena smoke checks for the freshly published V1.1 core/reporting query surface
 
 It does not enable schedules by itself.
 
@@ -42,7 +42,7 @@ The immutable per-run status file is separated under `runs/` and written as sing
 
 ## Production Guardrail
 
-`--execute` runs the raw GHL refresh phase. For production non-dry-run runs, it then builds curated Parquet tables from the fresh manifest and updates Glue partitions.
+`--execute` runs the raw GHL refresh phase. For production non-dry-run runs, it then builds V1.1 curated Parquet tables from the fresh manifest and updates Glue tables.
 
 It requires production GHL config from `--env-file`, `GHL_ENV_FILE`, or process env variables injected by ECS Secrets Manager.
 
@@ -79,4 +79,4 @@ Dry-run and `--extractor-dry-run` runs never create the status S3 uploader, even
 
 The run-status payload exposes `image_tag`, `cloudwatch_log_url`, and `smoke_checks` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`. `smoke_checks` uses `passed`, `failed`, or `not_run`; eligible production success fails final validation unless smoke checks are non-empty and passed.
 
-Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, in-run smoke status capture, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step.
+Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, in-run smoke status capture, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step and must stay disabled until V1.1 manual validation passes.

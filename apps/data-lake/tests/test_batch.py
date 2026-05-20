@@ -546,14 +546,17 @@ class BatchRunnerTests(unittest.TestCase):
             snapshot_date="2026-05-18",
             local_output_dir=args.curated_output_dir,
             s3_bucket="lake",
-            s3_prefix="prod/curated/ghl",
+            s3_prefix="prod/curated/ghl/v1_1",
             glue_database="gold",
+            reporting_glue_database="gold_coast_reporting",
+            daily_snapshot_prefix="prod/snapshots/ghl/daily",
         )
         self.assertEqual(result["curated_tables"], {"contacts": 1})
         smoke_checks.assert_called_once_with(
             run_id="run1",
             snapshot_date="2026-05-18",
             database="gold",
+            reporting_database="gold_coast_reporting",
             workgroup="gold_coast_data_lake",
             output_location="s3://lake/prod/athena-results/ghl/smoke/",
             table_counts={"contacts": 1},

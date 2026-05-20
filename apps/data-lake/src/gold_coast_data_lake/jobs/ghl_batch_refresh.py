@@ -10,7 +10,12 @@ import sys
 
 from gold_coast_data_lake.alerts import AlertConfig, alert_callback
 from gold_coast_data_lake.batch import BatchRefreshRunner, BatchRunContext, DynamoDbTtlLock, Phase
-from gold_coast_data_lake.curated import DEFAULT_CURATED_PREFIX, DEFAULT_GLUE_DATABASE, run_curated_build
+from gold_coast_data_lake.curated import (
+    DEFAULT_CURATED_PREFIX,
+    DEFAULT_GLUE_DATABASE,
+    DEFAULT_REPORTING_GLUE_DATABASE,
+    run_curated_build,
+)
 from gold_coast_data_lake.extractor import ENTITY_ALIASES
 from gold_coast_data_lake.raw_refresh import (
     DEFAULT_RAW_REFRESH_ENTITIES,
@@ -30,6 +35,7 @@ DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
 DEFAULT_IMAGE_TAG = os.environ.get("IMAGE_TAG")
 DEFAULT_LOCK_TABLE_NAME = os.environ.get("LOCK_TABLE_NAME")
 DEFAULT_GLUE_DATABASE_ENV = os.environ.get("GLUE_DATABASE", DEFAULT_GLUE_DATABASE)
+DEFAULT_REPORTING_GLUE_DATABASE_ENV = os.environ.get("REPORTING_GLUE_DATABASE", DEFAULT_REPORTING_GLUE_DATABASE)
 DEFAULT_ATHENA_WORKGROUP_ENV = os.environ.get("ATHENA_WORKGROUP", "gold_coast_data_lake")
 DEFAULT_ATHENA_OUTPUT_LOCATION_ENV = os.environ.get("ATHENA_OUTPUT_LOCATION")
 
@@ -71,6 +77,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--curated-output-dir", default=str(PROJECT_ROOT / "data" / "curated"))
     parser.add_argument("--glue-database", default=DEFAULT_GLUE_DATABASE_ENV)
+    parser.add_argument("--reporting-glue-database", default=DEFAULT_REPORTING_GLUE_DATABASE_ENV)
+    parser.add_argument("--daily-snapshot-prefix", default="snapshots/ghl/daily")
     parser.add_argument("--athena-workgroup", default=DEFAULT_ATHENA_WORKGROUP_ENV)
     parser.add_argument("--athena-output-location", default=DEFAULT_ATHENA_OUTPUT_LOCATION_ENV)
     parser.add_argument("--skip-curated", action="store_true", help="Run raw refresh only. Not for production schedule.")
@@ -176,6 +184,9 @@ def main(argv: list[str] | None = None) -> int:
             "extractor_dry_run": args.extractor_dry_run,
             "skip_curated": args.skip_curated,
             "skip_glue": args.skip_glue,
+            "glue_database": args.glue_database,
+            "reporting_glue_database": args.reporting_glue_database,
+            "daily_snapshot_prefix": args.daily_snapshot_prefix,
             "max_items": args.max_items,
             "max_pages": args.max_pages,
             "pipeline_ids": args.pipeline_id,
@@ -217,6 +228,8 @@ def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.
             s3_bucket=args.s3_bucket,
             s3_prefix=join_s3_prefix(args.s3_prefix, args.curated_s3_prefix),
             glue_database=None if args.skip_glue else args.glue_database,
+            reporting_glue_database=args.reporting_glue_database,
+            daily_snapshot_prefix=join_s3_prefix(args.s3_prefix, args.daily_snapshot_prefix),
         )
         latest_success = curated_summary.get("latest_success")
         latest_success_run_id = latest_success.get("run_id") if isinstance(latest_success, dict) else None
@@ -224,6 +237,7 @@ def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.
             run_id=str(curated_summary.get("run_id") or latest_success_run_id or context.run_id),
             snapshot_date=str(curated_summary.get("snapshot_date") or context.started_at.date().isoformat()),
             database=None if args.skip_glue else args.glue_database,
+            reporting_database=None if args.skip_glue else args.reporting_glue_database,
             workgroup=args.athena_workgroup,
             output_location=resolve_athena_output_location(args),
             table_counts=curated_summary.get("table_counts", {}),

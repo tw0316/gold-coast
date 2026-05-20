@@ -24,9 +24,15 @@ locals {
     "manifests/ghl/*",
     "recordings/ghl/*",
     "curated/ghl/*",
+    "snapshots/ghl/*",
     "run-status/ghl/*",
     "athena-results/*"
   ]
+}
+
+resource "aws_glue_catalog_database" "reporting" {
+  name        = var.reporting_glue_database
+  description = "Gold Coast reporting marts for repeated business metrics."
 }
 
 resource "aws_ecr_repository" "data_lake" {
@@ -155,11 +161,13 @@ resource "aws_iam_role_policy" "task" {
       {
         Sid    = "GlueGoldCoast"
         Effect = "Allow"
-        Action = ["glue:GetDatabase", "glue:GetTable", "glue:GetPartition", "glue:CreateTable", "glue:UpdateTable", "glue:CreatePartition", "glue:UpdatePartition"]
+        Action = ["glue:GetDatabase", "glue:GetTable", "glue:GetPartition", "glue:CreateTable", "glue:UpdateTable", "glue:DeleteTable", "glue:CreatePartition", "glue:UpdatePartition"]
         Resource = [
           format("arn:aws:glue:%s:%s:catalog", data.aws_region.current.name, data.aws_caller_identity.current.account_id),
           format("arn:aws:glue:%s:%s:database/%s", data.aws_region.current.name, data.aws_caller_identity.current.account_id, var.glue_database),
-          format("arn:aws:glue:%s:%s:table/%s/*", data.aws_region.current.name, data.aws_caller_identity.current.account_id, var.glue_database)
+          format("arn:aws:glue:%s:%s:database/%s", data.aws_region.current.name, data.aws_caller_identity.current.account_id, var.reporting_glue_database),
+          format("arn:aws:glue:%s:%s:table/%s/*", data.aws_region.current.name, data.aws_caller_identity.current.account_id, var.glue_database),
+          format("arn:aws:glue:%s:%s:table/%s/*", data.aws_region.current.name, data.aws_caller_identity.current.account_id, var.reporting_glue_database)
         ]
       },
       {
@@ -217,6 +225,7 @@ resource "aws_ecs_task_definition" "refresh" {
         { name = "DATA_LAKE_BUCKET", value = var.data_lake_bucket },
         { name = "DATA_LAKE_S3_PREFIX", value = var.data_lake_s3_prefix },
         { name = "GLUE_DATABASE", value = var.glue_database },
+        { name = "REPORTING_GLUE_DATABASE", value = var.reporting_glue_database },
         { name = "ATHENA_WORKGROUP", value = var.athena_workgroup },
         { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
         { name = "SOURCE_ENVIRONMENT", value = var.environment },
@@ -291,7 +300,7 @@ resource "aws_scheduler_schedule" "refresh" {
     mode = "OFF"
   }
 
-  schedule_expression = "rate(30 minutes)"
+  schedule_expression = var.schedule_expression
 
   target {
     arn      = aws_ecs_cluster.data_lake.arn

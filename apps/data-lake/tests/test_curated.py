@@ -126,12 +126,12 @@ class CuratedTests(unittest.TestCase):
         tables = build_curated_tables(raw, manifest)
 
         self.assertEqual(list(tables), TABLE_ORDER)
-        self.assertEqual(tables["contacts"].rows[0]["snapshot_at"].isoformat(), "2026-05-18T10:10:00")
-        self.assertEqual(tables["opportunities"].rows[0]["pipeline_stage_name"], "New Leads")
+        self.assertEqual(tables["contacts_latest"].rows[0]["snapshot_at"].isoformat(), "2026-05-18T10:10:00")
+        self.assertEqual(tables["opportunities_latest"].rows[0]["pipeline_stage_name"], "New Leads")
         self.assertTrue(tables["calls"].rows[0]["has_recording"])
         self.assertEqual(tables["calls"].rows[0]["recording_archival_status"], "archived")
 
-        lead = tables["mart_lead_response"].rows[0]
+        lead = tables["lead_response"].rows[0]
         self.assertEqual(lead["minutes_to_first_outbound_call"], 3.0)
         self.assertEqual(lead["minutes_to_first_outbound_message"], 5.0)
         self.assertTrue(lead["has_completed_call"])
@@ -143,12 +143,79 @@ class CuratedTests(unittest.TestCase):
         self.assertEqual(row["opportunity_id"], "opp1")
         self.assertEqual(row["pipeline_stage_name"], "New Leads")
         self.assertEqual(row["stage_status_key"], "pipe1|stage1|open")
+        self.assertIsNone(row["previous_pipeline_stage_id"])
         self.assertEqual(row["observed_at"].isoformat(), "2026-05-18T10:10:00")
+
+    def test_stage_history_does_not_append_when_stage_status_is_unchanged(self) -> None:
+        manifest, raw = sample_raw()
+        previous = [
+            {
+                "opportunity_id": "opp1",
+                "contact_id": "contact1",
+                "pipeline_id": "pipe1",
+                "pipeline_stage_id": "stage1",
+                "pipeline_stage_name": "New Leads",
+                "status": "open",
+                "observed_at": "2026-05-18T09:00:00Z",
+                "stage_status_key": "pipe1|stage1|open",
+                "transition_key": "opp1|pipe1|stage1|open|old",
+            }
+        ]
+        tables = build_curated_tables(raw, manifest, previous_stage_history=previous)
+
+        self.assertEqual(len(tables["opportunity_stage_history"].rows), 1)
+        self.assertEqual(tables["opportunity_stage_history"].rows[0]["transition_key"], "opp1|pipe1|stage1|open|old")
+
+    def test_stage_history_appends_transition_when_stage_status_changes(self) -> None:
+        manifest, raw = sample_raw()
+        previous = [
+            {
+                "opportunity_id": "opp1",
+                "contact_id": "contact1",
+                "pipeline_id": "pipe1",
+                "pipeline_stage_id": "old-stage",
+                "pipeline_stage_name": "Old Stage",
+                "status": "open",
+                "observed_at": "2026-05-18T09:00:00Z",
+                "stage_status_key": "pipe1|old-stage|open",
+                "transition_key": "opp1|pipe1|old-stage|open|old",
+            }
+        ]
+        tables = build_curated_tables(raw, manifest, previous_stage_history=previous)
+
+        rows = tables["opportunity_stage_history"].rows
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[-1]["previous_pipeline_stage_id"], "old-stage")
+        self.assertEqual(rows[-1]["pipeline_stage_id"], "stage1")
+
+    def test_stable_ids_are_deduped_to_latest_source_update(self) -> None:
+        manifest, raw = sample_raw()
+        raw["contacts"].append(
+            {
+                "id": "contact1",
+                "locationId": "loc",
+                "contactName": "Seller One Updated",
+                "phone": "+15550000000",
+                "dateAdded": "2026-05-18T09:58:00Z",
+                "dateUpdated": "2026-05-18T10:12:00Z",
+            }
+        )
+        raw["messages"].append({**raw["messages"][0], "body": "Updated", "dateUpdated": "2026-05-18T10:20:00Z"})
+        raw["call_message_details"].append({**raw["call_message_details"][0], "status": "missed", "dateUpdated": "2026-05-18T10:20:00Z"})
+
+        tables = build_curated_tables(raw, manifest)
+
+        self.assertEqual(len(tables["contacts_latest"].rows), 1)
+        self.assertEqual(tables["contacts_latest"].rows[0]["contact_name"], "Seller One Updated")
+        self.assertEqual(len([row for row in tables["messages"].rows if row["message_id"] == "msg1"]), 1)
+        self.assertEqual([row for row in tables["messages"].rows if row["message_id"] == "msg1"][0]["body"], "Updated")
+        self.assertEqual(len(tables["calls"].rows), 1)
+        self.assertEqual(tables["calls"].rows[0]["status"], "missed")
 
     def test_rep_activity_uses_event_actor_not_opportunity_owner(self) -> None:
         manifest, raw = sample_raw()
         tables = build_curated_tables(raw, manifest)
-        rows = {(row["activity_date"], row["actor_user_id"]): row for row in tables["mart_rep_activity_daily"].rows}
+        rows = {(row["activity_date"], row["actor_user_id"]): row for row in tables["rep_activity_daily"].rows}
 
         self.assertEqual(rows[("2026-05-18", "rep1")]["calls_total"], 1)
         self.assertEqual(rows[("2026-05-18", "rep1")]["messages_total"], 1)
@@ -156,12 +223,9 @@ class CuratedTests(unittest.TestCase):
         self.assertNotIn(("2026-05-18", "owner-user"), rows)
 
     def test_glue_table_is_partitioned_by_snapshot_date(self) -> None:
-        table_input = glue_table_input("contacts", "s3://bucket/curated/ghl/contacts/")
-        self.assertEqual(
-            table_input["PartitionKeys"],
-            [{"Name": "snapshot_date", "Type": "string"}, {"Name": "run_id", "Type": "string"}],
-        )
-        self.assertEqual(table_input["StorageDescriptor"]["Location"], "s3://bucket/curated/ghl/contacts/")
+        table_input = glue_table_input("contacts_latest", "s3://bucket/curated/ghl/v1_1/core/contacts_latest/")
+        self.assertEqual(table_input["PartitionKeys"], [])
+        self.assertEqual(table_input["StorageDescriptor"]["Location"], "s3://bucket/curated/ghl/v1_1/core/contacts_latest/")
 
     def test_local_parquet_write_round_trips_row_counts(self) -> None:
         try:
@@ -179,11 +243,11 @@ class CuratedTests(unittest.TestCase):
                 local_output_dir=tmp,
             )
             counts = {item.name: item.row_count for item in written}
-            self.assertEqual(counts["contacts"], 1)
+            self.assertEqual(counts["contacts_latest"], 1)
             for item in written:
-                self.assertIn("run=20260518T080441Z", item.local_path)
                 parquet = pq.read_table(item.local_path)
                 self.assertEqual(parquet.num_rows, item.row_count)
+            self.assertIn("core/contacts_latest/part-00000.parquet", counts and written[0].local_path)
 
 
 if __name__ == "__main__":

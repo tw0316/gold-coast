@@ -8,15 +8,26 @@ import time
 from typing import Any
 
 
-CRITICAL_CURATED_TABLES = (
-    "contacts",
-    "opportunities",
+CRITICAL_CORE_TABLES = (
+    "contacts_latest",
+    "opportunities_latest",
     "opportunity_stage_history",
     "messages",
     "calls",
     "call_recordings",
-    "mart_lead_response",
-    "mart_rep_activity_daily",
+)
+CRITICAL_REPORTING_TABLES = (
+    "lead_response",
+    "rep_activity_daily",
+)
+CRITICAL_CURATED_TABLES = CRITICAL_CORE_TABLES + CRITICAL_REPORTING_TABLES
+DUPLICATE_KEY_CHECKS = (
+    ("core", "contacts_latest", "contact_id"),
+    ("core", "opportunities_latest", "opportunity_id"),
+    ("core", "messages", "message_id"),
+    ("core", "calls", "call_message_id"),
+    ("core", "call_recordings", "message_id"),
+    ("core", "opportunity_stage_history", "transition_key"),
 )
 DEFAULT_FRESHNESS_MAX_AGE_MINUTES = 120
 DEFAULT_ATHENA_TIMEOUT_SECONDS = 120
@@ -39,6 +50,7 @@ def run_athena_smoke_checks(
     run_id: str,
     snapshot_date: str,
     database: str | None,
+    reporting_database: str | None = None,
     workgroup: str | None,
     output_location: str | None,
     table_counts: dict[str, Any] | None = None,
@@ -51,7 +63,7 @@ def run_athena_smoke_checks(
     """Run freshness and row-availability checks against the current curated partition."""
 
     checked_at = isoformat(now or utc_now())
-    queried_tables = list(CRITICAL_CURATED_TABLES)
+    queried_tables = qualified_table_names(database, reporting_database)
     query_execution_ids: list[str] = []
     base_check: dict[str, Any] = {
         "check_name": "athena_curated_snapshot",
@@ -68,11 +80,18 @@ def run_athena_smoke_checks(
             "failed_tables": [],
             "query_execution_id": None,
         },
+        "duplicate_result": {
+            "status": "not_run",
+            "failed_checks": [],
+            "checks": {},
+            "query_execution_id": None,
+        },
         "error": None,
     }
 
     not_run_reason = smoke_not_run_reason(
         database=database,
+        reporting_database=reporting_database,
         workgroup=workgroup,
         output_location=output_location,
         table_counts=table_counts or {},
@@ -86,6 +105,7 @@ def run_athena_smoke_checks(
         freshness_query_id, freshness_rows = execute_athena_query(
             freshness_sql(
                 database=str(database),
+                reporting_database=str(reporting_database),
                 run_id=run_id,
                 snapshot_date=snapshot_date,
                 max_age_minutes=max_age_minutes,
@@ -104,6 +124,7 @@ def run_athena_smoke_checks(
         row_query_id, row_rows = execute_athena_query(
             row_availability_sql(
                 database=str(database),
+                reporting_database=str(reporting_database),
                 run_id=run_id,
                 snapshot_date=snapshot_date,
             ),
@@ -118,7 +139,29 @@ def run_athena_smoke_checks(
         row_result = parse_row_availability_result(row_rows, row_query_id)
         base_check["row_availability_result"] = row_result
 
-        status = "passed" if freshness_result["status"] == "passed" and row_result["status"] == "passed" else "failed"
+        duplicate_query_id, duplicate_rows = execute_athena_query(
+            duplicate_check_sql(
+                database=str(database),
+                reporting_database=str(reporting_database),
+            ),
+            database=str(database),
+            workgroup=str(workgroup),
+            output_location=str(output_location),
+            client=athena_client,
+            timeout_seconds=timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        query_execution_ids.append(duplicate_query_id)
+        duplicate_result = parse_duplicate_result(duplicate_rows, duplicate_query_id)
+        base_check["duplicate_result"] = duplicate_result
+
+        status = (
+            "passed"
+            if freshness_result["status"] == "passed"
+            and row_result["status"] == "passed"
+            and duplicate_result["status"] == "passed"
+            else "failed"
+        )
         base_check.update(
             {
                 "status": status,
@@ -137,12 +180,15 @@ def run_athena_smoke_checks(
 def smoke_not_run_reason(
     *,
     database: str | None,
+    reporting_database: str | None,
     workgroup: str | None,
     output_location: str | None,
     table_counts: dict[str, Any],
 ) -> str | None:
     if not database:
         return "Athena smoke checks not_run: missing Glue/Athena database"
+    if not reporting_database:
+        return "Athena smoke checks not_run: missing reporting Glue/Athena database"
     if not workgroup:
         return "Athena smoke checks not_run: missing Athena workgroup"
     if not output_location:
@@ -258,10 +304,7 @@ def parse_row_availability_result(rows: list[dict[str, str | None]], query_execu
         if row_count < (as_int(row.get("min_rows")) or 1):
             missing_tables.append(table_name)
 
-    expected_tables = set(CRITICAL_CURATED_TABLES)
-    observed_tables = set(table_counts)
-    missing_tables.extend(sorted(expected_tables - observed_tables))
-    status = "passed" if not failed_tables and not missing_tables and expected_tables == observed_tables else "failed"
+    status = "passed" if rows and not failed_tables and not missing_tables else "failed"
     return {
         "status": status,
         "table_counts": table_counts,
@@ -271,8 +314,47 @@ def parse_row_availability_result(rows: list[dict[str, str | None]], query_execu
     }
 
 
-def freshness_sql(*, database: str, run_id: str, snapshot_date: str, max_age_minutes: int) -> str:
-    contacts = qualified_table(database, "contacts")
+def parse_duplicate_result(rows: list[dict[str, str | None]], query_execution_id: str) -> dict[str, Any]:
+    checks: dict[str, dict[str, Any]] = {}
+    failed_checks: list[str] = []
+    for row in rows:
+        check_name = str(row.get("check_name") or "")
+        if not check_name:
+            continue
+        duplicate_count = as_int(row.get("duplicate_count")) or 0
+        null_key_count = as_int(row.get("null_key_count")) or 0
+        status = normalize_check_status(row.get("status"))
+        checks[check_name] = {
+            "table_name": row.get("table_name"),
+            "key_column": row.get("key_column"),
+            "duplicate_count": duplicate_count,
+            "null_key_count": null_key_count,
+            "status": status,
+        }
+        if status != "passed" or duplicate_count or null_key_count:
+            failed_checks.append(check_name)
+
+    expected_checks = {f"{table}.{key}" for _, table, key in DUPLICATE_KEY_CHECKS}
+    observed_checks = set(checks)
+    failed_checks.extend(sorted(expected_checks - observed_checks))
+    status = "passed" if not failed_checks and expected_checks == observed_checks else "failed"
+    return {
+        "status": status,
+        "failed_checks": sorted(set(failed_checks)),
+        "checks": checks,
+        "query_execution_id": query_execution_id,
+    }
+
+
+def freshness_sql(
+    *,
+    database: str,
+    reporting_database: str,
+    run_id: str,
+    snapshot_date: str,
+    max_age_minutes: int,
+) -> str:
+    contacts = qualified_table(database, "contacts_latest")
     return f"""
 SELECT
     CAST(max(snapshot_at) AS varchar) AS snapshot_at,
@@ -285,21 +367,26 @@ SELECT
         ELSE 'failed'
     END AS status
 FROM {contacts}
-WHERE snapshot_date = {sql_string(snapshot_date)}
-  AND run_id = {sql_string(run_id)}
 """.strip()
 
 
-def row_availability_sql(*, database: str, run_id: str, snapshot_date: str) -> str:
-    expected_values = ",\n        ".join(f"({sql_string(table)}, 1)" for table in CRITICAL_CURATED_TABLES)
+def row_availability_sql(*, database: str, reporting_database: str, run_id: str, snapshot_date: str) -> str:
+    expected = [
+        (database, table)
+        for table in CRITICAL_CORE_TABLES
+    ] + [
+        (reporting_database, table)
+        for table in CRITICAL_REPORTING_TABLES
+    ]
+    expected_values = ",\n        ".join(
+        f"({sql_string(db + '.' + table)}, 1)" for db, table in expected
+    )
     observed_queries = "\n\n    UNION ALL\n    ".join(
         (
-            f"SELECT {sql_string(table)} AS table_name, count(*) AS row_count\n"
-            f"    FROM {qualified_table(database, table)}\n"
-            f"    WHERE snapshot_date = {sql_string(snapshot_date)}\n"
-            f"      AND run_id = {sql_string(run_id)}"
+            f"SELECT {sql_string(db + '.' + table)} AS table_name, count(*) AS row_count\n"
+            f"    FROM {qualified_table(db, table)}"
         )
-        for table in CRITICAL_CURATED_TABLES
+        for db, table in expected
     )
     return f"""
 WITH expected(table_name, min_rows) AS (
@@ -320,8 +407,58 @@ ORDER BY e.table_name
 """.strip()
 
 
+def duplicate_check_sql(*, database: str, reporting_database: str) -> str:
+    queries = []
+    for group, table, key in DUPLICATE_KEY_CHECKS:
+        db = reporting_database if group == "reporting" else database
+        table_name = f"{table}.{key}"
+        qualified = qualified_table(db, table)
+        key_name = quote_identifier(key)
+        queries.append(
+            f"""
+SELECT
+    {sql_string(table_name)} AS check_name,
+    {sql_string(db + '.' + table)} AS table_name,
+    {sql_string(key)} AS key_column,
+    CAST(sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) AS bigint) AS duplicate_count,
+    CAST(max(null_key_count) AS bigint) AS null_key_count,
+    CASE
+        WHEN sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) = 0
+         AND max(null_key_count) = 0
+        THEN 'passed'
+        ELSE 'failed'
+    END AS status
+FROM (
+    SELECT {key_name} AS stable_id, count(*) AS key_count, 0 AS null_key_count
+    FROM {qualified}
+    WHERE {key_name} IS NOT NULL
+    GROUP BY {key_name}
+    UNION ALL
+    SELECT '__null_keys__' AS stable_id, 0 AS key_count, count(*) AS null_key_count
+    FROM {qualified}
+    WHERE {key_name} IS NULL
+) keyed
+""".strip()
+        )
+    return "\nUNION ALL\n".join(queries)
+
+
+def qualified_table_names(database: str | None, reporting_database: str | None) -> list[str]:
+    core = [f"{database}.{table}" for table in CRITICAL_CORE_TABLES] if database else list(CRITICAL_CORE_TABLES)
+    reporting = (
+        [f"{reporting_database}.{table}" for table in CRITICAL_REPORTING_TABLES]
+        if reporting_database
+        else list(CRITICAL_REPORTING_TABLES)
+    )
+    return core + reporting
+
+
 def qualified_table(database: str, table: str) -> str:
-    return f'"{database.replace(chr(34), chr(34) + chr(34))}"."{table.replace(chr(34), chr(34) + chr(34))}"'
+    return f'{quote_identifier(database)}.{quote_identifier(table)}'
+
+
+def quote_identifier(value: str) -> str:
+    return f'"{value.replace(chr(34), chr(34) + chr(34))}"'
 
 
 def sql_string(value: str) -> str:

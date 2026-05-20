@@ -3,10 +3,12 @@ region           = "us-east-1"
 data_lake_bucket = "gcoffers-data-lake"
 data_lake_s3_prefix = ""
 glue_database    = "gold_coast"
+reporting_glue_database = "gold_coast_reporting"
 athena_workgroup = "gold_coast_data_lake"
 image_tag        = "REPLACE_WITH_GIT_SHA"
 task_cpu_architecture = "ARM64"
 schedule_enabled = false
+schedule_expression = "rate(1 hour)"
 alert_mode       = "failure-only"
 
 # For the first 1-2 launch days, set alert_mode = "launch-window" and fill this.

@@ -1,10 +1,6 @@
 -- AQ-013: Count calls per day per agent.
 -- Assumptions: agent = calls.actor_user_id from the call event; unknown means source userId was missing.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.calls
-),
-calls_latest AS (
+WITH calls_latest AS (
     SELECT
         CAST(date_added AS date) AS call_date,
         coalesce(nullif(actor_user_id, ''), 'unknown') AS actor_user_id,
@@ -13,8 +9,7 @@ calls_latest AS (
         duration_seconds,
         contact_id
     FROM gold_coast.calls
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND date_added IS NOT NULL
+    WHERE date_added IS NOT NULL
 )
 SELECT
     call_date,
@@ -28,4 +23,3 @@ SELECT
 FROM calls_latest
 GROUP BY 1, 2
 ORDER BY call_date DESC, calls_total DESC, actor_user_id
-

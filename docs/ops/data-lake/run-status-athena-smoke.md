@@ -83,7 +83,7 @@ Do not point it at s3://gcoffers-data-lake/run-status/ghl/. That broader prefix 
 
 The table exposes `image_tag`, `cloudwatch_log_url`, `smoke_checks`, `latest_pointers_published`, `latest_pointer_publish_target`, and `latest_pointer_skip_reason` as nullable top-level columns. The batch CLI reads `IMAGE_TAG` through `--image-tag` and continues to read `CLOUDWATCH_LOG_URL` through `--cloudwatch-log-url`.
 
-Each eligible production refresh runs Athena against the freshly published `snapshot_date` and `run_id` before writing final status. The status artifact's `smoke_checks` array must be non-empty and all check statuses must be `passed`; otherwise the runner marks the run `failed` and publishes `latest-failure.json` instead of advancing `latest-success.json`. Config-missing smoke checks are recorded as `not_run`, which also fails eligible production final validation. The Athena workgroup enforces `s3://gcoffers-data-lake/athena-results/` as the actual result location.
+Each eligible production refresh runs Athena against the freshly published V1.1 core/reporting tables before writing final status. The status artifact's `smoke_checks` array must be non-empty and all check statuses must be `passed`; otherwise the runner marks the run `failed` and publishes `latest-failure.json` instead of advancing `latest-success.json`. Config-missing smoke checks are recorded as `not_run`, which also fails eligible production final validation. The Athena workgroup enforces `s3://gcoffers-data-lake/athena-results/` as the actual result location.
 
 ## Smoke Checks
 
@@ -107,6 +107,12 @@ aws athena start-query-execution \
   --query-execution-context Database=gold_coast \
   --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
   --query-string file://$PWD/sql/data-lake/smoke/003_critical_table_catalog.sql
+
+aws athena start-query-execution \
+  --work-group gold_coast_data_lake \
+  --query-execution-context Database=gold_coast \
+  --result-configuration OutputLocation=s3://gcoffers-data-lake/athena-results/ \
+  --query-string file://$PWD/sql/data-lake/smoke/004_v1_1_duplicate_source_ids.sql
 ~~~
 
 For each returned query execution ID, inspect completion and results:
@@ -121,9 +127,10 @@ Pass criteria:
 - 001_latest_success_freshness.sql returns one row with result = `passed` and includes `image_tag` plus `cloudwatch_log_url` when the runner provided them.
 - 002_latest_curated_row_availability.sql returns every table with result = `passed`.
 - 003_critical_table_catalog.sql returns every expected table with result = `passed`.
+- 004_v1_1_duplicate_source_ids.sql returns every stable-ID duplicate check with result = `passed`.
 - No query output contains credentials, raw SMS bodies, raw contact dumps, presigned recording URLs, or webhook URLs.
 
-The freshness check allows 120 minutes. The production cadence is 30 minutes, but the wider smoke threshold avoids false failure during first deploy, manual verification, or a temporarily paused schedule.
+The freshness check allows 120 minutes. The production cadence is hourly, but the wider smoke threshold avoids false failure during first deploy, manual verification, or a temporarily paused schedule.
 
 ## Failure Handling
 
@@ -137,10 +144,10 @@ If freshness fails:
 If row availability fails:
 
 - Confirm run_status_ghl points only at run-status/ghl/runs/.
-- Confirm the latest successful run's snapshot_date and run_id partitions exist for each curated table.
+- Confirm the V1.1 core/reporting table locations exist under curated/ghl/v1_1/.
 - Keep the prior known-good latest-success pointer intact until a new run passes smoke checks.
 
 If catalog availability fails:
 
 - Re-run the DDL for missing external tables or repair the Glue registration path.
-- Do not enable the 30-minute schedule until the catalog check passes.
+- Do not enable the hourly schedule until the catalog and duplicate checks pass.

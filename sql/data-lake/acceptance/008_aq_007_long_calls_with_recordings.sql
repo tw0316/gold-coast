@@ -1,14 +1,9 @@
 -- AQ-007: List calls longer than 45 seconds with call metadata, recording availability, duration, status, actor, and contact/opportunity join.
 -- Assumptions: when a contact has multiple opportunities, pick the latest opportunity created before the call when possible.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.calls
-),
-long_calls AS (
+WITH long_calls AS (
     SELECT *
     FROM gold_coast.calls
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND duration_seconds > 45
+    WHERE duration_seconds > 45
 ),
 call_opportunity_candidates AS (
     SELECT
@@ -27,9 +22,8 @@ call_opportunity_candidates AS (
                 o.created_at DESC
         ) AS opportunity_rank
     FROM long_calls c
-    LEFT JOIN gold_coast.opportunities o
-        ON o.snapshot_date = c.snapshot_date
-       AND o.contact_id = c.contact_id
+    LEFT JOIN gold_coast.opportunities_latest o
+        ON o.contact_id = c.contact_id
 ),
 ranked_calls AS (
     SELECT *
@@ -59,7 +53,6 @@ SELECT
     rc.recording_content_type,
     rc.recording_byte_count
 FROM ranked_calls rc
-LEFT JOIN gold_coast.contacts ct
-    ON ct.snapshot_date = rc.snapshot_date
-   AND ct.contact_id = rc.contact_id
+LEFT JOIN gold_coast.contacts_latest ct
+    ON ct.contact_id = rc.contact_id
 ORDER BY rc.duration_seconds DESC, rc.date_added DESC

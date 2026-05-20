@@ -1,10 +1,6 @@
 -- AQ-012: Identify busiest lead-arrival windows by hour of day and day of week.
--- Assumptions: lead arrival time is opportunities.created_at.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.opportunities
-),
-lead_arrivals AS (
+-- Assumptions: lead arrival time is opportunities_latest.created_at.
+WITH lead_arrivals AS (
     SELECT
         day_of_week(created_at) AS day_of_week_number,
         CASE day_of_week(created_at)
@@ -20,9 +16,8 @@ lead_arrivals AS (
         hour(created_at) AS hour_of_day,
         coalesce(nullif(source, ''), 'unknown') AS lead_source,
         opportunity_id
-    FROM gold_coast.opportunities
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND created_at IS NOT NULL
+    FROM gold_coast.opportunities_latest
+    WHERE created_at IS NOT NULL
 )
 SELECT
     day_of_week_number,
@@ -33,4 +28,3 @@ SELECT
 FROM lead_arrivals
 GROUP BY 1, 2, 3, 4
 ORDER BY new_leads DESC, day_of_week_number, hour_of_day, lead_source
-

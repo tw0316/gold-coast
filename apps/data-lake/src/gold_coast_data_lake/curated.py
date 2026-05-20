@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import io
 import json
 from pathlib import Path
 from typing import Any, Iterable
@@ -11,20 +12,32 @@ from typing import Any, Iterable
 
 DEFAULT_MANIFEST_S3_URI = "s3://gcoffers-data-lake/manifests/ghl/run=20260518T080441Z.json"
 DEFAULT_CURATED_BUCKET = "gcoffers-data-lake"
-DEFAULT_CURATED_PREFIX = "curated/ghl"
+DEFAULT_CURATED_PREFIX = "curated/ghl/v1_1"
 DEFAULT_GLUE_DATABASE = "gold_coast"
+DEFAULT_REPORTING_GLUE_DATABASE = "gold_coast_reporting"
 DEFAULT_SNAPSHOT_DATE = "2026-05-18"
 
-TABLE_ORDER = [
-    "contacts",
-    "opportunities",
-    "opportunity_stage_history",
+CORE_TABLE_ORDER = [
+    "contacts_latest",
+    "opportunities_latest",
     "messages",
     "calls",
     "call_recordings",
-    "mart_lead_response",
-    "mart_rep_activity_daily",
+    "opportunity_stage_history",
 ]
+REPORTING_TABLE_ORDER = [
+    "lead_response",
+    "rep_activity_daily",
+]
+TABLE_ORDER = CORE_TABLE_ORDER + REPORTING_TABLE_ORDER
+DAILY_SNAPSHOT_TABLE_ORDER = [
+    "contacts_latest",
+    "opportunities_latest",
+    "messages",
+    "calls",
+    "call_recordings",
+]
+STAGE_HISTORY_STATE_FILENAME = "opportunity_stage_history.jsonl"
 
 
 @dataclass(frozen=True)
@@ -50,6 +63,7 @@ class TableData:
 @dataclass(frozen=True)
 class WrittenTable:
     name: str
+    database: str
     row_count: int
     s3_uri: str | None
     s3_key: str | None
@@ -60,19 +74,20 @@ class WrittenTable:
 
 @dataclass(frozen=True)
 class GlueTableResult:
+    database: str
     name: str
     table_location: str
-    partition_location: str
     action: str
 
 
 RUN_METADATA_COLUMNS = [
+    ColumnSpec("run_id", "string", "string"),
     ColumnSpec("snapshot_at", "timestamp", "timestamp"),
 ]
 
 
 SCHEMAS: dict[str, list[ColumnSpec]] = {
-    "contacts": [
+    "contacts_latest": [
         ColumnSpec("contact_id", "string", "string"),
         ColumnSpec("location_id", "string", "string"),
         ColumnSpec("contact_name", "string", "string"),
@@ -94,7 +109,7 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("date_updated", "timestamp", "timestamp"),
         ColumnSpec("raw_json", "string", "string"),
     ],
-    "opportunities": [
+    "opportunities_latest": [
         ColumnSpec("opportunity_id", "string", "string"),
         ColumnSpec("contact_id", "string", "string"),
         ColumnSpec("location_id", "string", "string"),
@@ -124,14 +139,18 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("opportunity_id", "string", "string"),
         ColumnSpec("contact_id", "string", "string"),
         ColumnSpec("pipeline_id", "string", "string"),
+        ColumnSpec("previous_pipeline_stage_id", "string", "string"),
+        ColumnSpec("previous_pipeline_stage_name", "string", "string"),
+        ColumnSpec("previous_status", "string", "string"),
         ColumnSpec("pipeline_stage_id", "string", "string"),
         ColumnSpec("pipeline_stage_name", "string", "string"),
         ColumnSpec("status", "string", "string"),
         ColumnSpec("assigned_to_user_id", "string", "string"),
         ColumnSpec("observed_at", "timestamp", "timestamp"),
-        ColumnSpec("last_stage_change_at", "timestamp", "timestamp"),
-        ColumnSpec("last_status_change_at", "timestamp", "timestamp"),
+        ColumnSpec("source_stage_changed_at", "timestamp", "timestamp"),
+        ColumnSpec("source_status_changed_at", "timestamp", "timestamp"),
         ColumnSpec("stage_status_key", "string", "string"),
+        ColumnSpec("transition_key", "string", "string"),
     ],
     "messages": [
         ColumnSpec("message_id", "string", "string"),
@@ -193,7 +212,7 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("archived_at", "timestamp", "timestamp"),
         ColumnSpec("endpoint", "string", "string"),
     ],
-    "mart_lead_response": [
+    "lead_response": [
         ColumnSpec("opportunity_id", "string", "string"),
         ColumnSpec("contact_id", "string", "string"),
         ColumnSpec("assigned_to_user_id", "string", "string"),
@@ -218,7 +237,7 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("has_contact_attempt", "boolean", "boolean"),
         ColumnSpec("has_completed_call", "boolean", "boolean"),
     ],
-    "mart_rep_activity_daily": [
+    "rep_activity_daily": [
         ColumnSpec("activity_date", "string", "string"),
         ColumnSpec("actor_user_id", "string", "string"),
         ColumnSpec("calls_total", "bigint", "bigint"),
@@ -290,32 +309,43 @@ def load_manifest_and_raw(manifest_uri: str) -> tuple[dict[str, Any], dict[str, 
 def build_curated_tables(
     raw: dict[str, list[dict[str, Any]]],
     manifest: dict[str, Any],
+    previous_stage_history: Iterable[dict[str, Any]] | None = None,
 ) -> dict[str, TableData]:
+    run_id = str(manifest.get("run_id") or "")
     snapshot_at = manifest_snapshot_at(manifest)
     stage_lookup = build_stage_lookup(raw.get("pipelines", []))
     recording_lookup = build_recording_lookup(manifest.get("recordings", []))
 
-    contacts = build_contacts(raw.get("contacts", []))
-    opportunities = build_opportunities(raw.get("opportunities", []), stage_lookup)
-    opportunity_stage_history = build_opportunity_stage_history(opportunities, snapshot_at)
-    messages = build_messages(raw.get("messages", []))
-    calls = build_calls(raw.get("call_message_details", []), recording_lookup)
-    call_recordings = build_call_recordings(manifest.get("recordings", []))
+    contacts = dedupe_latest(build_contacts(raw.get("contacts", [])), "contact_id", ("date_updated", "date_added"))
+    opportunities = dedupe_latest(
+        build_opportunities(raw.get("opportunities", []), stage_lookup),
+        "opportunity_id",
+        ("updated_at", "created_at"),
+    )
+    messages = dedupe_latest(build_messages(raw.get("messages", [])), "message_id", ("date_updated", "date_added"))
+    calls = dedupe_latest(build_calls(raw.get("call_message_details", []), recording_lookup), "call_message_id", ("date_updated", "date_added"))
+    call_recordings = dedupe_latest(build_call_recordings(manifest.get("recordings", [])), "message_id", ("archived_at",))
+    opportunity_stage_history = build_opportunity_stage_history(
+        opportunities,
+        snapshot_at,
+        run_id,
+        previous_stage_history or [],
+    )
     lead_response = build_mart_lead_response(opportunities, messages, calls)
     rep_activity = build_mart_rep_activity_daily(messages, calls)
 
     rows_by_table = {
-        "contacts": contacts,
-        "opportunities": opportunities,
+        "contacts_latest": contacts,
+        "opportunities_latest": opportunities,
         "opportunity_stage_history": opportunity_stage_history,
         "messages": messages,
         "calls": calls,
         "call_recordings": call_recordings,
-        "mart_lead_response": lead_response,
-        "mart_rep_activity_daily": rep_activity,
+        "lead_response": lead_response,
+        "rep_activity_daily": rep_activity,
     }
     return {
-        name: TableData(name=name, columns=SCHEMAS[name], rows=with_snapshot_at(rows_by_table[name], snapshot_at))
+        name: TableData(name=name, columns=SCHEMAS[name], rows=with_run_metadata(rows_by_table[name], run_id, snapshot_at))
         for name in TABLE_ORDER
     }
 
@@ -329,8 +359,37 @@ def manifest_snapshot_at(manifest: dict[str, Any]) -> datetime | None:
     )
 
 
-def with_snapshot_at(rows: Iterable[dict[str, Any]], snapshot_at: datetime | None) -> list[dict[str, Any]]:
-    return [{**row, "snapshot_at": snapshot_at} for row in rows]
+def with_run_metadata(rows: Iterable[dict[str, Any]], run_id: str, snapshot_at: datetime | None) -> list[dict[str, Any]]:
+    return [
+        {
+            **row,
+            "run_id": row.get("run_id") or run_id,
+            "snapshot_at": row.get("snapshot_at") or snapshot_at,
+        }
+        for row in rows
+    ]
+
+
+def dedupe_latest(
+    rows: Iterable[dict[str, Any]],
+    key: str,
+    timestamp_fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    winners: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        stable_id = as_str(row.get(key))
+        if not stable_id:
+            continue
+        current = winners.get(stable_id)
+        if current is None or row_recency(row, timestamp_fields) >= row_recency(current, timestamp_fields):
+            winners[stable_id] = row
+    return sorted(winners.values(), key=lambda row: row.get(key) or "")
+
+
+def row_recency(row: dict[str, Any], timestamp_fields: tuple[str, ...]) -> tuple[datetime, str]:
+    timestamps = [row.get(field) for field in timestamp_fields if isinstance(row.get(field), datetime)]
+    newest = max(timestamps) if timestamps else datetime.min
+    return newest, json_blob(row) or ""
 
 
 def build_stage_lookup(pipelines: Iterable[dict[str, Any]]) -> dict[tuple[str | None, str | None], dict[str, Any]]:
@@ -430,9 +489,24 @@ def build_opportunities(
 def build_opportunity_stage_history(
     opportunities: Iterable[dict[str, Any]],
     snapshot_at: datetime | None,
+    run_id: str,
+    previous_history: Iterable[dict[str, Any]] = (),
 ) -> list[dict[str, Any]]:
-    rows = []
+    rows = normalize_stage_history_rows(previous_history)
+    latest_by_opportunity: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        opportunity_id = as_str(row.get("opportunity_id"))
+        if not opportunity_id:
+            continue
+        current = latest_by_opportunity.get(opportunity_id)
+        if current is None or row_recency(row, ("observed_at",)) >= row_recency(current, ("observed_at",)):
+            latest_by_opportunity[opportunity_id] = row
+
+    additions = []
     for opportunity in opportunities:
+        opportunity_id = as_str(opportunity.get("opportunity_id"))
+        if not opportunity_id:
+            continue
         stage_status_key = "|".join(
             str(value or "")
             for value in (
@@ -441,22 +515,47 @@ def build_opportunity_stage_history(
                 opportunity.get("status"),
             )
         )
-        rows.append(
+        previous = latest_by_opportunity.get(opportunity_id)
+        if previous and previous.get("stage_status_key") == stage_status_key:
+            continue
+        observed_at = snapshot_at or datetime.utcnow()
+        transition_key = "|".join((opportunity_id, stage_status_key, observed_at.isoformat()))
+        additions.append(
             {
-                "opportunity_id": opportunity.get("opportunity_id"),
+                "opportunity_id": opportunity_id,
                 "contact_id": opportunity.get("contact_id"),
                 "pipeline_id": opportunity.get("pipeline_id"),
+                "previous_pipeline_stage_id": previous.get("pipeline_stage_id") if previous else None,
+                "previous_pipeline_stage_name": previous.get("pipeline_stage_name") if previous else None,
+                "previous_status": previous.get("status") if previous else None,
                 "pipeline_stage_id": opportunity.get("pipeline_stage_id"),
                 "pipeline_stage_name": opportunity.get("pipeline_stage_name"),
                 "status": opportunity.get("status"),
                 "assigned_to_user_id": opportunity.get("assigned_to_user_id"),
-                "observed_at": snapshot_at,
-                "last_stage_change_at": opportunity.get("last_stage_change_at"),
-                "last_status_change_at": opportunity.get("last_status_change_at"),
+                "observed_at": observed_at,
+                "source_stage_changed_at": opportunity.get("last_stage_change_at"),
+                "source_status_changed_at": opportunity.get("last_status_change_at"),
                 "stage_status_key": stage_status_key,
+                "transition_key": transition_key,
+                "run_id": run_id,
             }
         )
-    return sorted(rows, key=lambda row: (row.get("opportunity_id") or "", row.get("observed_at") or datetime.min))
+    return sorted(rows + additions, key=lambda row: (row.get("opportunity_id") or "", row.get("observed_at") or datetime.min))
+
+
+def normalize_stage_history_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = []
+    for row in rows:
+        normalized.append(
+            {
+                **row,
+                "observed_at": parse_timestamp(row.get("observed_at")),
+                "snapshot_at": parse_timestamp(row.get("snapshot_at")),
+                "source_stage_changed_at": parse_timestamp(row.get("source_stage_changed_at") or row.get("last_stage_change_at")),
+                "source_status_changed_at": parse_timestamp(row.get("source_status_changed_at") or row.get("last_status_change_at")),
+            }
+        )
+    return normalized
 
 
 def build_messages(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -677,6 +776,9 @@ def write_curated_tables(
     local_output_dir: str | Path,
     s3_bucket: str | None = None,
     s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_database: str = DEFAULT_GLUE_DATABASE,
+    reporting_glue_database: str = DEFAULT_REPORTING_GLUE_DATABASE,
+    daily_snapshot_prefix: str = "snapshots/ghl/daily",
 ) -> list[WrittenTable]:
     output_dir = Path(local_output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -687,10 +789,10 @@ def write_curated_tables(
         s3_client = boto3.client("s3")
 
     written: list[WrittenTable] = []
-    partition_path = f"snapshot_date={snapshot_date}/run={run_id}"
     for table_name in TABLE_ORDER:
         table = tables[table_name]
-        local_dir = output_dir / table_name / partition_path
+        group = table_group(table_name)
+        local_dir = output_dir / group / table_name
         local_dir.mkdir(parents=True, exist_ok=True)
         local_path = local_dir / "part-00000.parquet"
         write_parquet(table, local_path)
@@ -698,7 +800,7 @@ def write_curated_tables(
         key = None
         uri = None
         if s3_client and s3_bucket:
-            key = f"{s3_prefix.strip('/')}/{table_name}/{partition_path}/part-00000.parquet"
+            key = f"{current_table_prefix(s3_prefix, table_name)}/part-00000.parquet"
             s3_client.upload_file(
                 str(local_path),
                 s3_bucket,
@@ -712,6 +814,66 @@ def write_curated_tables(
         written.append(
             WrittenTable(
                 name=table_name,
+                database=table_database_name(table_name, glue_database, reporting_glue_database),
+                row_count=len(table.rows),
+                s3_uri=uri,
+                s3_key=key,
+                byte_count=byte_count,
+                object_count=1,
+                local_path=str(local_path),
+            )
+        )
+    written.extend(
+        write_daily_audit_snapshots(
+            tables,
+            run_id=run_id,
+            snapshot_date=snapshot_date,
+            local_output_dir=output_dir,
+            s3_client=s3_client,
+            s3_bucket=s3_bucket,
+            daily_snapshot_prefix=daily_snapshot_prefix,
+        )
+    )
+    return written
+
+
+def write_daily_audit_snapshots(
+    tables: dict[str, TableData],
+    *,
+    run_id: str,
+    snapshot_date: str,
+    local_output_dir: Path,
+    s3_client: Any | None,
+    s3_bucket: str | None,
+    daily_snapshot_prefix: str,
+) -> list[WrittenTable]:
+    written: list[WrittenTable] = []
+    partition_path = f"snapshot_date={snapshot_date}"
+    for table_name in DAILY_SNAPSHOT_TABLE_ORDER:
+        table = tables[table_name]
+        local_dir = local_output_dir / "_internal_daily_snapshots" / table_name / partition_path
+        local_dir.mkdir(parents=True, exist_ok=True)
+        local_path = local_dir / "part-00000.parquet"
+        write_parquet(table, local_path)
+        byte_count = local_path.stat().st_size
+        key = None
+        uri = None
+        if s3_client and s3_bucket:
+            key = f"{daily_snapshot_prefix.strip('/')}/{table_name}/{partition_path}/part-00000.parquet"
+            s3_client.upload_file(
+                str(local_path),
+                s3_bucket,
+                key,
+                ExtraArgs={
+                    "ServerSideEncryption": "AES256",
+                    "ContentType": "application/octet-stream",
+                },
+            )
+            uri = f"s3://{s3_bucket}/{key}"
+        written.append(
+            WrittenTable(
+                name=f"daily_snapshot_{table_name}",
+                database="internal_s3_only",
                 row_count=len(table.rows),
                 s3_uri=uri,
                 s3_key=key,
@@ -736,10 +898,9 @@ def write_parquet(table: TableData, path: str | Path) -> None:
 def create_or_update_glue_tables(
     *,
     database_name: str,
+    reporting_database_name: str,
     s3_bucket: str,
     s3_prefix: str,
-    run_id: str,
-    snapshot_date: str,
 ) -> list[GlueTableResult]:
     import boto3  # type: ignore
     from botocore.exceptions import ClientError  # type: ignore
@@ -747,53 +908,44 @@ def create_or_update_glue_tables(
     glue = boto3.client("glue")
     results: list[GlueTableResult] = []
     for table_name in TABLE_ORDER:
-        table_location = f"s3://{s3_bucket}/{s3_prefix.strip('/')}/{table_name}/"
-        partition_location = f"{table_location}snapshot_date={snapshot_date}/run={run_id}/"
+        target_database = table_database_name(table_name, database_name, reporting_database_name)
+        table_location = f"s3://{s3_bucket}/{current_table_prefix(s3_prefix, table_name)}/"
         table_input = glue_table_input(table_name, table_location)
         try:
-            glue.get_table(DatabaseName=database_name, Name=table_name)
-            glue.update_table(DatabaseName=database_name, TableInput=table_input)
-            action = "updated"
+            existing = glue.get_table(DatabaseName=target_database, Name=table_name)["Table"]
+            if existing.get("PartitionKeys"):
+                glue.delete_table(DatabaseName=target_database, Name=table_name)
+                glue.create_table(DatabaseName=target_database, TableInput=table_input)
+                action = "replaced_partitioned_table"
+            else:
+                glue.update_table(DatabaseName=target_database, TableInput=table_input)
+                action = "updated"
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") != "EntityNotFoundException":
                 raise
-            glue.create_table(DatabaseName=database_name, TableInput=table_input)
+            glue.create_table(DatabaseName=target_database, TableInput=table_input)
             action = "created"
-
-        partition_input = {
-            "Values": [snapshot_date, run_id],
-            "StorageDescriptor": storage_descriptor(table_name, partition_location),
-            "Parameters": {"classification": "parquet"},
-        }
-        try:
-            glue.get_partition(
-                DatabaseName=database_name,
-                TableName=table_name,
-                PartitionValues=[snapshot_date, run_id],
-            )
-            glue.update_partition(
-                DatabaseName=database_name,
-                TableName=table_name,
-                PartitionValueList=[snapshot_date, run_id],
-                PartitionInput=partition_input,
-            )
-        except ClientError as exc:
-            if exc.response.get("Error", {}).get("Code") != "EntityNotFoundException":
-                raise
-            glue.create_partition(
-                DatabaseName=database_name,
-                TableName=table_name,
-                PartitionInput=partition_input,
-            )
         results.append(
             GlueTableResult(
+                database=target_database,
                 name=table_name,
                 table_location=table_location,
-                partition_location=partition_location,
                 action=action,
             )
         )
     return results
+
+
+def table_group(table_name: str) -> str:
+    return "reporting" if table_name in REPORTING_TABLE_ORDER else "core"
+
+
+def table_database_name(table_name: str, core_database: str, reporting_database: str) -> str:
+    return reporting_database if table_name in REPORTING_TABLE_ORDER else core_database
+
+
+def current_table_prefix(s3_prefix: str, table_name: str) -> str:
+    return "/".join(part.strip("/") for part in (s3_prefix, table_group(table_name), table_name) if part and part.strip("/"))
 
 
 def glue_table_input(table_name: str, location: str) -> dict[str, Any]:
@@ -806,10 +958,7 @@ def glue_table_input(table_name: str, location: str) -> dict[str, Any]:
             "classification": "parquet",
             "parquet.compression": "SNAPPY",
         },
-        "PartitionKeys": [
-            {"Name": "snapshot_date", "Type": "string"},
-            {"Name": "run_id", "Type": "string"},
-        ],
+        "PartitionKeys": [],
         "StorageDescriptor": storage_descriptor(table_name, location),
     }
 
@@ -832,10 +981,39 @@ def table_counts(tables: dict[str, TableData]) -> dict[str, int]:
     return {name: len(tables[name].rows) for name in TABLE_ORDER}
 
 
+def load_previous_stage_history(
+    *,
+    local_output_dir: str | Path,
+    s3_bucket: str | None,
+    s3_prefix: str,
+) -> list[dict[str, Any]]:
+    key = f"{current_table_prefix(s3_prefix, 'opportunity_stage_history')}/part-00000.parquet"
+    if s3_bucket:
+        try:
+            import boto3  # type: ignore
+            from botocore.exceptions import ClientError  # type: ignore
+
+            response = boto3.client("s3").get_object(Bucket=s3_bucket, Key=key)
+            _, pq = import_pyarrow()
+            return pq.read_table(io.BytesIO(response["Body"].read())).to_pylist()
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code")
+            if code in {"NoSuchKey", "404", "NotFound"}:
+                return []
+            raise
+
+    local_path = Path(local_output_dir) / "core" / "opportunity_stage_history" / "part-00000.parquet"
+    if not local_path.exists():
+        return []
+    _, pq = import_pyarrow()
+    return pq.read_table(local_path).to_pylist()
+
+
 def written_summary(written: Iterable[WrittenTable]) -> list[dict[str, Any]]:
     return [
         {
             "table": item.name,
+            "database": item.database,
             "row_count": item.row_count,
             "s3_uri": item.s3_uri,
             "s3_key": item.s3_key,
@@ -850,10 +1028,10 @@ def written_summary(written: Iterable[WrittenTable]) -> list[dict[str, Any]]:
 def glue_summary(results: Iterable[GlueTableResult]) -> list[dict[str, str]]:
     return [
         {
+            "database": item.database,
             "table": item.name,
             "action": item.action,
             "table_location": item.table_location,
-            "partition_location": item.partition_location,
         }
         for item in results
     ]
@@ -1040,11 +1218,18 @@ def run_curated_build(
     s3_bucket: str | None = DEFAULT_CURATED_BUCKET,
     s3_prefix: str = DEFAULT_CURATED_PREFIX,
     glue_database: str | None = DEFAULT_GLUE_DATABASE,
+    reporting_glue_database: str = DEFAULT_REPORTING_GLUE_DATABASE,
+    daily_snapshot_prefix: str = "snapshots/ghl/daily",
 ) -> dict[str, Any]:
     manifest, raw = load_manifest_and_raw(manifest_uri)
     run_id = str(manifest.get("run_id") or "unknown-run")
     snapshot_at = manifest_snapshot_at(manifest)
-    tables = build_curated_tables(raw, manifest)
+    previous_stage_history = load_previous_stage_history(
+        local_output_dir=local_output_dir,
+        s3_bucket=s3_bucket,
+        s3_prefix=s3_prefix,
+    )
+    tables = build_curated_tables(raw, manifest, previous_stage_history=previous_stage_history)
     written = write_curated_tables(
         tables,
         run_id=run_id,
@@ -1052,15 +1237,17 @@ def run_curated_build(
         local_output_dir=local_output_dir,
         s3_bucket=s3_bucket,
         s3_prefix=s3_prefix,
+        glue_database=glue_database or DEFAULT_GLUE_DATABASE,
+        reporting_glue_database=reporting_glue_database,
+        daily_snapshot_prefix=daily_snapshot_prefix,
     )
     glue_results: list[GlueTableResult] = []
     if glue_database and s3_bucket:
         glue_results = create_or_update_glue_tables(
             database_name=glue_database,
+            reporting_database_name=reporting_glue_database,
             s3_bucket=s3_bucket,
             s3_prefix=s3_prefix,
-            run_id=run_id,
-            snapshot_date=snapshot_date,
         )
     counts = table_counts(tables)
     written_tables = written_summary(written)
@@ -1069,6 +1256,9 @@ def run_curated_build(
         "run_id": run_id,
         "snapshot_date": snapshot_date,
         "snapshot_at": snapshot_at.isoformat() if snapshot_at else None,
+        "publishing_model": "v1_1_current_tables",
+        "core_database": glue_database,
+        "reporting_database": reporting_glue_database,
         "table_counts": counts,
         "written": written_tables,
         "glue": glue_summary(glue_results),

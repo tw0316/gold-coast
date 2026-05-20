@@ -1,10 +1,6 @@
 -- AQ-008: Show appointment-set rate by source, user, and week.
 -- Assumptions: no appointment fact table exists in MVP; appointment-set is a best-effort signal from current opportunity stage/status/raw text.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.opportunities
-),
-opportunities_latest AS (
+WITH opportunities_latest AS (
     SELECT
         opportunity_id,
         CAST(date_trunc('week', created_at) AS date) AS lead_created_week,
@@ -20,9 +16,8 @@ opportunities_latest AS (
                 coalesce(raw_json, '')
             )
         ) AS searchable_text
-    FROM gold_coast.opportunities
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND created_at IS NOT NULL
+    FROM gold_coast.opportunities_latest
+    WHERE created_at IS NOT NULL
 )
 SELECT
     lead_created_week,
@@ -38,4 +33,3 @@ SELECT
 FROM opportunities_latest
 GROUP BY 1, 2, 3, 4
 ORDER BY lead_created_week DESC, appointment_set_rate_pct DESC, leads DESC
-

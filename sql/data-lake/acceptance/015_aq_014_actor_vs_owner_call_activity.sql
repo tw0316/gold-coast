@@ -1,12 +1,7 @@
 -- AQ-014: Compare caller activity by actor userId even when the opportunity owner is someone else.
 -- Assumptions: calls are attributed to calls.actor_user_id; opportunity owner is shown only for comparison.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.calls
-),
-call_opportunity_candidates AS (
+WITH call_opportunity_candidates AS (
     SELECT
-        c.snapshot_date,
         c.call_message_id,
         c.contact_id,
         c.actor_user_id,
@@ -26,10 +21,8 @@ call_opportunity_candidates AS (
                 o.created_at DESC
         ) AS opportunity_rank
     FROM gold_coast.calls c
-    LEFT JOIN gold_coast.opportunities o
-        ON o.snapshot_date = c.snapshot_date
-       AND o.contact_id = c.contact_id
-    WHERE c.snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
+    LEFT JOIN gold_coast.opportunities_latest o
+        ON o.contact_id = c.contact_id
 ),
 ranked_calls AS (
     SELECT *
@@ -69,4 +62,3 @@ SELECT
 FROM classified
 GROUP BY 1, 2, 3, 4, 5
 ORDER BY ownership_alignment, calls_total DESC, actor_user_id, opportunity_owner_user_id
-

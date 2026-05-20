@@ -1,10 +1,6 @@
 -- AQ-002A: Calculate speed-to-first-phone-call for new leads using opportunity created time as the start timestamp.
--- Assumptions: phone-call speed uses first outbound call from mart_lead_response.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.mart_lead_response
-),
-lead_response AS (
+-- Assumptions: phone-call speed uses first outbound call from gold_coast_reporting.lead_response.
+WITH lead_response AS (
     SELECT
         r.opportunity_id,
         r.assigned_to_user_id,
@@ -14,12 +10,10 @@ lead_response AS (
         r.minutes_to_first_outbound_call,
         o.source,
         o.pipeline_name
-    FROM gold_coast.mart_lead_response r
-    LEFT JOIN gold_coast.opportunities o
-        ON o.snapshot_date = r.snapshot_date
-       AND o.opportunity_id = r.opportunity_id
-    WHERE r.snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND r.lead_created_at IS NOT NULL
+    FROM gold_coast_reporting.lead_response r
+    LEFT JOIN gold_coast.opportunities_latest o
+        ON o.opportunity_id = r.opportunity_id
+    WHERE r.lead_created_at IS NOT NULL
 )
 SELECT
     CAST(lead_created_at AS date) AS lead_created_date,
@@ -36,4 +30,3 @@ SELECT
 FROM lead_response
 GROUP BY 1, 2, 3, 4
 ORDER BY lead_created_date DESC, lead_source, assigned_to_user_id
-

@@ -1,12 +1,7 @@
 -- AQ-009: Surface leads with follow-up-needed classification and no subsequent touch.
 -- Assumptions: no follow-up fact table exists in MVP; classification is a best-effort text signal from opportunity/contact fields.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.opportunities
-),
-follow_up_candidates AS (
+WITH follow_up_candidates AS (
     SELECT
-        o.snapshot_date,
         o.opportunity_id,
         o.contact_id,
         o.opportunity_name,
@@ -26,11 +21,9 @@ follow_up_candidates AS (
                 coalesce(c.custom_fields_json, '')
             )
         ) AS searchable_text
-    FROM gold_coast.opportunities o
-    LEFT JOIN gold_coast.contacts c
-        ON c.snapshot_date = o.snapshot_date
-       AND c.contact_id = o.contact_id
-    WHERE o.snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
+    FROM gold_coast.opportunities_latest o
+    LEFT JOIN gold_coast.contacts_latest c
+        ON c.contact_id = o.contact_id
 ),
 follow_up_leads AS (
     SELECT *
@@ -45,8 +38,7 @@ touches AS (
         m.date_added AS touch_at
     FROM follow_up_leads f
     INNER JOIN gold_coast.messages m
-        ON m.snapshot_date = f.snapshot_date
-       AND m.contact_id = f.contact_id
+        ON m.contact_id = f.contact_id
        AND m.date_added > f.follow_up_signal_at
        AND lower(coalesce(m.direction, '')) = 'outbound'
        AND m.message_type <> 'TYPE_CALL'
@@ -58,8 +50,7 @@ touches AS (
         c.date_added AS touch_at
     FROM follow_up_leads f
     INNER JOIN gold_coast.calls c
-        ON c.snapshot_date = f.snapshot_date
-       AND c.contact_id = f.contact_id
+        ON c.contact_id = f.contact_id
        AND c.date_added > f.follow_up_signal_at
        AND lower(coalesce(c.direction, '')) = 'outbound'
 ),

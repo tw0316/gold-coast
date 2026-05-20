@@ -1,10 +1,6 @@
 -- AQ-006: List leads with no outbound touch within 15 minutes, 1 hour, and 24 hours.
--- Assumptions: outbound touch = first outbound call or first outbound non-call message in mart_lead_response.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.mart_lead_response
-),
-lead_response AS (
+-- Assumptions: outbound touch = first outbound call or first outbound non-call message in gold_coast_reporting.lead_response.
+WITH lead_response AS (
     SELECT
         r.opportunity_id,
         r.contact_id,
@@ -18,12 +14,10 @@ lead_response AS (
         o.pipeline_name,
         o.pipeline_stage_name,
         o.status AS opportunity_status
-    FROM gold_coast.mart_lead_response r
-    LEFT JOIN gold_coast.opportunities o
-        ON o.snapshot_date = r.snapshot_date
-       AND o.opportunity_id = r.opportunity_id
-    WHERE r.snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND r.lead_created_at IS NOT NULL
+    FROM gold_coast_reporting.lead_response r
+    LEFT JOIN gold_coast.opportunities_latest o
+        ON o.opportunity_id = r.opportunity_id
+    WHERE r.lead_created_at IS NOT NULL
 )
 SELECT
     opportunity_id,
@@ -45,4 +39,3 @@ FROM lead_response
 WHERE first_response_at IS NULL
    OR minutes_to_first_response > 15
 ORDER BY lead_created_at DESC
-

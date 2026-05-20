@@ -18,6 +18,7 @@ from gold_coast_data_lake.curated import (
     DEFAULT_CURATED_PREFIX,
     DEFAULT_GLUE_DATABASE,
     DEFAULT_MANIFEST_S3_URI,
+    DEFAULT_REPORTING_GLUE_DATABASE,
     DEFAULT_SNAPSHOT_DATE,
     run_curated_build,
 )
@@ -31,8 +32,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--s3-bucket", default=DEFAULT_CURATED_BUCKET)
     parser.add_argument("--s3-prefix", default=DEFAULT_CURATED_PREFIX)
     parser.add_argument("--glue-database", default=DEFAULT_GLUE_DATABASE)
+    parser.add_argument("--reporting-glue-database", default=DEFAULT_REPORTING_GLUE_DATABASE)
+    parser.add_argument("--daily-snapshot-prefix", default="snapshots/ghl/daily")
     parser.add_argument("--no-s3", action="store_true", help="Write local Parquet only.")
-    parser.add_argument("--no-glue", action="store_true", help="Skip Glue table and partition updates.")
+    parser.add_argument("--no-glue", action="store_true", help="Skip Glue table updates.")
     return parser.parse_args(argv)
 
 
@@ -50,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         s3_bucket=s3_bucket,
         s3_prefix=args.s3_prefix,
         glue_database=glue_database,
+        reporting_glue_database=args.reporting_glue_database,
+        daily_snapshot_prefix=args.daily_snapshot_prefix,
     )
     print(json.dumps(summary, indent=2, sort_keys=True, default=str))
     return 0

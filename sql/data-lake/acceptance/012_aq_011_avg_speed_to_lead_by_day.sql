@@ -1,10 +1,6 @@
 -- AQ-011: Calculate average speed-to-lead by day.
 -- Assumptions: primary speed-to-lead is minutes_to_first_outbound_call; first outbound touch is reported as secondary context.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.mart_lead_response
-),
-lead_response AS (
+WITH lead_response AS (
     SELECT
         CAST(r.lead_created_at AS date) AS lead_created_date,
         r.minutes_to_first_outbound_call,
@@ -13,12 +9,10 @@ lead_response AS (
         r.first_response_at,
         o.source,
         o.pipeline_name
-    FROM gold_coast.mart_lead_response r
-    LEFT JOIN gold_coast.opportunities o
-        ON o.snapshot_date = r.snapshot_date
-       AND o.opportunity_id = r.opportunity_id
-    WHERE r.snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND r.lead_created_at IS NOT NULL
+    FROM gold_coast_reporting.lead_response r
+    LEFT JOIN gold_coast.opportunities_latest o
+        ON o.opportunity_id = r.opportunity_id
+    WHERE r.lead_created_at IS NOT NULL
 )
 SELECT
     lead_created_date,
@@ -34,4 +28,3 @@ SELECT
 FROM lead_response
 GROUP BY 1, 2, 3
 ORDER BY lead_created_date DESC, lead_source
-

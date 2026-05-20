@@ -1,10 +1,6 @@
 -- AQ-005: Count SMS/text messages sent and received by user/day where source data supports attribution.
 -- Assumptions: inbound SMS may have no actor_user_id; those rows are grouped as unknown and flagged unattributed.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.messages
-),
-sms_messages AS (
+WITH sms_messages AS (
     SELECT
         CAST(date_added AS date) AS activity_date,
         coalesce(nullif(actor_user_id, ''), 'unknown') AS actor_user_id,
@@ -13,8 +9,7 @@ sms_messages AS (
         contact_id,
         message_id
     FROM gold_coast.messages
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND message_type IN ('TYPE_SMS', 'TYPE_SMS_REACTION')
+    WHERE message_type IN ('TYPE_SMS', 'TYPE_SMS_REACTION')
       AND date_added IS NOT NULL
 )
 SELECT
@@ -28,4 +23,3 @@ SELECT
 FROM sms_messages
 GROUP BY 1, 2, 3
 ORDER BY activity_date DESC, sms_messages_total DESC, actor_user_id
-

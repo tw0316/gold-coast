@@ -1,10 +1,6 @@
 -- AQ-010: Summarize call outcomes/statuses from metadata only, without transcription or coaching analysis.
 -- Assumptions: outcome uses call_status when present, otherwise message-level status.
-WITH latest_snapshot AS (
-    SELECT max(snapshot_date) AS snapshot_date
-    FROM gold_coast.calls
-),
-calls_latest AS (
+WITH calls_latest AS (
     SELECT
         CAST(date_added AS date) AS call_date,
         coalesce(nullif(direction, ''), 'unknown') AS direction,
@@ -12,8 +8,7 @@ calls_latest AS (
         duration_seconds,
         has_recording
     FROM gold_coast.calls
-    WHERE snapshot_date = (SELECT snapshot_date FROM latest_snapshot)
-      AND date_added IS NOT NULL
+    WHERE date_added IS NOT NULL
 )
 SELECT
     call_date,
@@ -27,4 +22,3 @@ SELECT
 FROM calls_latest
 GROUP BY 1, 2, 3
 ORDER BY call_date DESC, calls DESC, direction, outcome_status
-

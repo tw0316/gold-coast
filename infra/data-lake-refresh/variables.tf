@@ -28,6 +28,12 @@ variable "glue_database" {
   default     = "gold_coast"
 }
 
+variable "reporting_glue_database" {
+  description = "Glue database for repeated business metric marts."
+  type        = string
+  default     = "gold_coast_reporting"
+}
+
 variable "athena_workgroup" {
   description = "Existing Athena workgroup."
   type        = string
@@ -98,9 +104,15 @@ variable "log_retention_days" {
 }
 
 variable "schedule_enabled" {
-  description = "Enable the 30-minute EventBridge schedule. Keep false until manual run evidence passes."
+  description = "Enable the EventBridge schedule. Keep false until manual run evidence passes."
   type        = bool
   default     = false
+}
+
+variable "schedule_expression" {
+  description = "EventBridge schedule expression for the refresh after V1.1 cutover."
+  type        = string
+  default     = "rate(1 hour)"
 }
 
 variable "alert_mode" {

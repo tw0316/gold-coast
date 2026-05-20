@@ -1,280 +1,135 @@
 # Gold Coast Data Lake Data Dictionary
 
-Database: `gold_coast`
+Status: V1.1 query contract
 
-Current verified snapshot: `snapshot_date = '2026-05-18'`
+Core database: gold_coast
 
-Curated S3 prefix: `s3://gcoffers-data-lake/curated/ghl/`
+Reporting database: gold_coast_reporting
 
-Athena workgroup: `gold_coast_data_lake`
+Athena workgroup: gold_coast_data_lake
 
-Local project root: `/Users/jarvis/LocalRepos/gold-coast/apps/data-lake`
+Curated S3 prefix: s3://gcoffers-data-lake/curated/ghl/v1_1/
+
+Internal daily snapshots: s3://gcoffers-data-lake/snapshots/ghl/daily/
 
 ## Scope And Guardrails
 
-This dictionary documents the GHL-source MVP Glue/Athena curated tables exactly as implemented in `src/gold_coast_data_lake/curated.py`.
-
-MVP guardrails:
+This dictionary documents the GHL-source V1.1 Athena query surface implemented in apps/data-lake/src/gold_coast_data_lake/curated.py.
 
 - GHL is read-only. No GHL writes, notes, field updates, tasks, pipeline moves, or workflow triggers.
-- No transcription, no call summaries, no coaching analysis, no dashboards, no QuickSight, no Superset, and no scheduled Slack scorecards.
-- No credentials or raw secrets belong in docs, SQL, logs, or query output.
+- Core curated tables are first-class query targets for entity/event exploration.
+- gold_coast_reporting is for repeated business metrics and marts.
+- Daily snapshots are internal audit/debug data, not the normal query surface.
+- No dashboards, transcription, call summaries, coaching analysis, website leads, or marketing data are part of V1.1.
 - Call recordings are private encrypted S3 objects only. Tables store metadata and object references, not audio payloads.
 
-All tables are external Parquet Glue tables partitioned by `snapshot_date` and `run_id`. Curated rows include `snapshot_at` so repeated same-day refreshes have unambiguous freshness. Query the latest successful run unless a historical snapshot comparison is intentional.
+V1.1 default query tables are not repeated snapshot_date/run_id partitions. Current-state tables are overwritten, event tables are deduped by stable source IDs, and stage history appends only when stage/status changes.
 
-GHL remains the first source namespace inside the source-agnostic Gold Coast data lake. Source-specific objects stay under `raw/ghl/`, `curated/ghl/`, `recordings/ghl/`, `manifests/ghl/`, and `checkpoints/ghl/`.
+Rows include run_id and snapshot_at for observability. Users should not need to filter by either field for normal questions.
 
 ## Table Summary
 
-| Table | Grain | Rows In Current Snapshot | PII Level |
-| --- | --- | ---: | --- |
-| `contacts` | One row per GHL contact | 175 | High |
-| `opportunities` | One row per GHL opportunity | 120 | High |
-| `opportunity_stage_history` | One row per opportunity per successful refresh snapshot | 120 | Moderate |
-| `messages` | One row per GHL conversation message/activity | 1,547 | High |
-| `calls` | One row per fetched GHL call message detail | 193 | High |
-| `call_recordings` | One row per recording archive attempt | 193 | High |
-| `mart_lead_response` | One row per opportunity with response metrics | 120 | Moderate |
-| `mart_rep_activity_daily` | One row per activity date and actor user ID | 115 | Moderate |
+| Database | Table | Grain | PII |
+| --- | --- | --- | --- |
+| gold_coast | contacts_latest | One latest row per GHL contact_id | High |
+| gold_coast | opportunities_latest | One latest row per GHL opportunity_id | High |
+| gold_coast | messages | One durable row per GHL message_id | High |
+| gold_coast | calls | One durable row per GHL call_message_id | High |
+| gold_coast | call_recordings | One row per call recording archive result keyed by message_id | High |
+| gold_coast | opportunity_stage_history | One row per observed stage/status transition | Moderate |
+| gold_coast_reporting | lead_response | One row per opportunity with speed-to-lead/contact metrics | Moderate |
+| gold_coast_reporting | rep_activity_daily | One row per actor/day activity bucket | Moderate |
 
 ## Common Join Keys
 
-- `contacts.contact_id` = `opportunities.contact_id` = `messages.contact_id` = `calls.contact_id`
-- `messages.message_id` = `calls.call_message_id` for call messages when the raw message and fetched call detail both exist.
-- `calls.call_message_id` = `call_recordings.message_id`
-- `opportunities.opportunity_id` = `mart_lead_response.opportunity_id`
-- `messages.actor_user_id` and `calls.actor_user_id` identify the event actor. Do not substitute current opportunity owner for activity attribution.
-- Every join across curated tables should include matching `snapshot_date` and `run_id` partitions. Within Parquet rows, `snapshot_at` is the freshness timestamp.
+- contacts_latest.contact_id = opportunities_latest.contact_id = messages.contact_id = calls.contact_id
+- messages.message_id = calls.call_message_id for call messages when both raw message and fetched call detail exist.
+- calls.call_message_id = call_recordings.message_id
+- opportunities_latest.opportunity_id = gold_coast_reporting.lead_response.opportunity_id
+- messages.actor_user_id and calls.actor_user_id identify the event actor. Do not substitute current opportunity owner for activity attribution.
 
-## contacts
+## Core Tables
 
-Purpose: Current contact-level attributes from GHL for seller identity, contactability, attribution fields, tags, and custom fields.
+### gold_coast.contacts_latest
 
-Grain: One row per GHL contact in the curated snapshot.
+Purpose: latest contact identity, contactability, attribution fields, tags, and custom fields.
 
-Source endpoint/raw entity: `GET /contacts/?locationId=...` into raw entity `contacts`.
+Primary key: contact_id
 
-Refresh/snapshot cadence: Rebuilt as a snapshot partition by the curated build. Current verified partition is `2026-05-18`; use `max(snapshot_date)` for latest-state queries.
+Source endpoint: GET /contacts/?locationId=...
 
-PII level: High. Contains names, phone numbers, email addresses, location fields, tags, custom fields, and raw JSON.
+Important fields: contact_id, contact_name, phone, email, source, assigned_to_user_id, tags_json, custom_fields_json, date_added, date_updated, raw_json, run_id, snapshot_at.
 
-Join keys:
+### gold_coast.opportunities_latest
 
-- Primary analytical key: `contact_id`
-- Common joins: `opportunities.contact_id`, `messages.contact_id`, `calls.contact_id`
+Purpose: latest lead/opportunity state. In Gold Coast, lead = GHL opportunity.
 
-Caveats:
+Primary key: opportunity_id
 
-- This is latest-known contact state only. It is not a point-in-time contact history.
-- `tags_json`, `custom_fields_json`, and `attributions_json` are JSON strings preserved from source payloads.
-- Phone/email values may also appear in opportunity embedded contact fields and message/call records.
+Source endpoint: GET /opportunities/search?location_id=...&pipeline_id=..., enriched with pipeline/stage names from GET /opportunities/pipelines?locationId=....
 
-Important fields:
+Important fields: opportunity_id, contact_id, pipeline_id, pipeline_name, pipeline_stage_id, pipeline_stage_name, status, source, assigned_to_user_id, created_at, updated_at, last_stage_change_at, last_status_change_at, raw_json, run_id, snapshot_at.
 
-- `contact_id`, `location_id`: Source identifiers.
-- `contact_name`, `first_name`, `last_name`, `phone`, `email`: PII contact fields.
-- `source`, `assigned_to_user_id`, `tags_json`, `custom_fields_json`, `attributions_json`: Attribution and segmentation fields.
-- `date_added`, `date_updated`: Source timestamps.
-- `raw_json`: Full normalized source record as JSON text.
+### gold_coast.messages
 
-## opportunities
+Purpose: event-safe conversation message/activity fact table for SMS, email, Facebook, Instagram, and activity events.
 
-Purpose: Lead/opportunity table. In V1, a lead is a GHL opportunity.
+Primary key: message_id
 
-Grain: One row per GHL opportunity in the curated snapshot.
+Source endpoint: GET /conversations/{conversationId}/messages
 
-Source endpoint/raw entity: `GET /opportunities/search?location_id=...&pipeline_id=...` into raw entity `opportunities`. Pipeline and stage names are enriched from raw entity `pipelines`, fetched from `GET /opportunities/pipelines?locationId=...`.
+Important fields: message_id, conversation_id, contact_id, message_type, direction, status, body, from_phone, to_phone, actor_user_id, date_added, date_updated, raw_json, run_id, snapshot_at.
 
-Refresh/snapshot cadence: Rebuilt as a latest-state snapshot partition. Current verified partition is `2026-05-18`.
+### gold_coast.calls
 
-PII level: High. Contains seller name, phone/email fields when embedded in the opportunity, source fields, and raw JSON.
+Purpose: event-safe call fact table built from fetched GHL call message detail, enriched with recording metadata.
 
-Join keys:
+Primary key: call_message_id
 
-- Primary analytical key: `opportunity_id`
-- Contact join: `contact_id`
-- Stage joins by source IDs: `pipeline_id`, `pipeline_stage_id`
-- Mart join: `mart_lead_response.opportunity_id`
+Source endpoint: GET /conversations/messages/{messageId}
 
-Caveats:
+Important fields: call_message_id, conversation_id, contact_id, actor_user_id, direction, status, call_status, duration_seconds, has_recording, recording_s3_uri, recording_archival_status, date_added, date_updated, raw_json, run_id, snapshot_at.
 
-- Current table stores latest-known opportunity state, not full stage movement history.
-- Speed-to-lead calculations use `created_at` as the lead start timestamp.
-- Schema supports additional pipelines, including Dispositions, through `pipeline_id` and `pipeline_name`, even though the MVP acceptance pass starts with Motivated Sellers.
-- Stage names come from the pipeline lookup available during extraction. Missing stage lookups will leave names null.
+### gold_coast.call_recordings
 
-Important fields:
+Purpose: recording archive ledger. Tracks archived, skipped-existing, and unavailable recording outcomes.
 
-- `opportunity_id`, `contact_id`, `location_id`: Source identifiers.
-- `pipeline_id`, `pipeline_name`, `pipeline_stage_id`, `pipeline_stage_name`, `pipeline_stage_position`: Pipeline state.
-- `status`, `source`, `assigned_to_user_id`: Current lead state and owner.
-- `created_at`, `updated_at`, `last_stage_change_at`, `last_status_change_at`: Source timestamps.
-- `contact_name`, `contact_phone`, `contact_email`: Embedded contact fields from opportunity payload.
-- `custom_fields_json`, `attributions_json`, `raw_json`: Preserved source details.
+Primary key: message_id
 
-## messages
+Source endpoint: GET /conversations/messages/{messageId}/locations/{locationId}/recording
 
-Purpose: Conversation message and activity fact table for SMS, email, Facebook, Instagram, appointment/contact/opportunity activity, and raw call message rows.
+Important fields: message_id, archival_status, s3_uri, object_key, content_type, byte_count, sha256, unavailable_reason, archived_at, run_id, snapshot_at.
 
-Grain: One row per GHL conversation message/activity from the messages endpoint.
+### gold_coast.opportunity_stage_history
 
-Source endpoint/raw entity: `GET /conversations/{conversationId}/messages` into raw entity `messages`. Conversation IDs come from `GET /conversations/search?locationId=...`.
+Purpose: transition history for stage/status movement without full snapshot spam.
 
-Refresh/snapshot cadence: Rebuilt as a snapshot partition from the latest raw backfill. Current verified partition is `2026-05-18`.
+Primary key: transition_key
 
-PII level: High. SMS bodies are stored in full by requirement. Phone numbers and raw JSON may contain additional PII.
+Append rule: first V1.1 observation creates a baseline row. Later runs append only when pipeline_id, pipeline_stage_id, or status changes for the opportunity.
 
-Join keys:
+Important fields: opportunity_id, contact_id, previous_pipeline_stage_id, previous_pipeline_stage_name, previous_status, pipeline_stage_id, pipeline_stage_name, status, observed_at, source_stage_changed_at, source_status_changed_at, stage_status_key, transition_key, run_id, snapshot_at.
 
-- Primary analytical key: `message_id`
-- Conversation key: `conversation_id`
-- Contact join: `contact_id`
-- Call detail join: `message_id = calls.call_message_id` for `TYPE_CALL` rows when fetched detail exists.
+## Reporting Marts
 
-Caveats:
+### gold_coast_reporting.lead_response
 
-- `actor_user_id` comes from `userId` on the source message. Inbound messages often have no actor and should be treated as unattributed or `unknown` in activity queries.
-- `body` is populated for message types that expose a body. Calls and activity messages may have null body.
-- Call analytics should usually use `calls`, because it includes fetched detail and recording metadata.
+Purpose: speed-to-lead and contact-attempt metrics for repeated business questions.
 
-Important fields:
+Primary key: opportunity_id
 
-- `message_id`, `conversation_id`, `contact_id`, `location_id`: Source identifiers.
-- `message_type`, `direction`, `status`: Message classification.
-- `body`: Full source body where available, including SMS text.
-- `from_phone`, `to_phone`, `actor_user_id`: Contact and attribution fields.
-- `date_added`, `date_updated`: Source timestamps.
-- `attachments_json`, `activity_json`, `meta_json`, `error_json`, `raw_json`: Preserved nested payloads.
+Important fields: opportunity_id, contact_id, assigned_to_user_id, lead_created_at, first_outbound_call_at, minutes_to_first_outbound_call, first_outbound_message_at, minutes_to_first_outbound_message, first_response_at, minutes_to_first_response, call_count, message_count, has_contact_attempt, has_completed_call.
 
-## calls
+### gold_coast_reporting.rep_activity_daily
 
-Purpose: Call metadata fact table built from fetched GHL call message detail, enriched with recording archive metadata.
+Purpose: daily call/message activity by event actor.
 
-Grain: One row per fetched call message detail.
+Primary grain: activity_date, actor_user_id
 
-Source endpoint/raw entity: `GET /conversations/messages/{messageId}` into raw entity `call_message_details`. Recording metadata is joined from the extractor manifest.
+Important fields: activity_date, actor_user_id, calls_total, calls_outbound, calls_inbound, calls_completed, call_duration_seconds, messages_total, messages_outbound, messages_inbound, sms_messages, email_messages, unique_contacts_touched, first_activity_at, last_activity_at.
 
-Refresh/snapshot cadence: Rebuilt as a snapshot partition from raw call details and recording archive metadata. Current verified partition is `2026-05-18`.
+## Internal Audit Snapshots
 
-PII level: High. Contains phone numbers, event actor, raw call JSON, and private S3 object references for recordings.
+Daily audit snapshots are written under snapshots/ghl/daily/ with a snapshot_date path. They are for recovery/debugging only.
 
-Join keys:
-
-- Primary analytical key: `call_message_id`
-- Recording join: `call_recordings.message_id`
-- Contact join: `contact_id`
-- Raw message join: `messages.message_id` when the original message row exists.
-
-Caveats:
-
-- `actor_user_id` is the user on the call event. This is the required attribution field for call activity.
-- `status` is the message status. `call_status` comes from `meta.call.status`; both are useful because source payloads vary.
-- `duration_seconds` comes from `meta.call.duration`.
-- `has_recording` is true only when a recording object was archived to S3. Unavailable recordings are still represented with status/reason metadata.
-- No transcription, summary, sentiment, or coaching fields exist in MVP.
-
-Important fields:
-
-- `call_message_id`, `conversation_id`, `contact_id`, `location_id`: Source identifiers.
-- `actor_user_id`, `direction`, `status`, `call_status`, `duration_seconds`: Call analytics fields.
-- `from_phone`, `to_phone`: Phone metadata.
-- `has_recording`, `recording_s3_uri`, `recording_object_key`, `recording_content_type`, `recording_byte_count`, `recording_sha256`, `recording_archival_status`, `recording_unavailable_reason`: Recording metadata only.
-- `date_added`, `date_updated`, `raw_json`: Source timestamp and full call detail payload.
-
-## call_recordings
-
-Purpose: Recording archive ledger. Tracks whether each attempted GHL call recording was archived or unavailable.
-
-Grain: One row per recording archive attempt.
-
-Source endpoint/raw entity: Extractor manifest `recordings` array populated by `GET /conversations/messages/{messageId}/locations/{locationId}/recording`.
-
-Refresh/snapshot cadence: Rebuilt as a snapshot partition from the raw extraction manifest. Current verified partition is `2026-05-18`.
-
-PII level: High. S3 object references point to private call audio objects. Audio is not embedded in the table.
-
-Join keys:
-
-- Primary analytical key: `message_id`
-- Call join: `calls.call_message_id`
-
-Caveats:
-
-- `archival_status = 'archived'` means the recording binary was uploaded to private encrypted S3.
-- `archival_status = 'unavailable'` means GHL returned a missing-recording response for that message.
-- `s3_uri` and `object_key` must be treated as sensitive references. Do not expose them outside approved Tej/Jarvis/Atlas contexts.
-
-Important fields:
-
-- `message_id`: GHL call message ID.
-- `archival_status`, `unavailable_reason`: Archive result.
-- `s3_uri`, `object_key`: Private encrypted S3 object reference.
-- `content_type`, `byte_count`, `sha256`: File metadata.
-- `archived_at`, `endpoint`: Fetch metadata.
-
-## mart_lead_response
-
-Purpose: Query-friendly lead response mart for speed-to-lead, first outbound touch, first phone call, completed call, and activity counts.
-
-Grain: One row per opportunity.
-
-Source endpoint/raw entity: Derived from `opportunities`, `messages`, and `calls`.
-
-Refresh/snapshot cadence: Rebuilt with curated tables as a snapshot partition. Current verified partition is `2026-05-18`.
-
-PII level: Moderate. It stores IDs and response metrics, but joins back to high-PII tables.
-
-Join keys:
-
-- Primary analytical key: `opportunity_id`
-- Contact join: `contact_id`
-- Opportunity join: `opportunities.opportunity_id`
-
-Caveats:
-
-- Lead start time is `lead_created_at`, sourced from `opportunities.created_at`.
-- Primary phone-call speed metric is `minutes_to_first_outbound_call`.
-- `first_response_at` is implemented as the earlier of first outbound call and first outbound non-call message. Treat it as first outbound touch, not a seller reply.
-- Activity counts include only events on or after the opportunity created time for the same contact.
-
-Important fields:
-
-- `opportunity_id`, `contact_id`, `assigned_to_user_id`: Lead identifiers and current owner.
-- `lead_created_at`: Speed-to-lead starting timestamp.
-- `first_outbound_call_at`, `first_outbound_call_user_id`, `minutes_to_first_outbound_call`: Primary speed-to-call metric.
-- `first_completed_call_at`, `minutes_to_first_completed_call`, `has_completed_call`: Contact-rate support.
-- `first_outbound_message_at`, `first_outbound_message_type`, `minutes_to_first_outbound_message`: Message touch support.
-- `first_response_at`, `minutes_to_first_response`: First outbound touch support.
-- `call_count`, `completed_call_count`, `message_count`, `outbound_activity_count`, `inbound_activity_count`, `has_contact_attempt`: Activity summary fields.
-
-## mart_rep_activity_daily
-
-Purpose: Query-friendly daily activity mart by event actor.
-
-Grain: One row per `activity_date` and `actor_user_id`.
-
-Source endpoint/raw entity: Derived from `messages` and `calls`.
-
-Refresh/snapshot cadence: Rebuilt with curated tables as a snapshot partition. Current verified partition is `2026-05-18`.
-
-PII level: Moderate. It stores user IDs and aggregate counts, but no message bodies or phone numbers.
-
-Join keys:
-
-- Analytical key: `activity_date`, `actor_user_id`
-- There is no user dimension in the MVP, so `actor_user_id` remains the source GHL user ID or `unknown`.
-
-Caveats:
-
-- Activity is attributed to the event actor on call/message records, not the opportunity owner.
-- Inbound messages often have no user ID and are grouped under `unknown`.
-- This mart is aggregate only. Use `calls` and `messages` for row-level detail.
-
-Important fields:
-
-- `activity_date`, `actor_user_id`: Mart grain.
-- `calls_total`, `calls_outbound`, `calls_inbound`, `calls_completed`, `call_duration_seconds`: Call activity.
-- `messages_total`, `messages_outbound`, `messages_inbound`, `sms_messages`, `email_messages`, `facebook_messages`, `instagram_messages`: Message activity.
-- `unique_contacts_touched`: Distinct contacts touched by that actor/day.
-- `first_activity_at`, `last_activity_at`: Daily bounds.
+Do not point Atlas, DataGrip, or business SQL at this prefix unless the task is explicitly audit or recovery work.

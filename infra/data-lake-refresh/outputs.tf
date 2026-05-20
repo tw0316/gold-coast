@@ -21,3 +21,11 @@ output "schedule_name" {
 output "schedule_enabled" {
   value = var.schedule_enabled
 }
+
+output "schedule_expression" {
+  value = var.schedule_expression
+}
+
+output "reporting_glue_database" {
+  value = aws_glue_catalog_database.reporting.name
+}
