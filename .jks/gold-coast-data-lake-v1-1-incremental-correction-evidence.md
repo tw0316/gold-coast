@@ -146,6 +146,34 @@ Final duplicate/grain smoke query:
 
 Cleanup remains approval-gated. No S3 deletion or Glue cleanup was run.
 
+## 2026-05-19 21:00 ET Approved Cleanup Completed
+
+Tej explicitly approved the old V1 cleanup in Slack thread `1779234305.097569` and asked that it be executed using JKS.
+
+Cleanup completed:
+
+- Deleted 199 current S3 objects from the documented old V1 generated prefixes under `curated/ghl/{contacts,opportunities,messages,calls,call_recordings,opportunity_stage_history,mart_lead_response,mart_rep_activity_daily}/`.
+- Dropped old partitioned Glue tables after validating each location:
+  - `gold_coast.contacts`
+  - `gold_coast.opportunities`
+  - `gold_coast.mart_lead_response`
+  - `gold_coast.mart_rep_activity_daily`
+- Preserved V1.1 outputs under `curated/ghl/v1_1/`.
+- Preserved daily audit snapshots, recordings, manifests, checkpoints, run-status artifacts, and Athena results.
+
+Post-cleanup verification:
+
+- All old V1 prefixes returned zero current objects.
+- Remaining `gold_coast` tables are V1.1 core/query tables only.
+- Remaining `gold_coast_reporting` tables are `lead_response` and `rep_activity_daily`.
+- All four V1.1 smoke SQL files passed after cleanup:
+  - `db1becc0-9014-42c5-8f22-3bfa0390c58e`
+  - `9f5b2648-a5c1-41b7-a432-3c63a6208fe1`
+  - `4f7500e2-82c8-4105-b29f-023503ea5591`
+  - `757d458e-b3c4-4411-aa75-5ea98f3f4576`
+
+Evidence: `.jks/v1-1-approved-cleanup-evidence.md`.
+
 ## 2026-05-19 20:51 ET Rev 7 Runtime Smoke Hardening Deploy
 
 Runtime smoke hardening was deployed after validation found reporting mart grain checks should be explicit in live in-run smoke, not only operator SQL.

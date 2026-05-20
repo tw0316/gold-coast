@@ -5,7 +5,7 @@
   "status": "completed",
   "roughPercent": 100,
   "createdAt": "2026-05-19T20:29:00-04:00",
-  "updatedAt": "2026-05-19T20:53:00-04:00",
+  "updatedAt": "2026-05-19T21:00:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-v1-1-incremental-correction.md",
   "crons": {
     "driver": {
@@ -30,14 +30,14 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-05-19T20:53:00-04:00",
+  "lastReportAt": "2026-05-19T21:00:00-04:00",
   "finalReport": {
     "sent": true,
-    "sentAt": "2026-05-19T20:53:00-04:00",
+    "sentAt": "2026-05-19T21:00:00-04:00",
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-6-record-state-and-approval-gate",
+  "lastCompletedSlice": "slice-7-approved-cleanup",
   "queue": [
     {
       "id": "slice-1-reconcile-existing-v1-1-build",
@@ -122,6 +122,19 @@
         ".jks/v1-1-validation-reconciliation-evidence.md"
       ],
       "notes": "Old V1 generated snapshot prefixes are retained and cleanup remains blocked pending explicit Tej approval. No S3 deletion or Glue cleanup was run. Runtime smoke hardening was deployed to ECS task definition rev 7 and manually validated with production run 20260520T004655Z."
+    },
+    {
+      "id": "slice-7-approved-cleanup",
+      "title": "Execute Tej-approved old V1 snapshot cleanup",
+      "status": "completed",
+      "startedAt": "2026-05-19T20:52:00-04:00",
+      "completedAt": "2026-05-19T21:00:00-04:00",
+      "expectedEvidence": [
+        ".jks/v1-1-approved-cleanup-evidence.md",
+        "docs/ops/data-lake/v1-1-cleanup-plan.md",
+        "post-cleanup Athena smoke SQL"
+      ],
+      "notes": "Deleted 199 current objects from the documented old V1 generated prefixes, dropped four old partitioned Glue tables after location validation, and reran V1.1 smoke successfully. No V1.1 outputs, daily snapshots, recordings, manifests, checkpoints, or run-status artifacts were deleted."
     }
   ],
   "childReliability": {
@@ -167,15 +180,12 @@
     "Athena smoke passed: cc8c99d8, 9d9a424e, 06ee62b8, 5beb0092",
     "Live rev7 in-run smoke passed: freshness 21049029, row availability c7b3e5ce, duplicate/grain 66819eda",
     "All 15 acceptance SQL files succeeded",
-    "Old V1 generated prefixes remain present in S3 and were not deleted"
+    "Old V1 generated prefixes remain present in S3 and were not deleted",
+    "Approved cleanup completed: 199 old V1 current S3 objects deleted",
+    "Old Glue tables dropped: gold_coast.contacts, gold_coast.opportunities, gold_coast.mart_lead_response, gold_coast.mart_rep_activity_daily",
+    "Post-cleanup smoke passed: db1becc0, 9f5b2648, 4f7500e2, 757d458e"
   ],
-  "blockers": [
-    {
-      "id": "cleanup-approval-required",
-      "status": "approval-required",
-      "detail": "Old generated V1 snapshot prefixes and old Glue table cleanup remain blocked until Tej explicitly approves deletion after V1.1 validation."
-    }
-  ],
+  "blockers": [],
   "guardrails": [
     "No GHL writes",
     "No blind S3 purge",
@@ -204,6 +214,10 @@
     {
       "type": "cleanup-plan",
       "path": "docs/ops/data-lake/v1-1-cleanup-plan.md"
+    },
+    {
+      "type": "evidence",
+      "path": ".jks/v1-1-approved-cleanup-evidence.md"
     }
   ]
 }

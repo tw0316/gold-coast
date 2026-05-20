@@ -1,10 +1,12 @@
 # Gold Coast Data Lake V1.1 Cleanup Plan
 
-Status: dry-run only, deletion blocked pending explicit Tej approval
+Status: completed 2026-05-19 after explicit Tej approval
 
 ## Rule
 
 Do not blind-purge the S3 bucket. Do not delete old generated V1 snapshot data until V1.1 passes validation and Tej explicitly approves cleanup.
+
+Cleanup was approved by Tej in Slack thread `1779234305.097569` and executed through the JKS cleanup slice. Evidence: `.jks/v1-1-approved-cleanup-evidence.md`.
 
 ## Keep
 
@@ -16,6 +18,8 @@ Do not blind-purge the S3 bucket. Do not delete old generated V1 snapshot data u
 - snapshots/ghl/daily/ internal audit snapshots.
 
 ## Candidate Old Generated Prefixes
+
+Status: deleted. Post-cleanup listings returned zero current objects for each prefix.
 
 These are old V1 repeated snapshot output prefixes, not the V1.1 query surface:
 
@@ -29,6 +33,8 @@ These are old V1 repeated snapshot output prefixes, not the V1.1 query surface:
 - s3://gcoffers-data-lake/curated/ghl/mart_rep_activity_daily/
 
 ## Candidate Old Glue Tables
+
+Status: dropped after validating each table still pointed at the old V1 prefix.
 
 These old partitioned tables may be dropped only after approval:
 
