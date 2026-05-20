@@ -88,6 +88,64 @@ WITH duplicate_checks AS (
         FROM gold_coast.call_recordings
         WHERE message_id IS NULL
     )
+
+    UNION ALL
+    SELECT
+        'opportunity_stage_history.transition_key',
+        'gold_coast.opportunity_stage_history',
+        'transition_key',
+        CAST(sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) AS bigint),
+        CAST(max(null_key_count) AS bigint)
+    FROM (
+        SELECT transition_key AS stable_id, count(*) AS key_count, 0 AS null_key_count
+        FROM gold_coast.opportunity_stage_history
+        WHERE transition_key IS NOT NULL
+        GROUP BY transition_key
+        UNION ALL
+        SELECT '__null_keys__', 0, count(*)
+        FROM gold_coast.opportunity_stage_history
+        WHERE transition_key IS NULL
+    )
+
+    UNION ALL
+    SELECT
+        'lead_response.opportunity_id',
+        'gold_coast_reporting.lead_response',
+        'opportunity_id',
+        CAST(sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) AS bigint),
+        CAST(max(null_key_count) AS bigint)
+    FROM (
+        SELECT opportunity_id AS stable_id, count(*) AS key_count, 0 AS null_key_count
+        FROM gold_coast_reporting.lead_response
+        WHERE opportunity_id IS NOT NULL
+        GROUP BY opportunity_id
+        UNION ALL
+        SELECT '__null_keys__', 0, count(*)
+        FROM gold_coast_reporting.lead_response
+        WHERE opportunity_id IS NULL
+    )
+
+    UNION ALL
+    SELECT
+        'rep_activity_daily.activity_date+actor_user_id',
+        'gold_coast_reporting.rep_activity_daily',
+        'activity_date+actor_user_id',
+        CAST(sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) AS bigint),
+        CAST(max(null_key_count) AS bigint)
+    FROM (
+        SELECT CAST(activity_date AS varchar) || '|' || CAST(actor_user_id AS varchar) AS stable_id,
+            count(*) AS key_count,
+            0 AS null_key_count
+        FROM gold_coast_reporting.rep_activity_daily
+        WHERE activity_date IS NOT NULL
+            AND actor_user_id IS NOT NULL
+        GROUP BY CAST(activity_date AS varchar) || '|' || CAST(actor_user_id AS varchar)
+        UNION ALL
+        SELECT '__null_keys__', 0, count(*)
+        FROM gold_coast_reporting.rep_activity_daily
+        WHERE activity_date IS NULL
+            OR actor_user_id IS NULL
+    )
 )
 SELECT
     'v1_1_duplicate_source_ids' AS smoke_check,

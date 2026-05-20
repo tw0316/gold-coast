@@ -35,6 +35,8 @@ class FakeAthenaClient:
                 {"check_name": "calls.call_message_id", "table_name": "gold_coast.calls", "key_column": "call_message_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
                 {"check_name": "call_recordings.message_id", "table_name": "gold_coast.call_recordings", "key_column": "message_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
                 {"check_name": "opportunity_stage_history.transition_key", "table_name": "gold_coast.opportunity_stage_history", "key_column": "transition_key", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "lead_response.opportunity_id", "table_name": "gold_coast_reporting.lead_response", "key_column": "opportunity_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
+                {"check_name": "rep_activity_daily.activity_date+actor_user_id", "table_name": "gold_coast_reporting.rep_activity_daily", "key_column": "activity_date+actor_user_id", "duplicate_count": "0", "null_key_count": "0", "status": "passed"},
             ],
         }
 
@@ -90,9 +92,12 @@ class AthenaSmokeTests(unittest.TestCase):
         self.assertEqual(check["row_availability_result"]["status"], "passed")
         self.assertEqual(check["row_availability_result"]["table_counts"]["gold_coast.contacts_latest"], 10)
         self.assertEqual(check["duplicate_result"]["status"], "passed")
+        self.assertIn("lead_response.opportunity_id", check["duplicate_result"]["checks"])
+        self.assertIn("rep_activity_daily.activity_date+actor_user_id", check["duplicate_result"]["checks"])
         self.assertEqual(len(client.queries), 3)
         self.assertIn('"gold_coast"."contacts_latest"', client.queries[0]["QueryString"])
         self.assertIn('"gold_coast_reporting"."lead_response"', client.queries[1]["QueryString"])
+        self.assertIn('"gold_coast_reporting"."lead_response"', client.queries[2]["QueryString"])
 
     def test_run_athena_smoke_checks_returns_not_run_when_config_is_missing(self) -> None:
         checks = run_athena_smoke_checks(

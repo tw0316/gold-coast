@@ -118,3 +118,30 @@ Scheduled run row counts matched the manual V1.1 backfill:
 ## Remaining Approval Gate
 
 Old V1 snapshot data remains in place. Cleanup is documented in docs/ops/data-lake/v1-1-cleanup-plan.md and must not be executed until Tej explicitly approves deletion.
+
+## 2026-05-19 20:45 ET Validation Reconciliation
+
+Tej requested a rerun of the original prompt as validation-first JKS work because V1.1 was likely already built.
+
+Result: validation passed. No blocking gaps remain.
+
+Additional validation performed:
+
+- Confirmed live EventBridge schedule is ENABLED at rate(1 hour).
+- Confirmed live target task definition is gold-coast-data-lake-ghl-refresh:6.
+- Confirmed latest-success run 20260520T002801Z succeeded with image d3656922160254c2a1efa1fd15b951ce41c2166f.
+- Re-ran all checked-in smoke SQL and all 15 acceptance SQL files against Athena successfully.
+- Re-ran local compile, data-lake tests, diff hygiene, and Terraform validation successfully.
+
+Repo reconciliation patches:
+
+- Added runtime and checked-in duplicate/grain smoke checks for opportunity_stage_history.transition_key, lead_response.opportunity_id, and rep_activity_daily(activity_date, actor_user_id).
+- Added docs/ops/data-lake/athena-mcp-guidance.md.
+- Updated apps/data-lake/README.md and docs/ops/data-lake/batch-runner.md to remove stale V1 wording.
+- Updated GOAL.md and goal-state.json to track the V1.1 validation/correction JKS goal instead of the older 30-minute batch-refresh goal.
+
+Final duplicate/grain smoke query:
+
+- 5beb0092-457d-4e84-b7e0-44d5372db2ef, passed with zero duplicate/null keys across core stable IDs and reporting mart grains.
+
+Cleanup remains approval-gated. No S3 deletion or Glue cleanup was run.

@@ -12,6 +12,8 @@ Smoke query location: sql/data-lake/smoke/
 
 Athena workgroup: gold_coast_data_lake
 
+MCP/LLM guidance: docs/ops/data-lake/athena-mcp-guidance.md
+
 ## Usage Rules
 
 - Queries are read-only and start from SELECT or WITH.
@@ -23,6 +25,7 @@ Athena workgroup: gold_coast_data_lake
 - Activity attribution uses event actor_user_id from calls/messages, not current opportunity owner.
 - Recording fields are metadata only. Audio remains private encrypted S3 object storage.
 - No query uses transcription, call summaries, coaching analysis, dashboards, Slack scorecards, or GHL writes.
+- MCP-backed SQL generation should follow the same split: core `gold_coast` tables for entity/event exploration and `gold_coast_reporting` marts for repeated metrics.
 
 Run-status smoke checks use gold_coast.run_status_ghl, backed only by s3://gcoffers-data-lake/run-status/ghl/runs/. Pointer files such as latest-success.json and latest-failure.json are not historical rows.
 

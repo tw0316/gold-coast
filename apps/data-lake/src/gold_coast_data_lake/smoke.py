@@ -29,6 +29,10 @@ DUPLICATE_KEY_CHECKS = (
     ("core", "call_recordings", "message_id"),
     ("core", "opportunity_stage_history", "transition_key"),
 )
+REPORTING_GRAIN_CHECKS = (
+    ("reporting", "lead_response", ("opportunity_id",)),
+    ("reporting", "rep_activity_daily", ("activity_date", "actor_user_id")),
+)
 DEFAULT_FRESHNESS_MAX_AGE_MINUTES = 120
 DEFAULT_ATHENA_TIMEOUT_SECONDS = 120
 DEFAULT_ATHENA_POLL_INTERVAL_SECONDS = 2.0
@@ -334,7 +338,13 @@ def parse_duplicate_result(rows: list[dict[str, str | None]], query_execution_id
         if status != "passed" or duplicate_count or null_key_count:
             failed_checks.append(check_name)
 
-    expected_checks = {f"{table}.{key}" for _, table, key in DUPLICATE_KEY_CHECKS}
+    expected_checks = {
+        duplicate_check_name(table, (key,))
+        for _, table, key in DUPLICATE_KEY_CHECKS
+    } | {
+        duplicate_check_name(table, keys)
+        for _, table, keys in REPORTING_GRAIN_CHECKS
+    }
     observed_checks = set(checks)
     failed_checks.extend(sorted(expected_checks - observed_checks))
     status = "passed" if not failed_checks and expected_checks == observed_checks else "failed"
@@ -410,16 +420,31 @@ ORDER BY e.table_name
 def duplicate_check_sql(*, database: str, reporting_database: str) -> str:
     queries = []
     for group, table, key in DUPLICATE_KEY_CHECKS:
-        db = reporting_database if group == "reporting" else database
-        table_name = f"{table}.{key}"
-        qualified = qualified_table(db, table)
-        key_name = quote_identifier(key)
-        queries.append(
-            f"""
+        queries.append(duplicate_grain_query(database, reporting_database, group, table, (key,)))
+    for group, table, keys in REPORTING_GRAIN_CHECKS:
+        queries.append(duplicate_grain_query(database, reporting_database, group, table, keys))
+    return "\nUNION ALL\n".join(queries)
+
+
+def duplicate_grain_query(
+    database: str,
+    reporting_database: str,
+    group: str,
+    table: str,
+    keys: tuple[str, ...],
+) -> str:
+    db = reporting_database if group == "reporting" else database
+    qualified = qualified_table(db, table)
+    key_label = duplicate_key_label(keys)
+    check_name = duplicate_check_name(table, keys)
+    stable_id = " || '|' || ".join(f"CAST({quote_identifier(key)} AS varchar)" for key in keys)
+    non_null_condition = " AND ".join(f"{quote_identifier(key)} IS NOT NULL" for key in keys)
+    null_condition = " OR ".join(f"{quote_identifier(key)} IS NULL" for key in keys)
+    return f"""
 SELECT
-    {sql_string(table_name)} AS check_name,
+    {sql_string(check_name)} AS check_name,
     {sql_string(db + '.' + table)} AS table_name,
-    {sql_string(key)} AS key_column,
+    {sql_string(key_label)} AS key_column,
     CAST(sum(CASE WHEN key_count > 1 THEN key_count - 1 ELSE 0 END) AS bigint) AS duplicate_count,
     CAST(max(null_key_count) AS bigint) AS null_key_count,
     CASE
@@ -429,18 +454,24 @@ SELECT
         ELSE 'failed'
     END AS status
 FROM (
-    SELECT {key_name} AS stable_id, count(*) AS key_count, 0 AS null_key_count
+    SELECT {stable_id} AS stable_id, count(*) AS key_count, 0 AS null_key_count
     FROM {qualified}
-    WHERE {key_name} IS NOT NULL
-    GROUP BY {key_name}
+    WHERE {non_null_condition}
+    GROUP BY {stable_id}
     UNION ALL
     SELECT '__null_keys__' AS stable_id, 0 AS key_count, count(*) AS null_key_count
     FROM {qualified}
-    WHERE {key_name} IS NULL
+    WHERE {null_condition}
 ) keyed
 """.strip()
-        )
-    return "\nUNION ALL\n".join(queries)
+
+
+def duplicate_check_name(table: str, keys: tuple[str, ...]) -> str:
+    return f"{table}.{duplicate_key_label(keys)}"
+
+
+def duplicate_key_label(keys: tuple[str, ...]) -> str:
+    return "+".join(keys)
 
 
 def qualified_table_names(database: str | None, reporting_database: str | None) -> list[str]:

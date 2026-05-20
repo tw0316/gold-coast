@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "goalId": "gold-coast-data-lake-batch-refresh",
-  "ownerSessionTarget": "session:gold-coast-data-lake-batch-refresh",
+  "goalId": "gold-coast-data-lake-v1-1-incremental-correction",
+  "ownerSessionTarget": "session:gold-coast-data-lake-v1-1-incremental-correction",
   "status": "completed",
   "roughPercent": 100,
-  "createdAt": "2026-05-18T21:55:00-04:00",
-  "updatedAt": "2026-05-19T09:31:00-04:00",
-  "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-recurring-batch-ingestion.md",
+  "createdAt": "2026-05-19T20:29:00-04:00",
+  "updatedAt": "2026-05-19T20:45:00-04:00",
+  "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-v1-1-incremental-correction.md",
   "crons": {
     "driver": {
-      "id": "cdc91a06-8342-47ea-8625-e77a7b19ca41",
-      "cadence": "15 minutes during build",
-      "status": "disabled"
+      "id": null,
+      "cadence": "none; validation completed in current owner turn",
+      "status": "not-created"
     },
     "reporter": {
-      "id": "4f0b9c10-0640-4a16-843c-4ad9c37d7a8c",
-      "cadence": "variable JKS reporting policy",
-      "status": "disabled"
+      "id": null,
+      "cadence": "none; validation completed in current owner turn",
+      "status": "not-created"
     }
   },
   "reportingPolicy": {
@@ -30,177 +30,103 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-05-19T09:31:00-04:00",
+  "lastReportAt": "2026-05-19T20:45:00-04:00",
   "finalReport": {
-    "sent": true,
-    "sentAt": "2026-05-19T09:31:00-04:00",
+    "sent": false,
+    "sentAt": null,
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-11-final-acceptance",
+  "lastCompletedSlice": "slice-6-record-state-and-approval-gate",
   "queue": [
     {
-      "id": "slice-1-monorepo-refactor",
-      "title": "Refactor repo into monorepo skeleton while preserving existing website behavior",
+      "id": "slice-1-reconcile-existing-v1-1-build",
+      "title": "Reconcile V1.1 epic requirements against existing repo evidence and implementation",
       "status": "completed",
-      "startedAt": "2026-05-18T21:55:00-04:00",
-      "completedAt": "2026-05-18T22:10:00-04:00",
+      "startedAt": "2026-05-19T20:29:00-04:00",
+      "completedAt": "2026-05-19T20:31:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-1-monorepo-refactor-evidence.md",
-        "git status",
-        "path checksum comparison",
-        "static website local smoke",
-        "lambda syntax checks"
+        ".jks/gold-coast-data-lake-v1-1-incremental-correction-evidence.md",
+        ".jks/v1-1-validation-worker-code-docs.md",
+        "docs/ops/data-lake/data-dictionary.md",
+        "docs/ops/data-lake/query-library.md"
       ],
-      "notes": "Verified. Existing website source bytes and local HTTP behavior were preserved."
+      "notes": "Verified existing V1.1 implementation exists at commit d365692 with docs for first-class core curated Athena tables and gold_coast_reporting marts."
     },
     {
-      "id": "slice-2-data-lake-import",
-      "title": "Import V1 data-lake code, SQL, docs, and tests into monorepo boundaries",
+      "id": "slice-2-local-verification",
+      "title": "Run local code, Terraform, and repo hygiene verification",
       "status": "completed",
-      "startedAt": "2026-05-18T22:27:00-04:00",
-      "completedAt": "2026-05-18T22:30:37-04:00",
+      "startedAt": "2026-05-19T20:31:00-04:00",
+      "completedAt": "2026-05-19T20:33:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-2-data-lake-import-evidence.md",
-        "apps/data-lake package import",
-        "sql/data-lake acceptance SQL import",
-        "docs/ops data-lake docs import",
-        "data-lake test suite"
+        "git diff --check",
+        "python compileall",
+        "apps/data-lake pytest suite",
+        "terraform fmt/validate"
       ],
-      "notes": "Verified. V1 data-lake app, SQL, docs, and tests were imported into monorepo boundaries with monorepo path updates and credential-path hardening only."
+      "notes": "Passed git diff --check, Python compile, Terraform init/fmt/validate, and 53 data-lake tests through a temporary /tmp venv."
     },
     {
-      "id": "slice-3-batch-runner",
-      "title": "Implement batch runner with run ID, 45-minute DynamoDB TTL lock, status output, sanitized durable logs, and safe manual command",
+      "id": "slice-3-live-aws-state-validation",
+      "title": "Verify live AWS schedule, task definition, Glue tables, and latest-success state",
       "status": "completed",
-      "startedAt": "2026-05-18T22:32:00-04:00",
-      "completedAt": "2026-05-18T22:39:53-04:00",
+      "startedAt": "2026-05-19T20:33:00-04:00",
+      "completedAt": "2026-05-19T20:34:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-3-batch-runner-evidence.md",
-        "batch runner module and CLI",
-        "focused runner unit tests",
-        "sanitized status/log contract docs"
+        "aws scheduler get-schedule",
+        "aws ecs describe-task-definition",
+        "aws glue get-tables",
+        "s3 latest-success status"
       ],
-      "notes": "Verified. Local batch runner foundation writes run IDs, 45-minute TTL lock metadata, immutable status files, sanitized logs, and safe manual dry-run output. Execute mode deliberately fails until production extraction orchestration lands."
+      "notes": "EventBridge schedule is ENABLED at rate(1 hour), target task definition is rev 6, image tag is d3656922160254c2a1efa1fd15b951ce41c2166f, core tables point to curated/ghl/v1_1/core, reporting marts point to curated/ghl/v1_1/reporting, and latest-success run 20260520T002801Z passed in-run smoke."
     },
     {
-      "id": "slice-4-production-raw-refresh-orchestration",
-      "title": "Add production raw refresh orchestration using the existing GET-only extractor and full core-source refresh strategy",
+      "id": "slice-4-athena-validation",
+      "title": "Run checked-in Athena smoke and acceptance SQL against current V1.1 tables",
       "status": "completed",
-      "startedAt": "2026-05-18T22:43:00-04:00",
-      "completedAt": "2026-05-18T22:48:40-04:00",
+      "startedAt": "2026-05-19T20:34:00-04:00",
+      "completedAt": "2026-05-19T20:35:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-4-production-raw-refresh-orchestration-evidence.md",
-        "manual local orchestration run against controlled output paths",
-        "GET-only static check",
-        "raw manifest/status/checkpoint contract verification"
+        "sql/data-lake/smoke/*.sql",
+        "sql/data-lake/acceptance/*.sql"
       ],
-      "notes": "Verified. Execute-mode raw refresh orchestration is wired through the batch runner, locally verified with a fake GET-only client and controlled output paths. No live GHL extraction or AWS resource changes were run."
+      "notes": "All 4 smoke SQL files and all 15 acceptance SQL files succeeded. Patched duplicate smoke SQL later passed with zero duplicate/null stable keys including reporting mart grains."
     },
     {
-      "id": "slice-5-recording-archive-idempotency",
-      "title": "Add idempotent recording archival skip logic keyed by stable GHL call message ID",
+      "id": "slice-5-validation-gap-patches",
+      "title": "Patch narrow validation gaps found during review",
       "status": "completed",
-      "startedAt": "2026-05-18T22:44:00-04:00",
-      "completedAt": "2026-05-18T22:49:08-04:00",
+      "startedAt": "2026-05-19T20:35:00-04:00",
+      "completedAt": "2026-05-19T20:44:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-5-recording-archive-idempotency-evidence.md",
-        "stable recording key tests",
-        "existing-object skip tests",
-        "bounded static review for no recording URL exposure"
+        "apps/data-lake/src/gold_coast_data_lake/smoke.py",
+        "apps/data-lake/tests/test_smoke.py",
+        "sql/data-lake/smoke/004_v1_1_duplicate_source_ids.sql",
+        "apps/data-lake/README.md",
+        "docs/ops/data-lake/batch-runner.md",
+        "docs/ops/data-lake/athena-mcp-guidance.md",
+        ".jks/v1-1-smoke-sql-patch-evidence.md"
       ],
-      "notes": "Verified. Recording archive keys are stable by message ID and existing archived recordings are skipped before download. No live recording downloads were run."
+      "notes": "Added stage-history, lead_response, and rep_activity_daily duplicate/grain smoke coverage; added MCP guidance; fixed stale app/run-status docs."
     },
     {
-      "id": "slice-6-curated-latest-stage-history",
-      "title": "Add run-safe curated publishing, latest-success freshness semantics, immutable run-status files, and lightweight stage-history snapshot/diff support",
+      "id": "slice-6-record-state-and-approval-gate",
+      "title": "Record final state and remaining cleanup approval gate",
       "status": "completed",
-      "startedAt": "2026-05-18T22:50:00-04:00",
-      "completedAt": "2026-05-18T22:55:20-04:00",
+      "startedAt": "2026-05-19T20:44:00-04:00",
+      "completedAt": "2026-05-19T20:45:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-6-curated-latest-stage-history-evidence.md",
-        "curated publish unit tests",
-        "same-day multi-run freshness tests",
-        "stage-history snapshot/diff verification"
+        "GOAL.md",
+        "goal-state.json",
+        ".jks/v1-1-validation-reconciliation-evidence.md"
       ],
-      "notes": "Verified. Curated output now uses snapshot_date/run_id partition semantics, rows carry snapshot_at, latest-success payload is produced only after writes, and opportunity_stage_history captures lightweight stage/status snapshots."
-    },
-    {
-      "id": "slice-7-fargate-infrastructure",
-      "title": "Add container packaging, ECR image tagging, ECS Fargate task definition, IAM, public-subnet/no-NAT networking, and EventBridge Scheduler at 30-minute cadence",
-      "status": "completed",
-      "startedAt": "2026-05-18T22:56:00-04:00",
-      "completedAt": "2026-05-19T07:40:16-04:00",
-      "expectedEvidence": [
-        ".jks/slice-7-fargate-infrastructure-evidence.md",
-        "Docker build verification",
-        "Terraform/IaC plan review",
-        "no-NAT networking review",
-        "least-privilege IAM review"
-      ],
-      "notes": "Completed after delayed Docker image build verification. Earlier local app/static/Terraform gates had passed; an isolated ARM64 Colima profile built apps/data-lake/Dockerfile successfully as gold-coast-data-lake:efc79ff, image inspect returned linux/arm64, docker run --rm gold-coast-data-lake:efc79ff --help returned CLI usage, Terraform now pins the task runtime platform through task_cpu_architecture=ARM64 by default, and terraform fmt/init/validate passed by 2026-05-19T07:40:16-04:00. No AWS resources, deploy, schedule enablement, live GHL extraction, Slack webhook call, or GitHub push was run."
-    },
-    {
-      "id": "slice-8-aws-slack-alerts",
-      "title": "Add AWS-native Slack webhook alerts to C0B4JTC5VPF",
-      "status": "completed",
-      "startedAt": "2026-05-18T23:53:00-04:00",
-      "completedAt": "2026-05-19T00:02:00-04:00",
-      "expectedEvidence": [
-        ".jks/slice-8-aws-slack-alerts-evidence.md",
-        "sanitized alert payload tests",
-        "Secrets Manager reference docs",
-        "no webhook URL exposure scan"
-      ],
-      "notes": "Verified by owner. Added sanitized Slack alert module, batch runner alert callback, Fargate env/secret wiring, docs, and tests. No webhook call, live GHL extraction, AWS change, deploy, schedule enablement, or GitHub push was run."
-    },
-    {
-      "id": "slice-9-athena-smoke-run-status",
-      "title": "Add Athena smoke checks, run-status Athena table, and evidence docs",
-      "status": "completed",
-      "startedAt": "2026-05-19T00:08:00-04:00",
-      "completedAt": "2026-05-19T00:23:00-04:00",
-      "expectedEvidence": [
-        ".jks/slice-9-athena-smoke-run-status-evidence.md",
-        "Athena smoke-check command",
-        "run-status table excludes pointer objects",
-        "evidence docs"
-      ],
-      "notes": "Verified by owner. Added Athena run-status DDL, smoke SQL, operator docs, single-line historical status files, S3 run-status/log publishing for non-dry-run execute mode, top-level image_tag/cloudwatch_log_url observability fields, and dry-run status-upload protection. No live Athena, GHL extraction, AWS change, deploy, schedule enablement, Slack webhook call, or GitHub push was run."
-    },
-    {
-      "id": "slice-10-enable-schedule-first-run",
-      "title": "Enable approved schedule and verify the first scheduled production run",
-      "status": "completed",
-      "startedAt": "2026-05-19T07:46:00-04:00",
-      "completedAt": "2026-05-19T09:29:00-04:00",
-      "expectedEvidence": [
-        ".jks/slice-10-enable-schedule-first-run-evidence.md",
-        "manual AWS run evidence",
-        "EventBridge schedule evidence",
-        "first scheduled run status",
-        "latest-success verification"
-      ],
-      "notes": "Completed. AWS task definition revision 4 runs image 14138204ab4f7f2f28e427f2e596599d7397f772. Manual rev4 production run 20260519T131917Z succeeded, bounded diagnostic run 20260519T132336Z wrote historical status without advancing latest-success, EventBridge schedule is ENABLED at rate(30 minutes), and first scheduled run 20260519T132614Z succeeded with latest-success published and Athena smoke checks passing."
-    },
-    {
-      "id": "slice-11-final-acceptance",
-      "title": "Final acceptance and evidence bundle",
-      "status": "completed",
-      "startedAt": "2026-05-19T03:15:00-04:00",
-      "completedAt": "2026-05-19T09:31:00-04:00",
-      "expectedEvidence": [
-        ".jks/slice-11-final-acceptance-evidence.md",
-        "final acceptance checklist",
-        "operator runbook links",
-        "reporter final update"
-      ],
-      "notes": "Completed after Slice 10 verification. Final acceptance evidence recorded, final visible report sent in the Slack thread, and JKS driver/reporter crons were disabled after completion."
+      "notes": "Old V1 generated snapshot prefixes are retained and cleanup remains blocked pending explicit Tej approval. No S3 deletion or Glue cleanup was run."
     }
   ],
   "childReliability": {
-    "spawned": 4,
-    "completed": 4,
+    "spawned": 2,
+    "completed": 2,
     "stale": 0,
     "replaced": 0,
     "failed": 0,
@@ -208,87 +134,75 @@
   },
   "childRuns": [
     {
-      "sliceId": "slice-8-aws-slack-alerts",
-      "agentId": "019e3e5e-8804-72e3-8692-756490ea66b5",
-      "nickname": "Lorentz",
+      "sliceId": "slice-1-reconcile-existing-v1-1-build",
+      "label": "jks-v1-1-code-docs-validation",
       "status": "completed",
-      "startedAt": "2026-05-18T23:53:00-04:00",
-      "completedAt": "2026-05-19T00:02:00-04:00",
+      "startedAt": "2026-05-19T20:30:00-04:00",
+      "completedAt": "2026-05-19T20:36:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-8-aws-slack-alerts-evidence.md"
+        ".jks/v1-1-validation-worker-code-docs.md"
       ],
-      "notes": "Worker returned completion. Owner verified local artifacts directly and accepted after the narrow verification gate passed."
+      "notes": "Read-only validation worker passed with minor follow-up gaps; owner patched the gaps locally."
     },
     {
-      "sliceId": "slice-9-athena-smoke-run-status",
-      "agentId": "019e3e6b-942b-7633-9373-480a24a06c12",
-      "nickname": "Galileo",
+      "sliceId": "slice-5-validation-gap-patches",
+      "label": "jks-v1-1-smoke-sql-patch",
       "status": "completed",
-      "startedAt": "2026-05-19T00:08:00-04:00",
-      "completedAt": "2026-05-19T00:23:00-04:00",
+      "startedAt": "2026-05-19T20:35:00-04:00",
+      "completedAt": "2026-05-19T20:37:00-04:00",
       "expectedEvidence": [
-        ".jks/slice-9-athena-smoke-run-status-evidence.md"
+        ".jks/v1-1-smoke-sql-patch-evidence.md"
       ],
-      "notes": "Worker artifacts were consolidated and owner-hardened. Owner verification passed and Slice 9 was accepted."
-    },
-    {
-      "sliceId": "slice-10-enable-schedule-first-run",
-      "agentId": "019e4039-6bfb-7ac1-a6bb-f4c0b731631b",
-      "nickname": "Beauvoir",
-      "status": "completed",
-      "startedAt": "2026-05-19T08:33:00-04:00",
-      "completedAt": "2026-05-19T08:58:00-04:00",
-      "expectedEvidence": [
-        ".jks/slice-10-enable-schedule-first-run-evidence.md"
-      ],
-      "notes": "Worker artifacts were inspected. Owner accepted the safe deploy-with-schedule-disabled progress, found an additional latest-success eligibility bug during diagnostics, fixed it locally, and took over the active manual production run verification."
-    },
-    {
-      "sliceId": "slice-10-enable-schedule-first-run",
-      "agentId": "019e4057-8c29-7ff2-b193-2de39b577826",
-      "nickname": "Nietzsche",
-      "status": "completed",
-      "startedAt": "2026-05-19T09:04:00-04:00",
-      "completedAt": "2026-05-19T09:14:00-04:00",
-      "expectedEvidence": [
-        "apps/data-lake/src/gold_coast_data_lake/batch.py",
-        "apps/data-lake/tests/test_batch.py",
-        "sql/data-lake/smoke/001_latest_success_freshness.sql",
-        "sql/data-lake/smoke/002_latest_curated_row_availability.sql"
-      ],
-      "notes": "Worker implemented the robust latest pointer eligibility guard. Owner patched source-environment handling/docs, verified locally and in AWS, committed as 1413820, deployed image 14138204ab4f7f2f28e427f2e596599d7397f772 to ECS task definition revision 4, and validated with manual, diagnostic, scheduled, and Athena smoke checks."
+      "notes": "Worker patched checked-in stage-history duplicate SQL. Owner extended it to reporting mart grain checks and verified through Athena."
     }
   ],
   "lastVerifiedEvidence": [
-    ".jks/slice-10-enable-schedule-first-run-evidence.md",
-    ".jks/slice-11-final-acceptance-evidence.md",
-    "Slack webhook secret goldcoast/slack/tech-alerts-webhook exists in AWS Secrets Manager by name/ARN only; value was not printed or committed.",
-    "GHL API key AWS secret was corrected from the approved local credential source after the first live GET returned Invalid Private Integration token; shape/hash checks only were printed.",
-    "Committed production hardening as 103fbb3, diagnostic pointer fix as 0b96f2b, and robust latest pointer eligibility guard as 1413820.",
-    "Local verification passed after 1413820: 19 focused batch tests, 45 data-lake tests with 1 local pyarrow skip, compileall, and git diff check.",
-    "AWS deployment passed: ARM64 Docker build, ECR push, Terraform validate/apply, ECS task definition revision 4 on image 14138204ab4f7f2f28e427f2e596599d7397f772, no NAT Gateway, public subnet/no inbound SG.",
-    "Manual rev4 production run 20260519T131917Z succeeded and published latest-success.",
-    "Bounded rev4 diagnostic run 20260519T132336Z succeeded but did not publish latest-success; latest-success stayed on the full refresh.",
-    "EventBridge schedule gold-coast-data-lake-ghl-refresh is ENABLED at rate(30 minutes) and points to task definition revision 4.",
-    "First scheduled EventBridge run 20260519T132614Z succeeded with exit 0, latest-success published, no running ECS tasks afterward.",
-    "Athena smoke checks passed: freshness, latest curated row availability, and critical table catalog."
+    "git diff --check passed",
+    "python compileall passed for apps/data-lake/src and scripts",
+    "apps/data-lake pytest passed: 53 passed",
+    "terraform init -backend=false/fmt/validate passed",
+    "EventBridge schedule gold-coast-data-lake-ghl-refresh ENABLED at rate(1 hour)",
+    "latest-success run 20260520T002801Z succeeded with image d3656922160254c2a1efa1fd15b951ce41c2166f",
+    "Athena smoke passed: cc8c99d8, 9d9a424e, 06ee62b8, 5beb0092",
+    "All 15 acceptance SQL files succeeded",
+    "Old V1 generated prefixes remain present in S3 and were not deleted"
   ],
-  "blockers": [],
-  "releaseBlockers": [],
+  "blockers": [
+    {
+      "id": "cleanup-approval-required",
+      "status": "approval-required",
+      "detail": "Old generated V1 snapshot prefixes and old Glue table cleanup remain blocked until Tej explicitly approves deletion after V1.1 validation."
+    }
+  ],
   "guardrails": [
-    "No data-lake GHL writes",
-    "Preserve website lead-write behavior",
-    "No local/OpenClaw cron dependency in deployed operations",
-    "No NAT Gateway without approval",
-    "No credential exposure"
+    "No GHL writes",
+    "No blind S3 purge",
+    "No deletion of old generated V1 data without explicit approval",
+    "No dashboards/transcription/coaching/website leads/marketing sources",
+    "Core curated Athena tables remain first-class query targets",
+    "gold_coast_reporting is for repeated metric marts"
   ],
   "resourceManifest": [
     {
-      "type": "aws-secretsmanager-secret",
-      "name": "goldcoast/ghl-location-id",
-      "region": "us-east-1",
-      "createdAt": "2026-05-19T07:50:07-04:00",
-      "notes": "Contains the GHL location ID value from the approved local credential source. Secret value was not logged or committed."
+      "type": "repo",
+      "path": "/Users/jarvis/LocalRepos/gold-coast"
+    },
+    {
+      "type": "epic",
+      "path": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-v1-1-incremental-correction.md"
+    },
+    {
+      "type": "evidence",
+      "path": ".jks/gold-coast-data-lake-v1-1-incremental-correction-evidence.md"
+    },
+    {
+      "type": "evidence",
+      "path": ".jks/v1-1-validation-reconciliation-evidence.md"
+    },
+    {
+      "type": "cleanup-plan",
+      "path": "docs/ops/data-lake/v1-1-cleanup-plan.md"
     }
   ]
 }
+

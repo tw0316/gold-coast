@@ -64,7 +64,7 @@ The raw refresh phase uses the package GET-only `GHLClient`. Recording downloads
 
 When `LOCK_TABLE_NAME` is present, the runner uses a DynamoDB conditional TTL lock named `ghl-refresh` before the production run starts. The fallback local file lock is only for dry-runs and local operator checks.
 
-When `--execute --s3-bucket <bucket>` runs without `--extractor-dry-run`, the runner uploads durable run-status artifacts to the same bucket:
+When `--execute --s3-bucket <bucket>` runs as an eligible production refresh, the runner uploads durable run-status artifacts to the same bucket:
 
 ~~~text
 s3://<bucket>/run-status/ghl/runs/run=<run_id>/status.json
@@ -75,8 +75,8 @@ s3://<bucket>/run-status/ghl/logs/run=<run_id>.jsonl
 
 Use `--status-s3-bucket` and `--status-s3-prefix` only when run-status artifacts should land somewhere different from raw refresh outputs.
 
-Dry-run and `--extractor-dry-run` runs never create the status S3 uploader, even when `--status-s3-bucket` is supplied.
+Runner dry-runs do not create the status S3 uploader. Execute-mode diagnostics, including `--extractor-dry-run`, may upload immutable historical `runs/run=<run_id>/status.json` and log artifacts when a status bucket is supplied, but they do not publish `latest-success.json` or `latest-failure.json`.
 
 The run-status payload exposes `image_tag`, `cloudwatch_log_url`, and `smoke_checks` as top-level fields for Athena. `--image-tag` defaults from `IMAGE_TAG`; `--cloudwatch-log-url` defaults from `CLOUDWATCH_LOG_URL`. `smoke_checks` uses `passed`, `failed`, or `not_run`; eligible production success fails final validation unless smoke checks are non-empty and passed.
 
-Curated publish, DynamoDB locking, the Fargate infrastructure skeleton, Slack alert behavior, Athena run-status/smoke SQL, in-run smoke status capture, and S3 run-status publishing now exist. Schedule enablement remains an operator-controlled deploy step and must stay disabled until V1.1 manual validation passes.
+Curated publish, DynamoDB locking, the Fargate infrastructure, Slack alert behavior, Athena run-status/smoke SQL, in-run smoke status capture, and S3 run-status publishing now exist. V1.1 production cutover is hourly. Any future schedule changes remain operator-controlled and must keep the latest-success validation contract intact.
