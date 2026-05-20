@@ -5,7 +5,7 @@
   "status": "completed",
   "roughPercent": 100,
   "createdAt": "2026-05-19T20:29:00-04:00",
-  "updatedAt": "2026-05-19T21:00:00-04:00",
+  "updatedAt": "2026-05-19T21:27:00-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-data-lake-v1-1-incremental-correction.md",
   "crons": {
     "driver": {
@@ -183,7 +183,11 @@
     "Old V1 generated prefixes remain present in S3 and were not deleted",
     "Approved cleanup completed: 199 old V1 current S3 objects deleted",
     "Old Glue tables dropped: gold_coast.contacts, gold_coast.opportunities, gold_coast.mart_lead_response, gold_coast.mart_rep_activity_daily",
-    "Post-cleanup smoke passed: db1becc0, 9f5b2648, 4f7500e2, 757d458e"
+    "Post-cleanup smoke passed: db1becc0, 9f5b2648, 4f7500e2, 757d458e",
+    "Post-cleanup stronger reconciliation passed: manifest/raw/Athena counts match latest run 20260520T004655Z for contacts, opportunities, messages, calls, and call_recordings",
+    "Post-cleanup raw_json ID checks passed for contacts_latest, opportunities_latest, messages, and calls",
+    "Post-cleanup derived mart checks passed for lead_response, rep_activity_daily, call_recordings, and opportunity_stage_history latest-state alignment",
+    "Post-cleanup all 15 acceptance SQL files reran successfully"
   ],
   "blockers": [],
   "guardrails": [
