@@ -25,21 +25,27 @@ locals {
   transcription_status_prefix            = "run-status/ghl-call-transcription"
   transcription_artifact_prefix          = "ai-artifacts/ghl/transcripts/*"
   transcription_curated_call_prefix      = "curated/ghl/v1_1/core/call_transcripts/*"
+  transcription_curated_source_prefixes  = ["curated/ghl/v1_1/core/calls/*", "curated/ghl/v1_1/core/call_recordings/*", "curated/ghl/v1_1/core/opportunities_latest/*"]
   transcription_status_objects_prefix    = format("%s/*", local.transcription_status_prefix)
   transcription_athena_output_prefix     = "athena-results/*"
   transcription_athena_output_location   = var.data_lake_s3_prefix == "" ? format("s3://%s/athena-results/", var.data_lake_bucket) : format("s3://%s/%s/athena-results/", var.data_lake_bucket, trim(var.data_lake_s3_prefix, "/"))
   transcription_status_s3_prefix         = var.data_lake_s3_prefix == "" ? local.transcription_status_prefix : format("%s/%s", trim(var.data_lake_s3_prefix, "/"), local.transcription_status_prefix)
-  transcription_relative_s3_allowed_list_prefixes = [
-    "recordings/ghl/*",
-    local.transcription_artifact_prefix,
-    local.transcription_curated_call_prefix,
-    local.transcription_status_objects_prefix,
-    local.transcription_athena_output_prefix
-  ]
+  transcription_relative_s3_allowed_list_prefixes = concat(
+    ["recordings/ghl/*"],
+    local.transcription_curated_source_prefixes,
+    [
+      local.transcription_artifact_prefix,
+      local.transcription_curated_call_prefix,
+      local.transcription_status_objects_prefix,
+      local.transcription_athena_output_prefix
+    ]
+  )
   transcription_relative_s3_recording_read_prefixes = ["recordings/ghl/*"]
+  transcription_relative_s3_source_read_prefixes    = local.transcription_curated_source_prefixes
   transcription_relative_s3_read_write_prefixes     = [local.transcription_artifact_prefix, local.transcription_curated_call_prefix, local.transcription_status_objects_prefix, local.transcription_athena_output_prefix]
   transcription_s3_allowed_list_prefixes            = var.data_lake_s3_prefix == "" ? local.transcription_relative_s3_allowed_list_prefixes : [for prefix in local.transcription_relative_s3_allowed_list_prefixes : format("%s/%s", local.data_lake_prefix, prefix)]
   transcription_s3_recording_read_prefixes          = var.data_lake_s3_prefix == "" ? local.transcription_relative_s3_recording_read_prefixes : [for prefix in local.transcription_relative_s3_recording_read_prefixes : format("%s/%s", local.data_lake_prefix, prefix)]
+  transcription_s3_source_read_prefixes             = var.data_lake_s3_prefix == "" ? local.transcription_relative_s3_source_read_prefixes : [for prefix in local.transcription_relative_s3_source_read_prefixes : format("%s/%s", local.data_lake_prefix, prefix)]
   transcription_s3_read_write_prefixes              = var.data_lake_s3_prefix == "" ? local.transcription_relative_s3_read_write_prefixes : [for prefix in local.transcription_relative_s3_read_write_prefixes : format("%s/%s", local.data_lake_prefix, prefix)]
   s3_allowed_prefixes = [
     "raw/ghl/*",
@@ -289,6 +295,12 @@ resource "aws_iam_role_policy" "transcription_task" {
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
         Resource = [for prefix in local.transcription_s3_recording_read_prefixes : format("arn:aws:s3:::%s/%s", var.data_lake_bucket, prefix)]
+      },
+      {
+        Sid      = "TranscriptionCuratedSourceObjectsRead"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = [for prefix in local.transcription_s3_source_read_prefixes : format("arn:aws:s3:::%s/%s", var.data_lake_bucket, prefix)]
       },
       {
         Sid      = "TranscriptionObjectsReadWrite"
