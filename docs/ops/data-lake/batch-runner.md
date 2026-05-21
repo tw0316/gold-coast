@@ -64,6 +64,8 @@ The raw refresh phase uses the package GET-only `GHLClient`. Recording downloads
 
 When `LOCK_TABLE_NAME` is present, the runner uses a DynamoDB conditional TTL lock named `ghl-refresh` before the production run starts. The fallback local file lock is only for dry-runs and local operator checks.
 
+The downstream call transcription runtime uses the same lock table with a separate lock name, `ghl-call-transcription`, so transcription overlap protection does not block the core refresh lock.
+
 When `--execute --s3-bucket <bucket>` runs as an eligible production refresh, the runner uploads durable run-status artifacts to the same bucket:
 
 ~~~text

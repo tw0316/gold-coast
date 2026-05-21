@@ -20,8 +20,9 @@ This dictionary documents the GHL-source V1.1 Athena query surface implemented i
 - Core curated tables are first-class query targets for entity/event exploration.
 - gold_coast_reporting is for repeated business metrics and marts.
 - Daily snapshots are internal audit/debug data, not the normal query surface.
-- No dashboards, transcription, call summaries, coaching analysis, website leads, or marketing data are part of V1.1.
+- No dashboards, call summaries, coaching analysis, website leads, or marketing data are part of V1.1.
 - Call recordings are private encrypted S3 objects only. Tables store metadata and object references, not audio payloads.
+- Call transcripts are a downstream table published by the transcription pipeline only. The normal hourly GHL refresh must not overwrite `gold_coast.call_transcripts`.
 
 V1.1 default query tables are not repeated snapshot_date/run_id partitions. Current-state tables are overwritten, event tables are deduped by stable source IDs, and stage history appends only when stage/status changes.
 
@@ -36,6 +37,7 @@ Rows include run_id and snapshot_at for observability. Users should not need to 
 | gold_coast | messages | One durable row per GHL message_id | High |
 | gold_coast | calls | One durable row per GHL call_message_id | High |
 | gold_coast | call_recordings | One row per call recording archive result keyed by message_id | High |
+| gold_coast | call_transcripts | One current transcript/status row per call recording idempotency grain | High |
 | gold_coast | opportunity_stage_history | One row per observed stage/status transition | Moderate |
 | gold_coast_reporting | lead_response | One row per opportunity with speed-to-lead/contact metrics | Moderate |
 | gold_coast_reporting | rep_activity_daily | One row per actor/day activity bucket | Moderate |
@@ -45,6 +47,9 @@ Rows include run_id and snapshot_at for observability. Users should not need to 
 - contacts_latest.contact_id = opportunities_latest.contact_id = messages.contact_id = calls.contact_id
 - messages.message_id = calls.call_message_id for call messages when both raw message and fetched call detail exist.
 - calls.call_message_id = call_recordings.message_id
+- call_transcripts.call_message_id = calls.call_message_id = call_recordings.message_id
+- call_transcripts.recording_sha256 = call_recordings.sha256
+- call_transcripts.recording_object_key = call_recordings.object_key
 - opportunities_latest.opportunity_id = gold_coast_reporting.lead_response.opportunity_id
 - messages.actor_user_id and calls.actor_user_id identify the event actor. Do not substitute current opportunity owner for activity attribution.
 
@@ -99,6 +104,20 @@ Primary key: message_id
 Source endpoint: GET /conversations/messages/{messageId}/locations/{locationId}/recording
 
 Important fields: message_id, archival_status, s3_uri, object_key, content_type, byte_count, sha256, unavailable_reason, archived_at, run_id, snapshot_at.
+
+### gold_coast.call_transcripts
+
+Purpose: downstream transcript status and text table for archived GHL call recordings.
+
+Primary grain: call_message_id, recording_sha256, artifact_schema_version, provider, transcription_model
+
+Source process: `gold_coast_data_lake.jobs.ghl_call_transcription`, after sample/backfill/incremental transcription runs. This table is not part of `TABLE_ORDER` in `curated.py` and is not written by the normal hourly GHL refresh.
+
+Important fields: call_message_id, conversation_id, contact_id, opportunity_id, recording_object_key, recording_sha256, transcription_status, transcript_text, provider, transcription_model, artifact_schema_version, idempotency_key, attempt_count, transcribed_at, source_call_run_id, source_recording_run_id, run_id, snapshot_at.
+
+Allowed statuses: succeeded, failed, pending_retry, skipped_no_recording.
+
+Privacy note: transcript_text is high-PII seller data. Do not paste transcript text into Slack, evidence files, logs, tickets, or docs. Use counts/statuses for smoke and acceptance evidence.
 
 ### gold_coast.opportunity_stage_history
 

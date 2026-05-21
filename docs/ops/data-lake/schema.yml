@@ -109,6 +109,37 @@ models:
       - name: snapshot_at
       - name: run_id
 
+  - name: call_transcripts
+    description: "Downstream GHL call transcript table. Published only by the transcription pipeline, not by the normal hourly GHL refresh."
+    meta:
+      glue_database: "gold_coast"
+      s3_location: "s3://gcoffers-data-lake/curated/ghl/v1_1/core/call_transcripts/"
+      table_type: "external_parquet"
+      grain: "One current row per call_message_id, recording_sha256, artifact_schema_version, provider, and transcription_model."
+      primary_key: "call_message_id, recording_sha256, artifact_schema_version, provider, transcription_model"
+      refresh_cadence: "Downstream transcription sample/backfill/incremental runs only. The core hourly GHL refresh does not write this table."
+      pii_level: "High"
+    columns:
+      - name: call_message_id
+        tests: [not_null]
+      - name: conversation_id
+      - name: contact_id
+      - name: opportunity_id
+      - name: recording_object_key
+      - name: recording_sha256
+      - name: transcription_status
+      - name: transcript_text
+      - name: provider
+      - name: transcription_model
+      - name: artifact_schema_version
+      - name: idempotency_key
+      - name: attempt_count
+      - name: transcribed_at
+      - name: source_call_run_id
+      - name: source_recording_run_id
+      - name: snapshot_at
+      - name: run_id
+
   - name: opportunity_stage_history
     description: "V1.1 append-on-change opportunity stage/status transition history."
     meta:

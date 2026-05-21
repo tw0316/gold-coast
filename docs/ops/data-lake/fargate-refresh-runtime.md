@@ -9,11 +9,13 @@ It defines:
 - Docker packaging for apps/data-lake
 - ECR repository with immutable tags
 - ECS Fargate cluster and task definition
+- separate disabled ECS task definition for downstream GHL call transcription
 - CloudWatch log group
 - DynamoDB 45-minute TTL lock table
 - least-privilege task/task-execution/scheduler IAM roles
 - HTTPS-only egress security group with no inbound rules
 - EventBridge Scheduler rate(1 hour), disabled by default until V1.1 manual validation passes
+- separate transcription EventBridge schedule, disabled by default until sample/backfill acceptance and explicit approval
 
 It does not apply AWS changes by itself. Do not enable the schedule until manual production run evidence passes.
 
@@ -70,9 +72,14 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 - `ALERT_MODE=launch-window` posts failures always and successful runs only until `SUCCESS_ALERT_UNTIL=<UTC ISO timestamp>`. Terraform rejects launch-window mode without that timestamp so success alerts cannot continue forever by accident.
 - `ALERT_MODE=success-and-failure` is available for bounded operator testing only. Do not leave it enabled for routine production refreshes.
 - The container entrypoint is python -m gold_coast_data_lake.jobs.ghl_batch_refresh.
+- The transcription task reuses the same image but overrides the ECS entry point to `python -m gold_coast_data_lake.jobs.ghl_call_transcription`.
+- The transcription schedule is controlled by `transcription_schedule_enabled`, separate from the core `schedule_enabled` refresh flag.
+- The transcription task uses separate IAM roles and a separate DynamoDB lock name, `ghl-call-transcription`.
+- The OpenAI transcription secret ARN is optional while the transcription schedule is disabled and must never contain the secret value.
 
 ## Rollback
 
 - Keep image tags immutable and use git SHA tags.
 - Roll back by registering/deploying the previous ECS task definition or previous image tag.
 - If scheduled runs misbehave, set schedule_enabled=false and apply, or disable the EventBridge schedule in AWS while preserving the last successful V1.1 output and old snapshot data.
+- If transcription misbehaves, set `transcription_schedule_enabled=false` or disable only the transcription EventBridge schedule. Do not disable the core refresh schedule unless the core refresh itself is affected.

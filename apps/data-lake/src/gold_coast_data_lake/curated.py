@@ -16,6 +16,7 @@ DEFAULT_CURATED_PREFIX = "curated/ghl/v1_1"
 DEFAULT_GLUE_DATABASE = "gold_coast"
 DEFAULT_REPORTING_GLUE_DATABASE = "gold_coast_reporting"
 DEFAULT_SNAPSHOT_DATE = "2026-05-18"
+TRANSCRIPT_TABLE_NAME = "call_transcripts"
 
 CORE_TABLE_ORDER = [
     "contacts_latest",
@@ -37,6 +38,24 @@ DAILY_SNAPSHOT_TABLE_ORDER = [
     "calls",
     "call_recordings",
 ]
+CALL_TRANSCRIPT_IDEMPOTENCY_FIELDS = (
+    "call_message_id",
+    "recording_sha256",
+    "artifact_schema_version",
+    "provider",
+    "transcription_model",
+)
+CALL_TRANSCRIPT_REQUIRED_IDENTITY_FIELDS = (
+    "call_message_id",
+    "artifact_schema_version",
+    "provider",
+    "transcription_model",
+)
+CALL_TRANSCRIPT_RECENCY_FIELDS = (
+    "last_attempted_at",
+    "transcribed_at",
+    "snapshot_at",
+)
 STAGE_HISTORY_STATE_FILENAME = "opportunity_stage_history.jsonl"
 
 
@@ -212,6 +231,43 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
         ColumnSpec("archived_at", "timestamp", "timestamp"),
         ColumnSpec("endpoint", "string", "string"),
     ],
+    "call_transcripts": [
+        ColumnSpec("call_message_id", "string", "string"),
+        ColumnSpec("conversation_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("actor_user_id", "string", "string"),
+        ColumnSpec("direction", "string", "string"),
+        ColumnSpec("call_status", "string", "string"),
+        ColumnSpec("recording_s3_uri", "string", "string"),
+        ColumnSpec("recording_object_key", "string", "string"),
+        ColumnSpec("recording_sha256", "string", "string"),
+        ColumnSpec("recording_content_type", "string", "string"),
+        ColumnSpec("recording_byte_count", "bigint", "bigint"),
+        ColumnSpec("recording_duration_seconds", "double", "double"),
+        ColumnSpec("transcription_status", "string", "string"),
+        ColumnSpec("transcript_text", "string", "string"),
+        ColumnSpec("transcript_segments_json", "string", "string"),
+        ColumnSpec("language", "string", "string"),
+        ColumnSpec("provider", "string", "string"),
+        ColumnSpec("transcription_model", "string", "string"),
+        ColumnSpec("artifact_schema_version", "string", "string"),
+        ColumnSpec("idempotency_key", "string", "string"),
+        ColumnSpec("transcript_object_key", "string", "string"),
+        ColumnSpec("provider_response_object_key", "string", "string"),
+        ColumnSpec("usage_json", "string", "string"),
+        ColumnSpec("error_json", "string", "string"),
+        ColumnSpec("attempt_count", "int", "int"),
+        ColumnSpec("first_attempted_at", "string", "string"),
+        ColumnSpec("last_attempted_at", "string", "string"),
+        ColumnSpec("transcribed_at", "string", "string"),
+        ColumnSpec("source_call_run_id", "string", "string"),
+        ColumnSpec("source_recording_run_id", "string", "string"),
+        ColumnSpec("source_call_snapshot_at", "string", "string"),
+        ColumnSpec("source_recording_snapshot_at", "string", "string"),
+        ColumnSpec("run_id", "string", "string"),
+        ColumnSpec("snapshot_at", "string", "string"),
+    ],
     "lead_response": [
         ColumnSpec("opportunity_id", "string", "string"),
         ColumnSpec("contact_id", "string", "string"),
@@ -259,8 +315,9 @@ SCHEMAS: dict[str, list[ColumnSpec]] = {
 }
 
 
-for schema in SCHEMAS.values():
-    schema[:0] = RUN_METADATA_COLUMNS
+for schema_name, schema in SCHEMAS.items():
+    if schema_name != TRANSCRIPT_TABLE_NAME:
+        schema[:0] = RUN_METADATA_COLUMNS
 
 
 def parse_s3_uri(uri: str) -> S3Uri:
@@ -650,6 +707,83 @@ def build_call_recordings(recordings: Iterable[dict[str, Any]]) -> list[dict[str
     return sorted(rows, key=lambda row: (row.get("message_id") or ""))
 
 
+def build_call_transcripts_table(rows: Iterable[dict[str, Any]]) -> TableData:
+    normalized = normalize_call_transcript_rows(rows)
+    current_rows = dedupe_call_transcript_rows(normalized)
+    return TableData(
+        name=TRANSCRIPT_TABLE_NAME,
+        columns=SCHEMAS[TRANSCRIPT_TABLE_NAME],
+        rows=sorted(current_rows, key=call_transcript_sort_key),
+    )
+
+
+def normalize_call_transcript_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    columns = SCHEMAS[TRANSCRIPT_TABLE_NAME]
+    return [
+        {
+            column.name: normalize_call_transcript_value(row.get(column.name), column.logical_type)
+            for column in columns
+        }
+        for row in rows
+    ]
+
+
+def normalize_call_transcript_value(value: Any, logical_type: str) -> Any:
+    if logical_type == "string":
+        return as_str(value)
+    if logical_type in {"bigint", "int"}:
+        return as_int(value)
+    if logical_type == "double":
+        return as_float(value)
+    if logical_type == "boolean":
+        return bool(value) if value is not None else None
+    return value
+
+
+def dedupe_call_transcript_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    winners: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    passthrough: list[dict[str, Any]] = []
+    for row in rows:
+        if any(not row.get(field) for field in CALL_TRANSCRIPT_REQUIRED_IDENTITY_FIELDS):
+            passthrough.append(row)
+            continue
+        key = call_transcript_idempotency_key(row)
+        current = winners.get(key)
+        if current is None or call_transcript_recency(row) >= call_transcript_recency(current):
+            winners[key] = row
+    return passthrough + list(winners.values())
+
+
+def call_transcript_idempotency_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("call_message_id") or ""),
+        str(row.get("recording_sha256") or ""),
+        str(row.get("artifact_schema_version") or ""),
+        str(row.get("provider") or ""),
+        str(row.get("transcription_model") or ""),
+    )
+
+
+def call_transcript_recency(row: dict[str, Any]) -> tuple[datetime, str, str]:
+    timestamps = [
+        parsed
+        for parsed in (parse_timestamp(row.get(field)) for field in CALL_TRANSCRIPT_RECENCY_FIELDS)
+        if parsed is not None
+    ]
+    newest = max(timestamps) if timestamps else datetime.min
+    return newest, str(row.get("run_id") or ""), json_blob(row) or ""
+
+
+def call_transcript_sort_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("call_message_id") or ""),
+        str(row.get("recording_sha256") or ""),
+        str(row.get("artifact_schema_version") or ""),
+        str(row.get("provider") or ""),
+        str(row.get("transcription_model") or ""),
+    )
+
+
 def build_mart_lead_response(
     opportunities: list[dict[str, Any]],
     messages: list[dict[str, Any]],
@@ -837,6 +971,55 @@ def write_curated_tables(
     return written
 
 
+def write_call_transcripts_table(
+    table_or_rows: TableData | Iterable[dict[str, Any]],
+    *,
+    local_output_dir: str | Path,
+    s3_bucket: str | None = None,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_database: str = DEFAULT_GLUE_DATABASE,
+    s3_client: Any | None = None,
+) -> WrittenTable:
+    table = table_or_rows if isinstance(table_or_rows, TableData) else build_call_transcripts_table(table_or_rows)
+    if table.name != TRANSCRIPT_TABLE_NAME:
+        raise ValueError(f"expected {TRANSCRIPT_TABLE_NAME} table, got {table.name}")
+
+    output_dir = Path(local_output_dir)
+    local_dir = output_dir / table_group(TRANSCRIPT_TABLE_NAME) / TRANSCRIPT_TABLE_NAME
+    local_dir.mkdir(parents=True, exist_ok=True)
+    local_path = local_dir / "part-00000.parquet"
+    write_parquet(table, local_path)
+    byte_count = local_path.stat().st_size
+    key = None
+    uri = None
+    if s3_bucket:
+        if s3_client is None:
+            import boto3  # type: ignore
+
+            s3_client = boto3.client("s3")
+        key = f"{current_table_prefix(s3_prefix, TRANSCRIPT_TABLE_NAME)}/part-00000.parquet"
+        s3_client.upload_file(
+            str(local_path),
+            s3_bucket,
+            key,
+            ExtraArgs={
+                "ServerSideEncryption": "AES256",
+                "ContentType": "application/octet-stream",
+            },
+        )
+        uri = f"s3://{s3_bucket}/{key}"
+    return WrittenTable(
+        name=TRANSCRIPT_TABLE_NAME,
+        database=glue_database,
+        row_count=len(table.rows),
+        s3_uri=uri,
+        s3_key=key,
+        byte_count=byte_count,
+        object_count=1,
+        local_path=str(local_path),
+    )
+
+
 def write_daily_audit_snapshots(
     tables: dict[str, TableData],
     *,
@@ -934,6 +1117,48 @@ def create_or_update_glue_tables(
             )
         )
     return results
+
+
+def create_or_update_call_transcripts_glue_table(
+    *,
+    database_name: str,
+    s3_bucket: str,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_client: Any | None = None,
+) -> GlueTableResult:
+    if glue_client is None:
+        import boto3  # type: ignore
+
+        glue_client = boto3.client("glue")
+
+    table_location = f"s3://{s3_bucket}/{current_table_prefix(s3_prefix, TRANSCRIPT_TABLE_NAME)}/"
+    table_input = glue_table_input(TRANSCRIPT_TABLE_NAME, table_location)
+    try:
+        existing = glue_client.get_table(DatabaseName=database_name, Name=TRANSCRIPT_TABLE_NAME)["Table"]
+        if existing.get("PartitionKeys"):
+            glue_client.delete_table(DatabaseName=database_name, Name=TRANSCRIPT_TABLE_NAME)
+            glue_client.create_table(DatabaseName=database_name, TableInput=table_input)
+            action = "replaced_partitioned_table"
+        else:
+            glue_client.update_table(DatabaseName=database_name, TableInput=table_input)
+            action = "updated"
+    except Exception as exc:  # noqa: BLE001 - boto3 client errors are inspected by response code.
+        if not is_entity_not_found_error(exc):
+            raise
+        glue_client.create_table(DatabaseName=database_name, TableInput=table_input)
+        action = "created"
+
+    return GlueTableResult(
+        database=database_name,
+        name=TRANSCRIPT_TABLE_NAME,
+        table_location=table_location,
+        action=action,
+    )
+
+
+def is_entity_not_found_error(exc: Exception) -> bool:
+    response = getattr(exc, "response", {})
+    return response.get("Error", {}).get("Code") == "EntityNotFoundException"
 
 
 def table_group(table_name: str) -> str:
@@ -1051,6 +1276,8 @@ def arrow_type(pa: Any, logical_type: str) -> Any:
         return pa.string()
     if logical_type == "bigint":
         return pa.int64()
+    if logical_type == "int":
+        return pa.int32()
     if logical_type == "double":
         return pa.float64()
     if logical_type == "boolean":

@@ -11,12 +11,52 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from gold_coast_data_lake.curated import (
+    DEFAULT_CURATED_PREFIX,
+    DEFAULT_GLUE_DATABASE,
+    SCHEMAS,
     TABLE_ORDER,
+    TRANSCRIPT_TABLE_NAME,
+    arrow_type,
+    build_call_transcripts_table,
     build_curated_tables,
+    create_or_update_call_transcripts_glue_table,
     glue_table_input,
     parse_timestamp,
+    write_call_transcripts_table,
     write_curated_tables,
 )
+from gold_coast_data_lake.transcription import TRANSCRIPT_ROW_COLUMNS
+
+
+class FakeS3Client:
+    def __init__(self) -> None:
+        self.uploads: list[dict] = []
+
+    def upload_file(self, filename, bucket, key, ExtraArgs=None):
+        self.uploads.append(
+            {
+                "filename": filename,
+                "bucket": bucket,
+                "key": key,
+                "extra_args": ExtraArgs,
+            }
+        )
+
+
+class FakeGlueClient:
+    def __init__(self) -> None:
+        self.updated: list[dict] = []
+
+    def get_table(self, *, DatabaseName: str, Name: str):
+        return {"Table": {"DatabaseName": DatabaseName, "Name": Name, "PartitionKeys": []}}
+
+    def update_table(self, *, DatabaseName: str, TableInput: dict):
+        self.updated.append({"DatabaseName": DatabaseName, "TableInput": TableInput})
+
+
+class FakePyArrow:
+    def int32(self):
+        return "int32"
 
 
 def sample_raw() -> tuple[dict, dict]:
@@ -126,6 +166,8 @@ class CuratedTests(unittest.TestCase):
         tables = build_curated_tables(raw, manifest)
 
         self.assertEqual(list(tables), TABLE_ORDER)
+        self.assertNotIn(TRANSCRIPT_TABLE_NAME, TABLE_ORDER)
+        self.assertNotIn(TRANSCRIPT_TABLE_NAME, tables)
         self.assertEqual(tables["contacts_latest"].rows[0]["snapshot_at"].isoformat(), "2026-05-18T10:10:00")
         self.assertEqual(tables["opportunities_latest"].rows[0]["pipeline_stage_name"], "New Leads")
         self.assertTrue(tables["calls"].rows[0]["has_recording"])
@@ -248,6 +290,124 @@ class CuratedTests(unittest.TestCase):
                 parquet = pq.read_table(item.local_path)
                 self.assertEqual(parquet.num_rows, item.row_count)
             self.assertIn("core/contacts_latest/part-00000.parquet", counts and written[0].local_path)
+
+    def test_call_transcripts_schema_matches_transcription_contract_without_table_order_publish(self) -> None:
+        self.assertNotIn(TRANSCRIPT_TABLE_NAME, TABLE_ORDER)
+        self.assertEqual([column.name for column in SCHEMAS[TRANSCRIPT_TABLE_NAME]], list(TRANSCRIPT_ROW_COLUMNS))
+        self.assertEqual(SCHEMAS[TRANSCRIPT_TABLE_NAME][0].name, "call_message_id")
+        self.assertEqual(SCHEMAS[TRANSCRIPT_TABLE_NAME][-1].name, "snapshot_at")
+        self.assertEqual(
+            [column.glue_type for column in SCHEMAS[TRANSCRIPT_TABLE_NAME] if column.name == "attempt_count"],
+            ["int"],
+        )
+        self.assertEqual(arrow_type(FakePyArrow(), "int"), "int32")
+
+    def test_build_call_transcripts_table_keeps_current_idempotency_rows(self) -> None:
+        rows = [
+            {
+                "call_message_id": "call1",
+                "recording_sha256": "sha1",
+                "transcription_status": "failed",
+                "provider": "openai",
+                "transcription_model": "gpt-4o-transcribe",
+                "artifact_schema_version": "v1",
+                "attempt_count": "1",
+                "last_attempted_at": "2026-05-20T21:00:00Z",
+                "run_id": "older-run",
+                "snapshot_at": "2026-05-20T21:00:00Z",
+            },
+            {
+                "call_message_id": "call1",
+                "recording_sha256": "sha1",
+                "transcription_status": "succeeded",
+                "provider": "openai",
+                "transcription_model": "gpt-4o-transcribe",
+                "artifact_schema_version": "v1",
+                "attempt_count": "2",
+                "last_attempted_at": "2026-05-20T22:00:00Z",
+                "transcribed_at": "2026-05-20T22:00:00Z",
+                "run_id": "newer-run",
+                "snapshot_at": "2026-05-20T22:00:00Z",
+            },
+            {
+                "call_message_id": "call2",
+                "transcription_status": "skipped_no_recording",
+                "provider": "openai",
+                "transcription_model": "gpt-4o-transcribe",
+                "artifact_schema_version": "v1",
+                "attempt_count": 0,
+                "last_attempted_at": "2026-05-20T22:01:00Z",
+                "run_id": "newer-run",
+                "snapshot_at": "2026-05-20T22:01:00Z",
+            },
+        ]
+
+        table = build_call_transcripts_table(rows)
+
+        self.assertEqual(table.name, TRANSCRIPT_TABLE_NAME)
+        self.assertEqual(len(table.rows), 2)
+        self.assertEqual(table.rows[0]["call_message_id"], "call1")
+        self.assertEqual(table.rows[0]["transcription_status"], "succeeded")
+        self.assertEqual(table.rows[0]["attempt_count"], 2)
+        self.assertEqual(table.rows[1]["call_message_id"], "call2")
+        self.assertIsNone(table.rows[1]["recording_sha256"])
+
+    def test_call_transcripts_write_uses_core_location_without_touching_core_refresh_order(self) -> None:
+        try:
+            import pyarrow.parquet as pq  # type: ignore
+        except ImportError as exc:
+            raise unittest.SkipTest("pyarrow is not installed") from exc
+
+        table = build_call_transcripts_table(
+            [
+                {
+                    "call_message_id": "call1",
+                    "recording_sha256": "sha1",
+                    "transcription_status": "succeeded",
+                    "provider": "openai",
+                    "transcription_model": "gpt-4o-transcribe",
+                    "artifact_schema_version": "v1",
+                    "attempt_count": 1,
+                    "run_id": "run1",
+                    "snapshot_at": "2026-05-20T22:00:00Z",
+                }
+            ]
+        )
+        fake_s3 = FakeS3Client()
+        with tempfile.TemporaryDirectory() as tmp:
+            written = write_call_transcripts_table(
+                table,
+                local_output_dir=tmp,
+                s3_bucket="bucket",
+                s3_client=fake_s3,
+            )
+            parquet = pq.read_table(written.local_path)
+
+        self.assertEqual(written.name, TRANSCRIPT_TABLE_NAME)
+        self.assertEqual(written.database, DEFAULT_GLUE_DATABASE)
+        self.assertEqual(written.row_count, 1)
+        self.assertEqual(written.s3_key, f"{DEFAULT_CURATED_PREFIX}/core/call_transcripts/part-00000.parquet")
+        self.assertEqual(fake_s3.uploads[0]["bucket"], "bucket")
+        self.assertEqual(fake_s3.uploads[0]["key"], written.s3_key)
+        self.assertTrue(written.local_path.endswith("core/call_transcripts/part-00000.parquet"))
+        self.assertEqual(parquet.num_rows, 1)
+
+    def test_call_transcripts_glue_helper_uses_core_database_and_location(self) -> None:
+        fake_glue = FakeGlueClient()
+        result = create_or_update_call_transcripts_glue_table(
+            database_name="gold_coast",
+            s3_bucket="bucket",
+            glue_client=fake_glue,
+        )
+        table_input = fake_glue.updated[0]["TableInput"]
+
+        self.assertEqual(result.database, "gold_coast")
+        self.assertEqual(result.name, TRANSCRIPT_TABLE_NAME)
+        self.assertEqual(result.action, "updated")
+        self.assertEqual(result.table_location, "s3://bucket/curated/ghl/v1_1/core/call_transcripts/")
+        self.assertEqual(table_input["StorageDescriptor"]["Location"], result.table_location)
+        self.assertEqual(table_input["StorageDescriptor"]["Columns"][0]["Name"], "call_message_id")
+        self.assertEqual(table_input["StorageDescriptor"]["Columns"][-1]["Name"], "snapshot_at")
 
 
 if __name__ == "__main__":

@@ -69,6 +69,13 @@ variable "slack_webhook_secret_arn" {
   sensitive   = true
 }
 
+variable "openai_transcription_secret_arn" {
+  description = "Optional Secrets Manager secret ARN containing the OpenAI API key for the call transcription task. Required before enabling the transcription schedule with provider=openai."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 variable "image_tag" {
   description = "Immutable container image tag, normally the git SHA."
   type        = string
@@ -113,6 +120,53 @@ variable "schedule_expression" {
   description = "EventBridge schedule expression for the refresh after V1.1 cutover."
   type        = string
   default     = "rate(1 hour)"
+}
+
+variable "transcription_schedule_enabled" {
+  description = "Enable the downstream call transcription EventBridge schedule. Keep false until sample/backfill acceptance and explicit approval."
+  type        = bool
+  default     = false
+}
+
+variable "transcription_schedule_expression" {
+  description = "EventBridge schedule expression for downstream call transcription. Ignored operationally while transcription_schedule_enabled=false."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transcription_max_transcriptions_per_run" {
+  description = "Bound on OpenAI transcription attempts per scheduled task run."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.transcription_max_transcriptions_per_run >= 1 && var.transcription_max_transcriptions_per_run <= 100
+    error_message = "transcription_max_transcriptions_per_run must be between 1 and 100."
+  }
+}
+
+variable "transcription_artifact_schema_version" {
+  description = "Transcript artifact schema version passed to the transcription runtime."
+  type        = string
+  default     = "v1"
+}
+
+variable "transcription_provider" {
+  description = "Transcription provider name passed to the runtime."
+  type        = string
+  default     = "openai"
+}
+
+variable "transcription_model" {
+  description = "Primary transcription model passed to the runtime."
+  type        = string
+  default     = "gpt-4o-transcribe"
+}
+
+variable "transcription_fallback_model" {
+  description = "Fallback transcription model passed to the runtime for long/problematic audio."
+  type        = string
+  default     = "whisper-1"
 }
 
 variable "alert_mode" {

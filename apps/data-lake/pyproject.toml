@@ -9,6 +9,7 @@ description = "Read-only source ingest and curated table tooling for the Gold Co
 requires-python = ">=3.10"
 dependencies = [
   "boto3>=1.34",
+  "openai>=1.0",
   "pyarrow>=15",
 ]
 

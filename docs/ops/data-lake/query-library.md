@@ -24,7 +24,9 @@ MCP/LLM guidance: docs/ops/data-lake/athena-mcp-guidance.md
 - Speed-to-lead starts at gold_coast.opportunities_latest.created_at, exposed as gold_coast_reporting.lead_response.lead_created_at.
 - Activity attribution uses event actor_user_id from calls/messages, not current opportunity owner.
 - Recording fields are metadata only. Audio remains private encrypted S3 object storage.
-- No query uses transcription, call summaries, coaching analysis, dashboards, Slack scorecards, or GHL writes.
+- `gold_coast.call_transcripts` is available for transcript-specific work only and is published by the downstream transcription pipeline, not the hourly GHL refresh.
+- Do not include transcript text in smoke, acceptance, Slack, evidence, or routine status outputs. Use counts/statuses unless Tej explicitly asks for a private transcript review.
+- No query uses call summaries, coaching analysis, dashboards, Slack scorecards, or GHL writes.
 - MCP-backed SQL generation should follow the same split: core `gold_coast` tables for entity/event exploration and `gold_coast_reporting` marts for repeated metrics.
 
 Run-status smoke checks use gold_coast.run_status_ghl, backed only by s3://gcoffers-data-lake/run-status/ghl/runs/. Pointer files such as latest-success.json and latest-failure.json are not historical rows.
@@ -48,6 +50,7 @@ Run-status smoke checks use gold_coast.run_status_ghl, backed only by s3://gcoff
 | 013_aq_012_busiest_lead_arrival_windows.sql | Identify busiest lead-arrival windows | gold_coast.opportunities_latest | Uses opportunity created timestamp. |
 | 014_aq_013_calls_per_day_per_agent.sql | Count calls per day per agent | gold_coast.calls | Uses call actor ID. |
 | 015_aq_014_actor_vs_owner_call_activity.sql | Compare caller activity by actor and owner | gold_coast.calls, gold_coast.opportunities_latest | Demonstrates actor attribution separate from owner. |
+| 016_aq_015_call_transcript_coverage_status_lineage.sql | Validate transcript coverage, status distribution, and lineage | gold_coast.call_transcripts, gold_coast.calls, gold_coast.call_recordings | Returns counts/statuses only; does not select transcript text. |
 
 ## Known MVP Gaps
 
@@ -56,3 +59,4 @@ Run-status smoke checks use gold_coast.run_status_ghl, backed only by s3://gcoff
 - No follow-up classification fact exists yet. AQ-009 searches current stage/status/tags/custom/raw text for follow-up signals.
 - Historical stage/status movement starts with V1.1 observations unless reconstructed later from trusted snapshots.
 - Multiple opportunities can share a contact. Row-level call-to-opportunity joins pick the latest opportunity created before the event when possible.
+- `gold_coast.call_transcripts` remains empty or absent until the transcription sample/backfill slices publish it.
