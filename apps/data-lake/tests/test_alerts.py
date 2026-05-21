@@ -60,6 +60,75 @@ class AlertTests(unittest.TestCase):
         self.assertIn("[redacted]", raw_encoded)
         self.assertNotIn("seller@example.com", raw_encoded)
 
+    def test_transcription_payload_is_source_specific_and_count_oriented(self) -> None:
+        payload = slack_payload(
+            {
+                "source": "ghl-call-transcription",
+                "run_id": "transcription-run-1",
+                "status": "succeeded",
+                "duration_seconds": 3.4,
+                "image_tag": "image-123",
+                "selection": {
+                    "selected_calls": 4,
+                    "skipped_existing": 2,
+                    "skipped_no_recording": 1,
+                },
+                "transcriptions": {
+                    "attempted": 1,
+                    "succeeded": 1,
+                    "failed": 0,
+                    "pending_retry": 0,
+                },
+                "artifacts": {"curated_rows_submitted": 263},
+                "published": {"written": {"row_count": 263}},
+            },
+            AlertConfig(mode="success-and-failure", cloudwatch_log_url="https://console.aws.amazon.com/cloudwatch/home"),
+        )
+        encoded = json.dumps(payload)
+
+        self.assertIn("Gold Coast call transcription", encoded)
+        self.assertIn("selected_calls=4", encoded)
+        self.assertIn("skipped_existing=2", encoded)
+        self.assertIn("skipped_no_recording=1", encoded)
+        self.assertIn("attempted=1", encoded)
+        self.assertIn("pending_retry=0", encoded)
+        self.assertIn("263", encoded)
+        self.assertIn("CloudWatch", encoded)
+        self.assertNotIn("Gold Coast data lake GHL refresh", encoded)
+        self.assertNotIn("entity_counts", encoded)
+
+    def test_transcription_payload_redacts_pii_recording_urls_secrets_and_provider_payloads(self) -> None:
+        recording_url = "https://example.com/audio/message_id=secret.wav"
+        s3_uri = "".join(("s3", "://", "private-bucket", "/", "recordings/ghl/message_id=secret.wav"))
+        email = "".join(("seller", "@", "example", ".", "com"))
+        phone = "-".join(("555", "123", "4567"))
+        api_key = "".join(("sk", "-", "123456789012"))
+        payload = slack_payload(
+            {
+                "source": "ghl-call-transcription",
+                "run_id": "transcription-run-2",
+                "status": "failed",
+                "duration_seconds": 1,
+                "selection": {"selected_calls": 1, "skipped_existing": 0, "skipped_no_recording": 0},
+                "transcriptions": {"attempted": 1, "succeeded": 0, "failed": 1, "pending_retry": 0},
+                "provider_response": {"text": "raw words"},
+                "error": {
+                    "class": "RuntimeError",
+                    "message": f"failed for {recording_url} {s3_uri} {email} {phone} {api_key}",
+                },
+            },
+            AlertConfig(mode="failure-only"),
+        )
+        encoded = json.dumps(payload)
+
+        self.assertIn("[redacted]", encoded)
+        self.assertNotIn(recording_url, encoded)
+        self.assertNotIn(s3_uri, encoded)
+        self.assertNotIn(email, encoded)
+        self.assertNotIn(phone, encoded)
+        self.assertNotIn(api_key, encoded)
+        self.assertNotIn("raw words", encoded)
+
     def test_missing_webhook_skips_without_sending(self) -> None:
         calls = []
         callback = alert_callback(

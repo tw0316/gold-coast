@@ -1,74 +1,62 @@
-# Gold Coast Call Transcription Foundation Goal Owner
+# Gold Coast Call Transcription Observability V1.1 Goal Owner
 
 ## Final Goal
 
-Build the transcription foundation for archived Gold Coast GHL call recordings. Every archived call recording must have a transcript status, successful transcripts must be queryable in `gold_coast.call_transcripts` with full transcript text and source lineage, and transcription failures must not affect the existing hourly GHL refresh.
+Add V1.1 observability to the live Gold Coast GHL call transcription job.
 
-Acceptance criteria:
-- Archived call recordings join to transcript status: `succeeded`, `failed`, `pending_retry`, or `skipped_no_recording`.
-- `gold_coast.call_transcripts` exposes full transcript text, provider/model metadata, artifact schema version, usage/error metadata, timestamps, and lineage back to call/message/contact/opportunity IDs and recording S3/checksum fields.
-- Idempotency uses `call_message_id`, `recording_sha256`, artifact schema version, and transcription model.
-- Existing GHL refresh remains read-only and healthy if transcription fails.
-- No raw audio, recording URLs, API keys, Slack webhooks, raw PII dumps, or full transcripts are written to Slack, unsafe logs, or committed artifacts.
-- Real sample/backfill runs are bounded, evidenced, and reviewed before recurring operation.
+Definition of done:
+
+- Transcription runs write sanitized JSONL run logs.
+- Transcription run-status artifacts include `log_path`, `alert_status`, and `alert_error`.
+- Transcription Slack alerts are source-aware and count/status oriented.
+- `gold_coast.job_run_status` is the official shared Athena query surface for job health across `ghl-refresh` and `ghl-call-transcription`.
+- Freshness/status smoke checks cover transcription job status, failure/pending retry counts, transcript coverage, and alert/log fields.
+- Docs explain the operator query contract, alert policy, failure triage, privacy constraints, and backout.
+- Live acceptance evidence proves the deployed path without exposing transcripts, raw audio, recording URLs, secrets, webhook URLs, emails, phone numbers, or raw PII.
 
 ## Source
 
-- Epic/spec: `/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-and-insights.md`
+- Epic/spec: `/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-observability-v1-1.md`
 - Project root: `/Users/jarvis/LocalRepos/gold-coast`
-- User handoff: Slack `#jarvis-development` thread `1779320292.349589`, 2026-05-20
-- Active resume handoff: Slack `#jarvis-development` thread `1779326885.613529`, 2026-05-20
-- Better reference repo: `/Users/jarvis/LocalRepos/mortgage`
-- Better Janus reference path: `/Users/jarvis/LocalRepos/mortgage/janus`
+- User handoff: Slack `#jarvis-development` thread `1779376380.186249`, 2026-05-21
+- Current deployed V1 commit before this work: `478168c`
+- Current transcription schedule: `gold-coast-data-lake-ghl-call-transcription`, `rate(1 hour)`, enabled
+- Existing core-refresh observability pattern: `gold-coast-data-lake-ghl-refresh`, `gold_coast.run_status_ghl`, Slack alerts to `#gc-alerts`
 
 ## Current Status
 
-- Call transcription foundation is complete and live.
-- Local implementation slices 2-7 are complete through recurring production operation.
-- Real sample run `sample-20260520T2258Z` succeeded: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending retry.
-- Longer sample run `long-sample-20260520T2320Z` succeeded on a 318-second call: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending retry.
-- Throttled backfill completed after Tej approved proceeding: 261 additional calls processed across 7 bounded runs, all succeeded, 0 failed, 0 pending retry.
-- `gold_coast.call_transcripts` exists in Glue/Athena with 263 curated rows, all succeeded.
-- Final coverage query showed 263 eligible recorded calls, 263 covered, 0 remaining.
-- Final `sql/data-lake/smoke/005_call_transcripts.sql` passed all duplicate-grain, status, lineage, and non-empty transcript checks.
-- Recurring transcription schedule `gold-coast-data-lake-ghl-call-transcription` is enabled at `rate(1 hour)` and bounded to 10 calls / 10 transcriptions per run.
-- Controlled ECS recurring smoke `recurring-smoke-20260521T1302Z` exited 0, skipped all existing covered calls, and republished 263 transcript rows.
-- Existing core hourly GHL refresh schedule `gold-coast-data-lake-ghl-refresh` remains enabled at `rate(1 hour)` on task definition revision 8. Manual ECS core refresh smoke `20260521T130422Z` exited 0 and passed in-run Athena smoke.
-- JKS driver/reporter crons are disabled after completion.
+- Observability V1.1 is active.
+- The epic is `Ready For JKS` with no blocking pending decisions.
+- Previous transcription foundation goal is complete and its evidence remains in `.jks/`.
+- This goal replaces the active JKS owner files for the V1.1 observability work only.
 
 ## Hard Guardrails
 
-- Transcription only. No summaries, coaching insight generation, CRM datapoint extraction, dashboards, Slack scorecards, or GHL write-back.
-- Process all calls with recordings; do not add a minimum duration threshold.
-- Use existing private S3 archived recordings as the audio source, not GHL recording URLs.
-- Store full transcript text in Athena, but keep V1 access and docs scoped to Tej/Jarvis.
-- Use direct OpenAI transcription by default, modeled on Better Janus. Do not route OpenAI through Bedrock in V1.
-- Do not expose raw transcripts, raw audio, recording URLs, credentials, webhook URLs, or raw PII dumps in Slack, docs, logs, status files, or committed artifacts.
-- Do not let transcription failures fail or roll back the existing hourly GHL refresh.
-- Do not run full backfill, recurring enablement, destructive cleanup, or broad cloud changes without explicit evidence and acceptance gates.
+- V1.1 observability only.
+- Do not modify transcript generation quality, provider/model choice, transcript table grain, backfill behavior, CRM write-back, post-call summaries, coaching insight, or extraction of CRM datapoints.
+- Do not disable the live transcription schedule except as an explicit backout step.
+- Do not alter core hourly GHL refresh behavior except where shared alert code or shared run-status query surface requires backward-compatible tests.
+- Do not expose transcript text, raw audio, provider payloads, recording URLs, API keys, Slack webhook URLs, emails, phone numbers, contact examples, or raw PII in Slack, docs, logs, run-status artifacts, or evidence.
+- Athena table locations must point only at historical `runs/` prefixes, never broader parent prefixes that include pointer files or JSONL logs.
+- A zero-new-call transcription run is healthy after the backfill.
 - Never run unbounded recursive searches from the project/workspace root. Use bounded searches with explicit roots, excludes, output caps, and timeouts.
 
 ## Owner Model
 
-The recurring goal driver owns progress and state. It should:
+The goal owner coordinates progress and state. It should:
 
-1. Read `goal-state.json`, `GOAL.md`, and relevant `.jks/` evidence.
+1. Read `goal-state.json`, `GOAL.md`, the source epic, and relevant `.jks/` evidence.
 2. Reconcile completed child work before starting new work.
-3. Start exactly one bounded next slice when no slice is active.
-4. Prefer subagents for implementation/research, but do not wait inside the driver turn for long work.
-5. Run small verification directly when it is three focused commands or fewer.
-6. Send product/code changes to JKS workers. The owner may update state, evidence, reporting docs, and commits for verified worker output, but should not directly edit product code.
-7. Update `goal-state.json` every tick with active slice, child reliability, evidence, blockers, next action, and rough percent.
-8. Treat the missing OpenAI API key as a sample/backfill/runtime credential gate, not a reason to stop schema and local implementation work.
-9. Keep routine driver ticks silent; the reporter owns scheduled progress posts.
-10. Send the final completion report before disabling crons.
+3. Keep code changes in bounded JKS worker slices with explicit file ownership.
+4. Run owner verification before accepting worker output.
+5. Update `goal-state.json` with active slice, child reliability, evidence, blockers, next action, and rough percent.
+6. Keep routine progress updates concise and grounded in verified state.
+7. Send a final completion report only after live acceptance evidence is captured.
 
 ## Queue
 
-1. OpenAI secret and sample preflight.
-2. Transcript artifact contract: table grain, S3 layout, schema versioning, Athena DDL, and docs.
-3. Transcription engine: S3 audio read, OpenAI wrapper, Janus-style fallback/transcode handling, idempotency, artifact writes, and tests.
-4. Runtime and infrastructure: Fargate entrypoint, Secrets Manager contract, IAM, lock, logs, and run status.
-5. Curated publish and smoke checks: Parquet/Glue/Athena table updates, duplicate checks, lineage checks, and acceptance SQL.
-6. Bounded real sample and backfill: process real archived recordings after the OpenAI key exists, capture quality/cost evidence, then run throttled backfill.
-7. Recurring operation and final acceptance: enable recurring processing if approved, verify core refresh health, and produce final evidence/docs.
+1. Alert contract and transcription runtime observability.
+2. Terraform alert wiring and task configuration.
+3. Shared Athena job-run-status query surface and smoke SQL.
+4. Docs and runbook updates.
+5. Owner verification, deploy, live acceptance, evidence, and closeout.

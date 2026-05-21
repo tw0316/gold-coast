@@ -20,7 +20,10 @@ locals {
   container_name                         = "ghl-batch-refresh"
   transcription_container_name           = "ghl-call-transcription"
   transcription_lock_name                = "ghl-call-transcription"
+  slack_webhook_secret_configured        = try(trimspace(var.slack_webhook_secret_arn) != "", false)
+  transcription_alerting_enabled         = var.transcription_alert_mode != "off"
   openai_transcription_secret_configured = try(trimspace(var.openai_transcription_secret_arn) != "", false)
+  transcription_cloudwatch_log_url       = format("https://console.aws.amazon.com/cloudwatch/home?region=%s#logsV2:log-groups/log-group/%s", var.region, urlencode(aws_cloudwatch_log_group.transcription.name))
   data_lake_prefix                       = trim(var.data_lake_s3_prefix, "/")
   transcription_status_prefix            = "run-status/ghl-call-transcription"
   transcription_artifact_prefix          = "ai-artifacts/ghl/transcripts/*"
@@ -253,6 +256,20 @@ resource "aws_iam_role_policy" "transcription_task_execution_openai_secret" {
   })
 }
 
+resource "aws_iam_role_policy" "transcription_task_execution_slack_webhook_secret" {
+  count = local.transcription_alerting_enabled && local.slack_webhook_secret_configured ? 1 : 0
+  name  = "read-transcription-slack-webhook-secret"
+  role  = aws_iam_role.transcription_task_execution.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = var.slack_webhook_secret_arn
+    }]
+  })
+}
+
 resource "aws_iam_role" "transcription_task" {
   name = format("%s-transcription-task", local.name_prefix)
   assume_role_policy = jsonencode({
@@ -417,6 +434,7 @@ resource "aws_ecs_task_definition" "transcription" {
   depends_on = [
     aws_iam_role_policy_attachment.transcription_task_execution_managed,
     aws_iam_role_policy.transcription_task_execution_openai_secret,
+    aws_iam_role_policy.transcription_task_execution_slack_webhook_secret,
     aws_iam_role_policy.transcription_task
   ]
 
@@ -429,6 +447,14 @@ resource "aws_ecs_task_definition" "transcription" {
     precondition {
       condition     = !var.transcription_schedule_enabled || var.transcription_provider != "openai" || local.openai_transcription_secret_configured
       error_message = "openai_transcription_secret_arn is required before enabling the transcription schedule with provider=openai."
+    }
+    precondition {
+      condition     = var.transcription_alert_mode == "off" || local.slack_webhook_secret_configured
+      error_message = "slack_webhook_secret_arn is required when transcription_alert_mode is not off."
+    }
+    precondition {
+      condition     = var.transcription_alert_mode != "launch-window" || try(trimspace(var.transcription_success_alert_until) != "", false)
+      error_message = "transcription_success_alert_until is required when transcription_alert_mode is launch-window."
     }
   }
 
@@ -468,11 +494,19 @@ resource "aws_ecs_task_definition" "transcription" {
         { name = "SOURCE_ENVIRONMENT", value = var.environment },
         { name = "IMAGE_TAG", value = var.image_tag },
         { name = "STATUS_S3_BUCKET", value = var.data_lake_bucket },
-        { name = "STATUS_S3_PREFIX", value = local.transcription_status_s3_prefix }
+        { name = "STATUS_S3_PREFIX", value = local.transcription_status_s3_prefix },
+        { name = "CLOUDWATCH_LOG_URL", value = local.transcription_cloudwatch_log_url },
+        { name = "ALERT_MODE", value = var.transcription_alert_mode },
+        { name = "SUCCESS_ALERT_UNTIL", value = var.transcription_success_alert_until == null ? "" : var.transcription_success_alert_until }
       ]
-      secrets = local.openai_transcription_secret_configured ? [
-        { name = "OPENAI_API_KEY", valueFrom = var.openai_transcription_secret_arn }
-      ] : []
+      secrets = concat(
+        local.openai_transcription_secret_configured ? [
+          { name = "OPENAI_API_KEY", valueFrom = var.openai_transcription_secret_arn }
+        ] : [],
+        local.transcription_alerting_enabled && local.slack_webhook_secret_configured ? [
+          { name = "SLACK_WEBHOOK_URL", valueFrom = var.slack_webhook_secret_arn }
+        ] : []
+      )
       logConfiguration = {
         logDriver = "awslogs"
         options = {

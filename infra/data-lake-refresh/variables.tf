@@ -63,7 +63,7 @@ variable "ghl_location_id_secret_arn" {
 }
 
 variable "slack_webhook_secret_arn" {
-  description = "Secrets Manager secret ARN for the Gold Coast tech-alerts Slack webhook targeting C0B4JTC5VPF. Required when alert_mode is not off."
+  description = "Secrets Manager secret ARN for the Gold Coast tech-alerts Slack webhook targeting C0B4JTC5VPF. Required when core refresh or transcription alert mode is not off."
   type        = string
   default     = null
   sensitive   = true
@@ -167,6 +167,23 @@ variable "transcription_fallback_model" {
   description = "Fallback transcription model passed to the runtime for long/problematic audio."
   type        = string
   default     = "whisper-1"
+}
+
+variable "transcription_alert_mode" {
+  description = "Slack alert policy for the call transcription task: off, failure-only, success-and-failure, or launch-window."
+  type        = string
+  default     = "failure-only"
+
+  validation {
+    condition     = contains(["off", "failure-only", "success-and-failure", "launch-window"], var.transcription_alert_mode)
+    error_message = "transcription_alert_mode must be off, failure-only, success-and-failure, or launch-window."
+  }
+}
+
+variable "transcription_success_alert_until" {
+  description = "UTC ISO timestamp required for transcription launch-window success alerts. Leave null for failure-only or off."
+  type        = string
+  default     = null
 }
 
 variable "alert_mode" {

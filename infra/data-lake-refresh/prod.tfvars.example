@@ -16,10 +16,18 @@ transcription_artifact_schema_version = "v1"
 transcription_provider = "openai"
 transcription_model = "gpt-4o-transcribe"
 transcription_fallback_model = "whisper-1"
-alert_mode       = "failure-only"
 
-# For the first 1-2 launch days, set alert_mode = "launch-window" and fill this.
+# Core GHL refresh alert settings.
+alert_mode = "failure-only"
+
+# For the first 1-2 core refresh launch days, set alert_mode = "launch-window" and fill this.
 success_alert_until = null
+
+# Call transcription alert settings.
+transcription_alert_mode = "failure-only"
+
+# For the first 1-2 transcription launch days, set transcription_alert_mode = "launch-window" and fill this.
+transcription_success_alert_until = null
 
 # Fill these from the approved VPC before planning.
 vpc_id            = "vpc-REPLACE"

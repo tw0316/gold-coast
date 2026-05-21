@@ -1,6 +1,46 @@
 version: 2
 
 models:
+  - name: job_run_status
+    description: "Shared Athena operator query surface for scheduled/background Gold Coast job health. Filter by job_name instead of querying one run-status table per job."
+    meta:
+      glue_database: "gold_coast"
+      s3_location: "Athena view over s3://gcoffers-data-lake/run-status/ghl/runs/ and s3://gcoffers-data-lake/run-status/ghl-call-transcription/runs/."
+      table_type: "athena_view"
+      grain: "One normalized row per historical job run-status artifact per job_name and run_id."
+      primary_key: "job_name, run_id"
+      refresh_cadence: "Updated as each scheduled/background job writes run-status artifacts; view DDL is refreshed during observability migrations."
+      pii_level: "Low/Sanitized metadata"
+      operator_contract: "Official run-status query path. Operators should filter job_name, for example job_name = 'ghl-call-transcription'."
+    columns:
+      - name: job_name
+        tests: [not_null]
+      - name: run_id
+        tests: [not_null]
+      - name: status
+      - name: source_environment
+      - name: started_at
+      - name: finished_at
+      - name: duration_seconds
+      - name: image_tag
+      - name: cloudwatch_log_url
+      - name: status_s3_uri
+      - name: log_s3_uri
+      - name: alert_status
+      - name: provider
+      - name: transcription_model
+      - name: artifact_schema_version
+      - name: selected_count
+      - name: attempted_count
+      - name: succeeded_count
+      - name: failed_count
+      - name: pending_retry_count
+      - name: skipped_existing_count
+      - name: skipped_no_recording_count
+      - name: metrics_json
+      - name: error_json
+      - name: alert_error_json
+
   - name: contacts_latest
     description: "V1.1 current-state GHL contact table. Query this directly for contact identity, attribution, tags, and custom fields."
     meta:

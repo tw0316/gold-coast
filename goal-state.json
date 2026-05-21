@@ -1,399 +1,191 @@
 {
-    "version": 1,
-    "goalId": "gold-coast-call-transcription-foundation",
-    "ownerSessionTarget": "session:gold-coast-call-transcription-foundation",
-    "status": "completed",
-    "roughPercent": 100,
-    "createdAt": "2026-05-20T19:52:00-04:00",
-    "updatedAt": "2026-05-21T09:10:00-04:00",
-    "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-and-insights.md",
-    "crons": {
-        "driver": {
-            "id": "f68aea4d-fab8-4059-acca-7c3efdfc48ad",
-            "cadence": "15 minutes",
-            "status": "disabled"
-        },
-        "reporter": {
-            "id": "a532cb8d-aa4d-4670-93e4-5ad83e1121d1",
-            "cadence": "15 minutes wakeup with variable posting",
-            "status": "disabled"
-        }
+  "version": 1,
+  "goalId": "gold-coast-call-transcription-observability-v1-1",
+  "ownerSessionTarget": "session:gold-coast-call-transcription-observability-v1-1",
+  "status": "active",
+  "roughPercent": 72,
+  "createdAt": "2026-05-21T11:16:15-04:00",
+  "updatedAt": "2026-05-21T11:33:30-04:00",
+  "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-observability-v1-1.md",
+  "crons": {
+    "driver": {
+      "id": null,
+      "cadence": "15 minutes",
+      "status": "not_created"
     },
-    "reportingPolicy": {
-        "firstUpdateAfterMinutes": 15,
-        "under70PercentMinutes": 60,
-        "from70To90PercentMinutes": 30,
-        "over90PercentMinutes": 15,
-        "immediateOn": [
-            "blocked",
-            "decision-needed",
-            "completed"
-        ]
-    },
-    "lastReportAt": "2026-05-21T09:10:00-04:00",
-    "lastReportedStatus": "completed",
-    "lastReportedActiveSlice": "slice-7-recurring-operation-final",
-    "finalReport": {
-        "sent": true,
-        "sentAt": "2026-05-21T09:10:00-04:00",
-        "messageId": null
-    },
-    "activeSlice": null,
-    "lastCompletedSlice": "slice-7-recurring-operation-final",
-    "queue": [
-        {
-            "id": "slice-1-openai-secret-preflight",
-            "title": "Confirm OpenAI credential path and identify sample gate",
-            "status": "completed",
-            "startedAt": "2026-05-20T19:47:00-04:00",
-            "completedAt": "2026-05-20T19:52:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-setup-evidence.md"
-            ],
-            "notes": "AWS Secrets Manager has existing Gold Coast GHL and Slack secrets but no OpenAI-named secret. Local secrets registry path scan found no OpenAI API key path. Code/schema work can continue; real sample/backfill/runtime execution is gated until an approved OpenAI API key is stored without printing the value."
-        },
-        {
-            "id": "slice-2-transcript-artifact-contract",
-            "title": "Finalize transcript artifact contract, Athena DDL, smoke SQL, and docs",
-            "status": "completed",
-            "startedAt": "2026-05-20T21:30:02-04:00",
-            "completedAt": "2026-05-20T21:41:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-artifact-contract-evidence.md",
-                "sql/data-lake/ddl/002_call_transcripts.sql",
-                "sql/data-lake/smoke/005_call_transcripts.sql",
-                "docs/ops/data-lake/call-transcription.md"
-            ],
-            "notes": "Accepted after owner review. Added call_transcripts Athena DDL, smoke SQL for idempotency/lineage/status/body checks, ops doc, and JKS evidence. Verification: git diff --check and direct artifact inspection. No AWS/OpenAI/GHL calls run."
-        },
-        {
-            "id": "slice-3-transcription-engine",
-            "title": "Implement local transcription engine, OpenAI provider wrapper, idempotency, and tests",
-            "status": "completed",
-            "startedAt": "2026-05-20T21:45:00-04:00",
-            "completedAt": "2026-05-20T21:49:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-engine-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/transcription.py",
-                "apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py",
-                "apps/data-lake/tests/test_transcription.py"
-            ],
-            "notes": "Completed locally. Added transcription helpers, lazy OpenAI wrapper, Janus-style fallback/transcode path, safe CLI skeleton, pyproject dependency, focused tests, and evidence. Verification: focused transcription unittest, full data-lake unittest suite, and diff hygiene. No AWS/OpenAI/GHL/Slack calls or Terraform changes run."
-        },
-        {
-            "id": "slice-4-runtime-infrastructure",
-            "title": "Add transcription Fargate runtime, IAM, secret contract, lock, logs, and run status",
-            "status": "completed",
-            "startedAt": "2026-05-20T22:06:00-04:00",
-            "completedAt": "2026-05-20T22:10:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-runtime-infra-evidence.md",
-                "infra/data-lake-refresh",
-                "docs/ops/data-lake/call-transcription.md"
-            ],
-            "notes": "Completed locally. Added disabled transcription ECS task definition, separate execution/task/scheduler IAM roles, OpenAI secret ARN contract, scoped S3/Glue/Athena/DynamoDB permissions, separate lock name, CloudWatch log group, run-status CLI/runtime args, docs, and evidence. No terraform apply, AWS/OpenAI/GHL/Slack calls, Docker build/push, or schedule enablement run."
-        },
-        {
-            "id": "slice-5-curated-publish-smoke",
-            "title": "Publish curated transcript table and add smoke/acceptance checks",
-            "status": "completed",
-            "startedAt": "2026-05-20T22:18:00-04:00",
-            "completedAt": "2026-05-20T22:24:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-curated-smoke-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/curated.py",
-                "sql/data-lake/acceptance"
-            ],
-            "notes": "Completed locally. Added transcript-specific curated publish/write/Glue helpers, kept call_transcripts out of TABLE_ORDER to avoid hourly refresh overwrite, added focused tests including int arrow mapping/write path, acceptance SQL, docs, and evidence. No AWS/OpenAI/GHL/Slack/Athena/Docker/Terraform calls or commits."
-        },
-        {
-            "id": "slice-6-bounded-sample-backfill",
-            "title": "Run bounded real-call sample and throttled backfill after credential gate clears",
-            "status": "completed",
-            "startedAt": "2026-05-20T22:34:16-04:00",
-            "completedAt": "2026-05-21T00:09:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-sample-evidence.md",
-                ".jks/call-transcription-backfill-evidence.md"
-            ],
-            "notes": "Two one-call samples succeeded, including a 318-second call. Tej approved proceeding. Throttled backfill completed across 7 bounded runs: 261 additional calls attempted, 261 succeeded, 0 failed, 0 pending retry. gold_coast.call_transcripts now has 263 succeeded rows, and final coverage showed 263 eligible calls, 263 covered, 0 remaining."
-        },
-        {
-            "id": "slice-7-recurring-operation-final",
-            "title": "Enable recurring processing after approval and complete final acceptance",
-            "status": "completed",
-            "startedAt": "2026-05-21T00:09:00-04:00",
-            "completedAt": "2026-05-21T09:10:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-final-acceptance-evidence.md",
-                "goal-state.json",
-                "GOAL.md"
-            ],
-            "notes": "Completed after Tej approved wrapping up pending items. Recurring transcription schedule is enabled hourly and bounded to 10 calls / 10 transcriptions per run. Controlled ECS smoke recurring-smoke-20260521T1302Z exited 0 and republished 263 rows with 0 new transcriptions because all eligible calls were already covered. Existing core hourly GHL refresh remains enabled and manual ECS core smoke 20260521T130422Z exited 0 with in-run Athena smoke passed."
-        }
-    ],
-    "childReliability": {
-        "spawned": 8,
-        "completed": 5,
-        "stale": 3,
-        "replaced": 2,
-        "failed": 3,
-        "lost": 1,
-        "lastIssue": "Earlier slice-6 workers failed to exit cleanly, so owner completed and verified the real samples/backfill locally. Final recurring enablement and acceptance were completed locally after Tej approval. Driver and reporter crons are disabled after completion."
-    },
-    "childRuns": [
-        {
-            "sliceId": "slice-2-transcript-artifact-contract",
-            "label": "jks-call-transcription-artifact-contract",
-            "agentId": "019e47c5-6a0d-7aa0-ab37-7c6d16fca087",
-            "status": "lost",
-            "startedAt": "2026-05-20T19:55:00-04:00",
-            "completedAt": "2026-05-20T20:13:53-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-artifact-contract-evidence.md"
-            ],
-            "notes": "Worker owned docs/sql artifact contract only. No AWS/OpenAI/GHL calls were authorized. Task tracker marked it lost: Codex native subagent stopped reporting progress."
-        },
-        {
-            "sliceId": "slice-2-transcript-artifact-contract",
-            "label": "jks-call-transcription-artifact-contract-retry",
-            "agentId": "019e4827-4d68-72a1-83f6-dd08b72c72c4",
-            "status": "completed",
-            "startedAt": "2026-05-20T21:30:02-04:00",
-            "completedAt": "2026-05-20T21:41:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-artifact-contract-evidence.md",
-                "sql/data-lake/ddl/002_call_transcripts.sql",
-                "sql/data-lake/smoke/005_call_transcripts.sql",
-                "docs/ops/data-lake/call-transcription.md"
-            ],
-            "notes": "Completed and owner-accepted. Worker added docs/SQL/evidence only and ran git diff --check with no cloud/provider calls."
-        },
-        {
-            "sliceId": "slice-3-transcription-engine",
-            "label": "jks-call-transcription-engine",
-            "agentId": "019e482e-75e5-7432-9193-c59cbd93723a",
-            "status": "completed",
-            "startedAt": "2026-05-20T21:45:00-04:00",
-            "completedAt": "2026-05-20T21:49:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-engine-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/transcription.py",
-                "apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py",
-                "apps/data-lake/tests/test_transcription.py"
-            ],
-            "notes": "Completed. Added local engine/provider wrapper/idempotency/tests, safe CLI skeleton, pyproject dependency, and evidence. No real cloud/provider calls or commits."
-        },
-        {
-            "sliceId": "slice-3-transcription-engine",
-            "label": "jks-call-transcription-engine-secret-scan-cleanup",
-            "agentId": "019e483a-9d75-7db2-a9ed-1d18d6f4d72d",
-            "status": "completed",
-            "startedAt": "2026-05-20T21:56:00-04:00",
-            "completedAt": "2026-05-20T22:01:00-04:00",
-            "expectedEvidence": [
-                "apps/data-lake/tests/test_transcription.py",
-                ".jks/call-transcription-engine-evidence.md"
-            ],
-            "notes": "Completed. Split fake secret-looking sanitizer test fixtures to avoid false-positive scanner hits without changing production code."
-        },
-        {
-            "sliceId": "slice-4-runtime-infrastructure",
-            "label": "jks-call-transcription-runtime-infra",
-            "agentId": "019e483e-35e8-7b30-99e6-60d0857a3947",
-            "status": "completed",
-            "startedAt": "2026-05-20T22:06:00-04:00",
-            "completedAt": "2026-05-20T22:10:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-runtime-infra-evidence.md",
-                "infra/data-lake-refresh",
-                "docs/ops/data-lake/call-transcription.md"
-            ],
-            "notes": "Completed and owner-accepted. Added disabled transcription runtime Terraform, scoped IAM, OpenAI secret contract, lock/status CLI args, docs, and evidence. Verification covered Terraform fmt/init/validate, full unittest suite, CLI help, safe sample parser/status run, diff hygiene, and scoped leak scan."
-        },
-        {
-            "sliceId": "slice-5-curated-publish-smoke",
-            "label": "jks-call-transcription-curated-smoke",
-            "agentId": "019e484e-e4a3-7dd2-8e1a-8bd38c07241a",
-            "status": "completed",
-            "startedAt": "2026-05-20T22:18:00-04:00",
-            "completedAt": "2026-05-20T22:24:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-curated-smoke-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/curated.py",
-                "sql/data-lake/acceptance"
-            ],
-            "notes": "Completed locally. Added transcript-specific curated table helpers, acceptance SQL, docs, tests, and evidence. call_transcripts remains outside TABLE_ORDER, so core hourly GHL refresh will not overwrite transcript output. No external/cost-bearing commands or commits."
-        },
-        {
-            "sliceId": "slice-6-bounded-sample-backfill",
-            "label": "jks-call-transcription-sample-worker",
-            "agentId": "019e4863-52f2-7bc0-975f-ecd76937f992",
-            "status": "shutdown",
-            "startedAt": "2026-05-20T22:35:00-04:00",
-            "completedAt": "2026-05-20T22:52:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-sample-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py"
-            ],
-            "notes": "Worker did not produce observable files after the scope was narrowed to one-call sample execution. It was closed and replaced by a narrower worker."
-        },
-        {
-            "sliceId": "slice-6-bounded-sample-backfill",
-            "label": "jks-call-transcription-one-call-sample-worker",
-            "agentId": "019e4873-aa6a-7540-b09d-2c4af59a094e",
-            "status": "shutdown_after_artifacts_owner_accepted",
-            "startedAt": "2026-05-20T22:53:26-04:00",
-            "completedAt": "2026-05-20T23:00:00-04:00",
-            "expectedEvidence": [
-                ".jks/call-transcription-sample-evidence.md",
-                "apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py"
-            ],
-            "notes": "Worker produced minimal one-call sample execution code, tests, docs, and evidence but did not exit cleanly; owner closed it, reviewed artifacts, ran tests, ran the real one-call sample, and accepted the implementation for the sample gate."
-        }
-    ],
-    "lastVerifiedEvidence": [
-        "Epic status is Ready For JKS with no blocking pending decisions.",
-        "AWS caller identity verified for jarvis-bot account 108750423275.",
-        "AWS Secrets Manager contains Gold Coast GHL API key, GHL location ID, and Slack tech-alert webhook secret names.",
-        "No OpenAI-named AWS Secrets Manager secret was found in us-east-1.",
-        "Local secrets registry path scan found no OpenAI API key path.",
-        "Existing repo branch is feat/data-lake-monorepo-slice-1 and was clean before JKS setup.",
-        "JKS driver cron f68aea4d-fab8-4059-acca-7c3efdfc48ad created on 15-minute cadence with no delivery.",
-        "JKS reporter cron a532cb8d-aa4d-4670-93e4-5ad83e1121d1 created on 15-minute wake cadence and explicit Slack thread reporting policy.",
-        "Slice 2 accepted: sql/data-lake/ddl/002_call_transcripts.sql, sql/data-lake/smoke/005_call_transcripts.sql, docs/ops/data-lake/call-transcription.md, and .jks/call-transcription-artifact-contract-evidence.md.",
-        "Slice 3 accepted locally: apps/data-lake/src/gold_coast_data_lake/transcription.py, apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py, apps/data-lake/tests/test_transcription.py, apps/data-lake/pyproject.toml, and .jks/call-transcription-engine-evidence.md.",
-        "Slice 3 owner verification passed: focused transcription unittest 9/9, full data-lake unittest suite 62 run with one existing pyarrow skip, CLI help with PYTHONPATH=src, git diff --check, goal-state JSON validation, and scoped secret scan.",
-        "Slice 4 accepted locally: infra/data-lake-refresh/main.tf, infra/data-lake-refresh/variables.tf, infra/data-lake-refresh/prod.tfvars.example, apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py, docs/ops/data-lake/call-transcription.md, docs/ops/data-lake/fargate-refresh-runtime.md, docs/ops/data-lake/batch-runner.md, and .jks/call-transcription-runtime-infra-evidence.md.",
-        "Slice 4 verification passed: terraform fmt/init -backend=false/validate/fmt-check, full data-lake unittest suite 62 run with one existing pyarrow skip, transcription CLI help showing runtime contract flags, safe sample invocation with Terraform-shaped flags, git diff --check, goal-state JSON validation, and scoped leak scan.",
-        "Slice 5 accepted locally: apps/data-lake/src/gold_coast_data_lake/curated.py, apps/data-lake/tests/test_curated.py, sql/data-lake/acceptance/016_aq_015_call_transcript_coverage_status_lineage.sql, docs/ops/data-lake/schema.yml, docs/ops/data-lake/data-dictionary.md, docs/ops/data-lake/query-library.md, docs/ops/data-lake/call-transcription.md, and .jks/call-transcription-curated-smoke-evidence.md.",
-        "Slice 5 verification passed: focused curated/transcription unittest 22 run with two pyarrow skips, full data-lake unittest suite 66 run with two pyarrow skips, git diff --check, and scoped transcript/credential leak scan. call_transcripts remains outside TABLE_ORDER.",
-        "OpenAI key was stored in AWS Secrets Manager as goldcoast/openai-api-key without committing or printing the secret value.",
-        "Slice 6 one-call sample run sample-20260520T2258Z succeeded: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending_retry.",
-        "gold_coast.call_transcripts exists in Glue at s3://gcoffers-data-lake/curated/ghl/v1_1/core/call_transcripts/ with 35 columns and 1 curated row.",
-        "Transcript smoke SQL 005_call_transcripts.sql passed all 5 count/status/lineage checks in Athena query ab559e83-6082-437b-bc52-13e01d37fa0a.",
-        "Count-only Athena verification query 78fb27bb-3836-46cb-83ec-75caad2020ba returned row_count=1, succeeded_count=1, nonempty_succeeded_count=1.",
-        "Post-slice full data-lake unittest suite passed: 71 tests run, 0 failures.",
-        "Longer-duration sample run long-sample-20260520T2320Z succeeded on a 318-second inbound completed call: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending_retry.",
-        "After the longer sample, gold_coast.call_transcripts has row_count=2, succeeded_count=2, nonempty_succeeded_count=2, succeeded_over_5_min_count=1 from Athena query 61257d49-6664-45e9-b40b-7de0ed1a76d0.",
-        "Transcript smoke SQL 005_call_transcripts.sql passed all 5 count/status/lineage checks after the longer sample in Athena query f224b99a-3dc2-4d77-8c37-d41e2dbc725e.",
-        "Backfill idempotency guard added for source rows missing recording SHA; regression test verifies existing successful transcripts are skipped by call/model/schema/provider when source SHA is absent.",
-        "Post-fix verification passed before backfill: focused transcription unittest 15/15, full data-lake unittest suite 72/72, git diff --check clean, goal-state JSON valid.",
-        "Throttled backfill completed across 7 bounded runs after Tej approved proceeding: 261 additional calls selected/attempted/succeeded, 0 failed, 0 pending retry.",
-        "Final gold_coast.call_transcripts count query ea0272c9-5092-47e4-a13b-828db0470be5 returned row_count=263, succeeded_count=263, failed_count=0, pending_retry_count=0.",
-        "Final coverage query 58e56f9a-5a24-4cbe-9ba0-939fc1e51a9b returned eligible_calls=263, succeeded_covered_calls=263, remaining_calls=0.",
-        "Final transcript smoke SQL 005_call_transcripts.sql passed all 5 duplicate/status/lineage/non-empty checks in Athena query c3cd5ede-c9bf-48d0-a1d7-6d2c4cd43d96.",
-        "Recurring transcription schedule gold-coast-data-lake-ghl-call-transcription is enabled at rate(1 hour), task definition revision 1, bounded to max_calls=10 and max_transcriptions_per_run=10.",
-        "Controlled recurring ECS smoke recurring-smoke-20260521T1302Z exited 0, loaded 263 existing transcript rows, selected 0 new calls, and republished 263 curated call_transcripts rows.",
-        "Post-enable transcript smoke SQL 005_call_transcripts.sql passed all 5 duplicate/status/lineage/non-empty checks in Athena query 4801cd07-6dae-4061-9c1d-293f1d301fe5.",
-        "Post-enable transcript count query 4b1c6480-50bc-4f43-baaf-6a89e63322e4 returned row_count=263, succeeded_count=263, failed_count=0, pending_retry_count=0.",
-        "Post-enable transcript coverage query ea83a814-723f-4b43-8e96-c6e5badec14c returned eligible_calls=263, succeeded_covered_calls=263, remaining_calls=0.",
-        "Existing core hourly GHL refresh schedule gold-coast-data-lake-ghl-refresh remains enabled at rate(1 hour), task definition revision 8. Manual ECS core smoke 20260521T130422Z exited 0 and passed in-run Athena smoke."
-    ],
-    "blockers": [
-        {
-            "id": "blocker-slice-2-awaiting-worker-evidence",
-            "sliceId": "slice-2-transcript-artifact-contract",
-            "status": "resolved",
-            "recordedAt": "2026-05-20T20:14:00-04:00",
-            "lastCheckedAt": "2026-05-20T21:30:02-04:00",
-            "summary": "Original artifact-contract child run did not produce expected evidence. Resolved by starting replacement worker 019e4827-4d68-72a1-83f6-dd08b72c72c4."
-        },
-        {
-            "id": "blocker-openai-transcription-secret",
-            "sliceId": "slice-6-bounded-sample-backfill",
-            "status": "resolved",
-            "recordedAt": "2026-05-20T22:31:00-04:00",
-            "lastCheckedAt": "2026-05-20T22:34:16-04:00",
-            "summary": "Resolved after approved OpenAI key was stored in AWS Secrets Manager as goldcoast/openai-api-key. Continue with bounded sample only; do not print or commit the key."
-        },
-        {
-            "id": "blocker-sample-quality-review-before-backfill",
-            "sliceId": "slice-6-bounded-sample-backfill",
-            "status": "resolved",
-            "recordedAt": "2026-05-20T23:03:18-04:00",
-            "lastCheckedAt": "2026-05-21T00:09:00-04:00",
-            "summary": "Resolved after Tej approved proceeding from the longer-duration sample and throttled backfill completed successfully."
-        },
-        {
-            "id": "blocker-recurring-operation-approval",
-            "sliceId": "slice-7-recurring-operation-final",
-            "status": "resolved",
-            "recordedAt": "2026-05-21T00:09:00-04:00",
-            "lastCheckedAt": "2026-05-21T09:10:00-04:00",
-            "summary": "Resolved after Tej approved wrapping up pending items. Recurring transcription is enabled and final acceptance passed."
-        }
-    ],
-    "pauseReason": null,
-    "lastDriverTick": {
-        "at": "2026-05-21T09:10:00-04:00",
-        "action": "completed-recurring-operation-final-acceptance",
-        "result": "completed",
-        "details": "Recurring transcription is enabled hourly, bounded to 10 calls / 10 transcriptions per run, post-enable transcript smoke/count/coverage passed, and the existing core hourly GHL refresh passed manual ECS smoke."
-    },
-    "guardrails": [
-        "Transcription only; no summaries/coaching/CRM datapoints/dashboards/GHL writes",
-        "Process all calls with recordings",
-        "Use archived private S3 recordings as audio source",
-        "Full transcript text in Athena, Tej/Jarvis-only V1 access",
-        "Direct OpenAI transcription default; no Bedrock routing for OpenAI",
-        "No raw transcripts/audio/recording URLs/credentials/webhooks/PII dumps in Slack/logs/docs/commits",
-        "Transcription failures must not fail the existing hourly GHL refresh",
-        "Real sample/backfill gated on approved OpenAI API key secret"
-    ],
-    "resourceManifest": [
-        {
-            "type": "repo",
-            "path": "/Users/jarvis/LocalRepos/gold-coast"
-        },
-        {
-            "type": "epic",
-            "path": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-and-insights.md"
-        },
-        {
-            "type": "jks-thread",
-            "path": "slack:#jarvis-development:1779320292.349589"
-        },
-        {
-            "type": "jks-active-thread",
-            "path": "slack:#jarvis-development:1779326885.613529"
-        }
-    ],
-    "reportHistory": [
-        {
-            "at": "2026-05-20T22:37:37-04:00",
-            "status": "active",
-            "activeSlice": "slice-6-bounded-sample-backfill",
-            "reason": "state changed to active",
-            "messageTs": null
-        },
-        {
-            "at": "2026-05-20T23:03:18-04:00",
-            "status": "decision-needed",
-            "activeSlice": "slice-6-bounded-sample-backfill",
-            "reason": "one-call sample succeeded; private quality review required before backfill",
-            "messageTs": null
-        },
-        {
-            "at": "2026-05-20T23:22:00-04:00",
-            "status": "decision-needed",
-            "activeSlice": "slice-6-bounded-sample-backfill",
-            "reason": "longer sample succeeded; private quality review required before backfill",
-            "messageTs": null
-        },
-        {
-            "at": "2026-05-21T00:09:00-04:00",
-            "status": "decision-needed",
-            "activeSlice": "slice-7-recurring-operation-final",
-            "reason": "throttled backfill completed; recurring enablement requires explicit approval",
-            "messageTs": null
-        },
-        {
-            "at": "2026-05-21T09:10:00-04:00",
-            "status": "completed",
-            "activeSlice": null,
-            "reason": "recurring transcription enabled and final acceptance passed",
-            "messageTs": null
-        }
+    "reporter": {
+      "id": null,
+      "cadence": "15 minutes wakeup with variable posting",
+      "status": "not_created"
+    }
+  },
+  "reportingPolicy": {
+    "firstUpdateAfterMinutes": 15,
+    "under70PercentMinutes": 60,
+    "from70To90PercentMinutes": 30,
+    "over90PercentMinutes": 15,
+    "immediateOn": [
+      "blocked",
+      "decision-needed",
+      "completed"
     ]
+  },
+  "lastReportAt": null,
+  "lastReportedStatus": null,
+  "lastReportedActiveSlice": null,
+  "finalReport": {
+    "sent": false,
+    "sentAt": null,
+    "messageId": null
+  },
+  "activeSlice": "slice-5-deploy-live-acceptance",
+  "lastCompletedSlice": "slice-4-owner-verification",
+  "queue": [
+    {
+      "id": "slice-1-alert-runtime-observability",
+      "title": "Generalize sanitized Slack alert contract and add transcription JSONL run logs, alert status, alert errors, and runtime flags",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:16:15-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-runtime-evidence.md",
+        "apps/data-lake/src/gold_coast_data_lake/alerts.py",
+        "apps/data-lake/src/gold_coast_data_lake/jobs/ghl_call_transcription.py",
+        "apps/data-lake/tests/test_alerts.py",
+        "apps/data-lake/tests/test_transcription.py"
+      ],
+      "notes": "Completed and owner-reviewed. Focused alert/transcription tests passed."
+    },
+    {
+      "id": "slice-2-terraform-alert-wiring",
+      "title": "Wire transcription alert mode, Slack webhook secret injection, IAM secret read, and launch-window preconditions in Terraform",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:18:05-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-terraform-evidence.md",
+        "infra/data-lake-refresh/main.tf",
+        "infra/data-lake-refresh/variables.tf",
+        "infra/data-lake-refresh/prod.tfvars.example"
+      ],
+      "notes": "Completed and owner-reviewed. Terraform fmt-check and validate passed. Owner added transcription CloudWatch log URL env wiring before acceptance."
+    },
+    {
+      "id": "slice-3-athena-smoke-docs",
+      "title": "Add shared Athena job_run_status query surface, transcription smoke SQL, and operator docs",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:18:05-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-athena-docs-evidence.md",
+        "sql/data-lake/ddl",
+        "sql/data-lake/smoke",
+        "docs/ops/data-lake"
+      ],
+      "notes": "Completed and owner-reviewed. Owner patched source-environment filtering and coverage eligibility shape before acceptance."
+    },
+    {
+      "id": "slice-4-owner-verification",
+      "title": "Run focused/full tests, terraform fmt/validate, DDL/smoke inspection, and privacy safety scans",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:28:00-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-verification-evidence.md"
+      ],
+      "notes": "Completed. Focused tests, full data-lake tests, Terraform fmt/validate, diff check, JSON state check, and static safety checks passed."
+    },
+    {
+      "id": "slice-5-deploy-live-acceptance",
+      "title": "Build, deploy, run controlled ECS smoke, validate Slack/Athena/S3 logs/run-status, and capture final evidence",
+      "status": "active",
+      "startedAt": "2026-05-21T11:33:30-04:00",
+      "completedAt": null,
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-live-acceptance-evidence.md",
+        ".jks/call-transcription-observability-final-report.md"
+      ],
+      "notes": "Live evidence must remain sanitized and must not expose transcripts/audio/secrets/PII."
+    }
+  ],
+  "childReliability": {
+    "spawned": 3,
+    "completed": 3,
+    "stale": 0,
+    "replaced": 0,
+    "failed": 0,
+    "lost": 0,
+    "lastIssue": null
+  },
+  "childRuns": [
+    {
+      "sliceId": "slice-1-alert-runtime-observability",
+      "label": "jks-call-transcription-observability-runtime",
+      "agentId": "019e4b1d-6872-7620-aa5e-3d6f87a1aca9",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:18:05-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-runtime-evidence.md"
+      ],
+      "notes": "Completed. Owner reviewed evidence and reran focused/full tests."
+    },
+    {
+      "sliceId": "slice-2-terraform-alert-wiring",
+      "label": "jks-call-transcription-observability-terraform",
+      "agentId": "019e4b1d-6897-7be2-aa6c-28593e6f8783",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:18:05-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-terraform-evidence.md"
+      ],
+      "notes": "Completed. Owner reviewed evidence and reran Terraform validation."
+    },
+    {
+      "sliceId": "slice-3-athena-smoke-docs",
+      "label": "jks-call-transcription-observability-athena-docs",
+      "agentId": "019e4b1d-68b3-7290-9ec8-844a37c88f03",
+      "status": "completed",
+      "startedAt": "2026-05-21T11:18:05-04:00",
+      "completedAt": "2026-05-21T11:33:30-04:00",
+      "expectedEvidence": [
+        ".jks/call-transcription-observability-athena-docs-evidence.md"
+      ],
+      "notes": "Completed. Owner reviewed DDL/smoke SQL and static safety checks."
+    }
+  ],
+  "lastVerifiedEvidence": [
+    "Epic status is Ready For JKS with no blocking pending decisions.",
+    "Definition of done and guardrails copied into GOAL.md.",
+    "Previous call transcription foundation evidence retained in .jks/."
+    ,
+    "Slice 1 accepted: source-aware transcription alert payloads, alert runtime flags, JSONL logs, run-status alert/log fields, and focused tests.",
+    "Slice 2 accepted: Terraform transcription alert mode, Slack secret injection, IAM read scope, preconditions, and CloudWatch log URL env wiring.",
+    "Slice 3 accepted: gold_coast.job_run_status shared query surface, transcription raw run-status DDL, smoke SQL 006-009, and operator docs.",
+    "Slice 4 accepted: focused tests 26/26, full data-lake tests 77 passed / 2 skipped, terraform fmt-check/validate, git diff --check, goal-state JSON validation, and static safety checks."
+  ],
+  "blockers": [],
+  "guardrails": [
+    "V1.1 observability only.",
+    "Do not change transcription generation, transcript table grain, core GHL refresh behavior, or privacy constraints.",
+    "Do not expose transcript text, raw audio, provider payloads, recording URLs, API keys, Slack webhook URLs, emails, phone numbers, contact examples, or raw PII in Slack, docs, logs, run-status artifacts, or evidence.",
+    "Athena table locations must point only at historical runs/ prefixes."
+  ],
+  "resourceManifest": [
+    {
+      "type": "repo",
+      "path": "/Users/jarvis/LocalRepos/gold-coast"
+    },
+    {
+      "type": "epic",
+      "path": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-observability-v1-1.md"
+    },
+    {
+      "type": "slack_thread",
+      "id": "1779376380.186249",
+      "channel": "C0B1N3V69LJ"
+    }
+  ],
+  "nextAction": "Commit verified changes, build/push image, apply Terraform, apply Athena DDL/view, run controlled transcription ECS smoke, run smoke SQL, and capture live acceptance evidence."
 }

@@ -19,6 +19,7 @@ import tempfile
 import sys
 from typing import Any
 
+from gold_coast_data_lake.alerts import ALERT_MODES, AlertConfig, alert_callback
 from gold_coast_data_lake.batch import DynamoDbTtlLock, LocalTtlLock
 from gold_coast_data_lake.curated import (
     DEFAULT_CURATED_PREFIX,
@@ -59,6 +60,8 @@ DEFAULT_LOCK_NAME = os.environ.get("LOCK_NAME", "ghl-call-transcription")
 DEFAULT_STATUS_S3_PREFIX = os.environ.get("STATUS_S3_PREFIX", "run-status/ghl-call-transcription")
 DEFAULT_CLOUDWATCH_LOG_URL = os.environ.get("CLOUDWATCH_LOG_URL")
 DEFAULT_IMAGE_TAG = os.environ.get("IMAGE_TAG")
+DEFAULT_ALERT_MODE = os.environ.get("ALERT_MODE", "off")
+DEFAULT_SUCCESS_ALERT_UNTIL = os.environ.get("SUCCESS_ALERT_UNTIL")
 DEFAULT_GLUE_DATABASE = os.environ.get("GLUE_DATABASE", DEFAULT_GLUE_DATABASE)
 DEFAULT_ATHENA_WORKGROUP = os.environ.get("ATHENA_WORKGROUP", "gold_coast_data_lake")
 DEFAULT_ATHENA_OUTPUT_LOCATION = os.environ.get("ATHENA_OUTPUT_LOCATION")
@@ -87,6 +90,30 @@ ExistingRowsLoader = Callable[[argparse.Namespace], list[dict[str, Any]]]
 ArtifactWriter = Callable[[argparse.Namespace, str, Mapping[str, Any]], None]
 CuratedPublisher = Callable[[argparse.Namespace, list[dict[str, Any]]], PublishedTranscripts]
 RecordingDownloader = Callable[[str, str, int], DownloadedRecording]
+SENSITIVE_LOG_KEY_PARTS = (
+    "api_key",
+    "apikey",
+    "authorization",
+    "audio",
+    "body",
+    "credential",
+    "email",
+    "file",
+    "password",
+    "payload",
+    "phone",
+    "presigned",
+    "provider_response",
+    "recording",
+    "secret",
+    "token",
+    "transcript_object",
+    "transcript_text",
+    "transcript_segments",
+    "uri",
+    "url",
+    "webhook",
+)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -141,6 +168,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--lock-name", default=os.environ.get("LOCK_NAME", DEFAULT_LOCK_NAME))
     parser.add_argument("--cloudwatch-log-url", default=os.environ.get("CLOUDWATCH_LOG_URL", DEFAULT_CLOUDWATCH_LOG_URL))
     parser.add_argument("--image-tag", default=os.environ.get("IMAGE_TAG", DEFAULT_IMAGE_TAG))
+    parser.add_argument(
+        "--alert-mode",
+        default=DEFAULT_ALERT_MODE,
+        choices=sorted(ALERT_MODES),
+        help="Slack alert policy. Webhook URL is read only from SLACK_WEBHOOK_URL.",
+    )
+    parser.add_argument("--success-alert-until", default=DEFAULT_SUCCESS_ALERT_UNTIL)
     parser.add_argument("--glue-database", default=os.environ.get("GLUE_DATABASE", DEFAULT_GLUE_DATABASE))
     parser.add_argument("--athena-workgroup", default=os.environ.get("ATHENA_WORKGROUP", DEFAULT_ATHENA_WORKGROUP))
     parser.add_argument("--athena-output-location", default=DEFAULT_ATHENA_OUTPUT_LOCATION)
@@ -165,13 +199,32 @@ def run_transcription_job(
     curated_publisher: CuratedPublisher | None = None,
 ) -> int:
     run_id = args.run_id or format_run_id()
+    logger = TranscriptionRunLogger(transcription_log_path(args, run_id))
+    logger.write(
+        "run_started",
+        {
+            "run_id": run_id,
+            "dry_run": not args.execute,
+            "execute": bool(args.execute),
+            "sample": bool(args.sample),
+            "source_environment": args.source_environment,
+            "alert_mode": args.alert_mode,
+            "limits": {
+                "max_calls": args.max_calls,
+                "max_transcriptions_per_run": args.max_transcriptions_per_run,
+                "recording_max_bytes": args.recording_max_bytes,
+            },
+            "s3_bucket_configured": bool(args.s3_bucket),
+            "status_s3_configured": bool(args.status_s3_bucket),
+        },
+    )
     lock = build_lock(args)
     lock_acquired = False
 
     limit_error = validate_limits(args)
     if limit_error:
         status = build_run_status(args, run_id=run_id, status="failed", dry_run=not args.execute, error=limit_error)
-        write_and_publish_run_status(args, status)
+        write_and_publish_run_status(args, status, logger=logger)
         print(json.dumps(status["error"], indent=2, sort_keys=True), file=sys.stderr)
         return 2
 
@@ -187,7 +240,7 @@ def run_transcription_job(
                 lock_info=build_lock_info(args, lock, acquired=False),
                 error={"class": exc.__class__.__name__, "message": str(exc)},
             )
-            write_and_publish_run_status(args, status)
+            write_and_publish_run_status(args, status, logger=logger)
             print(json.dumps(status["error"], indent=2, sort_keys=True), file=sys.stderr)
             return 2
         if not lock_acquired:
@@ -202,7 +255,7 @@ def run_transcription_job(
                     "message": "Another GHL call transcription run is active.",
                 },
             )
-            write_and_publish_run_status(args, status)
+            write_and_publish_run_status(args, status, logger=logger)
             print(json.dumps(status["error"], indent=2, sort_keys=True), file=sys.stderr)
             return 2
 
@@ -218,7 +271,7 @@ def run_transcription_job(
                     "Dry-run status only. No OpenAI, AWS S3, Athena, Glue, GHL, Slack, transcript, or recording-url calls were made.",
                 ],
             )
-            output_path = write_and_publish_run_status(args, status)
+            output_path = write_and_publish_run_status(args, status, logger=logger)
             print(json.dumps({"status": status["status"], "run_id": run_id, "run_status_path": str(output_path)}, sort_keys=True))
             return 0
 
@@ -232,7 +285,7 @@ def run_transcription_job(
                 lock_info=build_lock_info(args, lock, acquired=lock_acquired),
                 error=preflight_error,
             )
-            write_and_publish_run_status(args, status)
+            write_and_publish_run_status(args, status, logger=logger)
             print(json.dumps(status["error"], indent=2, sort_keys=True), file=sys.stderr)
             return 2
 
@@ -254,6 +307,7 @@ def run_transcription_job(
                 recording_downloader=recording_downloader,
                 artifact_writer=artifact_writer,
                 curated_publisher=curated_publisher,
+                logger=logger,
             )
         except Exception as exc:  # noqa: BLE001
             result = build_run_status(
@@ -265,7 +319,7 @@ def run_transcription_job(
                 error=build_error_json(exc, provider="local", model="sample_execution"),
                 notes=["Sample execution failed before a transcript row could be published."],
             )
-        write_and_publish_run_status(args, result)
+        write_and_publish_run_status(args, result, logger=logger)
         print(
             json.dumps(
                 {
@@ -297,6 +351,7 @@ def execute_transcription_run(
     recording_downloader: RecordingDownloader,
     artifact_writer: ArtifactWriter,
     curated_publisher: CuratedPublisher,
+    logger: "TranscriptionRunLogger | None" = None,
 ) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
     max_selected = effective_selection_limit(args)
@@ -310,6 +365,15 @@ def execute_transcription_run(
     metrics = empty_metrics()
     metrics["selection"]["selected_calls"] = len(selected_rows)
     metrics["selection"]["existing_rows_loaded"] = len(existing_rows)
+    if logger:
+        logger.write(
+            "source_selection_completed",
+            {
+                "selected_calls": len(selected_rows),
+                "existing_rows_loaded": len(existing_rows),
+                "effective_selection_limit": max_selected,
+            },
+        )
 
     for source in selected_rows:
         if metrics["transcriptions"]["attempted"] >= args.max_transcriptions_per_run:
@@ -368,6 +432,16 @@ def execute_transcription_run(
             published = curated_publisher(args, existing_rows + new_rows)
         except Exception as exc:  # noqa: BLE001
             publish_error = build_error_json(exc, provider="local", model="curated_publish")
+    if logger:
+        logger.write(
+            "transcription_counts_finalized",
+            {
+                "selection": metrics["selection"],
+                "transcriptions": metrics["transcriptions"],
+                "artifacts": metrics["artifacts"],
+                "publish_error": publish_error,
+            },
+        )
 
     status_value = (
         "succeeded"
@@ -870,6 +944,7 @@ def build_run_status(
 ) -> dict[str, Any]:
     started = started_at or datetime.now(timezone.utc)
     finished = finished_at or started
+    duration_seconds = max(0.0, (finished - started).total_seconds())
     safe_metrics = metrics or empty_metrics()
     payload = {
         "source": "ghl-call-transcription",
@@ -881,6 +956,7 @@ def build_run_status(
         "execute": bool(args.execute),
         "started_at": isoformat(started),
         "finished_at": isoformat(finished),
+        "duration_seconds": duration_seconds,
         "provider": args.provider,
         "transcription_model": args.model,
         "fallback_model": args.fallback_model,
@@ -891,6 +967,9 @@ def build_run_status(
         "source_environment": args.source_environment,
         "image_tag": args.image_tag,
         "cloudwatch_log_url": sanitize_error_value(args.cloudwatch_log_url),
+        "log_path": transcription_log_location(args, run_id, dry_run=dry_run),
+        "alert_status": "skipped_policy",
+        "alert_error": None,
         "glue_database": args.glue_database,
         "athena_workgroup": args.athena_workgroup,
         "lock": lock_info or {"provider": "none", "name": args.lock_name, "acquired": False},
@@ -960,10 +1039,43 @@ def build_lock_info(
     }
 
 
-def write_and_publish_run_status(args: argparse.Namespace, payload: dict[str, Any]) -> Path:
+class TranscriptionRunLogger:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write(self, event: str, details: dict[str, Any] | None = None) -> None:
+        payload = {
+            "at": isoformat(datetime.now(timezone.utc)),
+            "event": event,
+            "details": sanitize_log_value(details or {}),
+        }
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def write_and_publish_run_status(
+    args: argparse.Namespace,
+    payload: dict[str, Any],
+    *,
+    logger: TranscriptionRunLogger | None = None,
+) -> Path:
+    run_id = str(payload["run_id"])
+    logger = logger or TranscriptionRunLogger(transcription_log_path(args, run_id))
+    payload["log_path"] = transcription_log_location(args, run_id, dry_run=bool(payload.get("dry_run")))
+    apply_alert_policy(args, payload, logger=logger)
+    logger.write(
+        "run_completed",
+        {
+            "run_id": run_id,
+            "status": payload.get("status"),
+            "duration_seconds": payload.get("duration_seconds"),
+            "alert_status": payload.get("alert_status"),
+        },
+    )
     path = write_run_status(Path(args.dry_run_output_dir), payload)
     if args.execute and args.status_s3_bucket:
-        publish_run_status(args, path, payload)
+        publish_run_status(args, path, payload, log_path=logger.path)
     return path
 
 
@@ -973,7 +1085,7 @@ def write_run_status(output_dir: Path, payload: dict[str, Any]) -> Path:
     path = status_root / "runs" / f"run={run_id}" / "status.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
     tmp_path.replace(path)
     if not payload.get("dry_run"):
         latest_name = "latest-success.json" if payload.get("status") == "succeeded" else "latest-failure.json"
@@ -984,7 +1096,13 @@ def write_run_status(output_dir: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
-def publish_run_status(args: argparse.Namespace, status_path: Path, payload: dict[str, Any]) -> None:
+def publish_run_status(
+    args: argparse.Namespace,
+    status_path: Path,
+    payload: dict[str, Any],
+    *,
+    log_path: Path | None = None,
+) -> None:
     uploader = S3Uploader(args.status_s3_bucket)
     run_id = str(payload["run_id"])
     status_prefix = args.status_s3_prefix.strip("/")
@@ -997,6 +1115,73 @@ def publish_run_status(args: argparse.Namespace, status_path: Path, payload: dic
         latest_name = "latest-success.json" if payload.get("status") == "succeeded" else "latest-failure.json"
         latest_path = status_path.parents[2] / latest_name
         uploader.upload_file(latest_path, join_s3_key(status_prefix, latest_name), content_type="application/json")
+    if log_path and log_path.exists():
+        uploader.upload_file(
+            log_path,
+            transcription_log_s3_key(args, run_id),
+            content_type="application/x-ndjson",
+        )
+
+
+def apply_alert_policy(
+    args: argparse.Namespace,
+    payload: dict[str, Any],
+    *,
+    logger: TranscriptionRunLogger | None = None,
+) -> None:
+    try:
+        callback = alert_callback(
+            AlertConfig(
+                webhook_url=os.environ.get("SLACK_WEBHOOK_URL"),
+                mode=args.alert_mode,
+                success_alert_until=args.success_alert_until,
+                cloudwatch_log_url=args.cloudwatch_log_url,
+            )
+        )
+        payload["alert_status"] = callback(payload)
+        payload["alert_error"] = None
+        if logger:
+            logger.write("alert_evaluated", {"alert_status": payload["alert_status"]})
+    except Exception as exc:  # noqa: BLE001
+        payload["alert_status"] = "failed"
+        payload["alert_error"] = sanitize_error_value({"class": exc.__class__.__name__, "message": str(exc)})
+        if logger:
+            logger.write("alert_failed", payload["alert_error"])
+
+
+def transcription_log_path(args: argparse.Namespace, run_id: str) -> Path:
+    return Path(args.dry_run_output_dir) / "run-status" / "ghl-call-transcription" / "logs" / f"run={run_id}.jsonl"
+
+
+def transcription_log_location(args: argparse.Namespace, run_id: str, *, dry_run: bool) -> str:
+    if args.execute and args.status_s3_bucket and not dry_run:
+        return f"s3://{args.status_s3_bucket}/{transcription_log_s3_key(args, run_id)}"
+    return str(transcription_log_path(args, run_id))
+
+
+def transcription_log_s3_key(args: argparse.Namespace, run_id: str) -> str:
+    return join_s3_key(args.status_s3_prefix.strip("/"), "logs", f"run={run_id}.jsonl")
+
+
+def sanitize_log_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        sanitized: dict[str, Any] = {}
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if any(part in lowered for part in SENSITIVE_LOG_KEY_PARTS):
+                sanitized[str(key)] = "[redacted]"
+            else:
+                sanitized[str(key)] = sanitize_log_value(item)
+        return sanitized
+    if isinstance(value, list):
+        return [sanitize_log_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [sanitize_log_value(item) for item in value]
+    if isinstance(value, bytes):
+        return "[redacted]"
+    if isinstance(value, str):
+        return sanitize_text(value)
+    return value
 
 
 def successful_idempotency_keys(rows: Iterable[Mapping[str, Any]]) -> set[str]:

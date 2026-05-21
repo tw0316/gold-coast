@@ -94,6 +94,28 @@ class FakeSecretsClient:
         return {"SecretString": self.secret_string}
 
 
+class FakeStatusUploader:
+    instances: list["FakeStatusUploader"] = []
+
+    def __init__(self, bucket: str) -> None:
+        self.bucket = bucket
+        self.uploads: list[dict[str, str]] = []
+        FakeStatusUploader.instances.append(self)
+
+    def upload_file(self, path: Path, relative_key: str, *, content_type: str | None = None) -> str:
+        self.uploads.append(
+            {
+                "path": str(path),
+                "relative_key": relative_key,
+                "content_type": content_type or "",
+            }
+        )
+        return self.uri(relative_key)
+
+    def uri(self, relative_key: str) -> str:
+        return f"s3://{self.bucket}/{relative_key.lstrip('/')}"
+
+
 class TranscriptionTests(unittest.TestCase):
     def test_idempotency_source_hash_and_artifact_key_are_stable(self) -> None:
         source = build_idempotency_source(
@@ -281,13 +303,24 @@ class TranscriptionTests(unittest.TestCase):
                     ["--sample", "--dry-run-output-dir", tmp, "--run-id", "dry-run-1", "--max-calls", "3"]
                 )
             status_path = Path(tmp) / "run-status" / "ghl-call-transcription" / "runs" / "run=dry-run-1" / "status.json"
+            status_raw = status_path.read_text(encoding="utf-8")
             status = json.loads(status_path.read_text(encoding="utf-8"))
+            log_path = Path(tmp) / "run-status" / "ghl-call-transcription" / "logs" / "run=dry-run-1.jsonl"
+            log_raw = log_path.read_text(encoding="utf-8")
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(status["status"], "succeeded")
             self.assertTrue(status["dry_run"])
             self.assertEqual(status["limits"]["max_calls"], 3)
             self.assertEqual(status["transcriptions"]["attempted"], 0)
+            self.assertEqual(status["alert_status"], "skipped_policy")
+            self.assertIsNone(status["alert_error"])
+            self.assertIsInstance(status["duration_seconds"], float)
+            self.assertEqual(status["log_path"], str(log_path))
+            self.assertEqual(status_raw.count("\n"), 1)
+            self.assertNotIn("\n  ", status_raw)
+            self.assertIn('"event":"run_started"', log_raw)
+            self.assertIn('"event":"run_completed"', log_raw)
             self.assertIn("dry-run-1", stdout.getvalue())
 
     def test_cli_execute_fails_clearly_without_openai_key(self) -> None:
@@ -315,6 +348,56 @@ class TranscriptionTests(unittest.TestCase):
             self.assertEqual(status["error"]["class"], "MissingOpenAIAPIKey")
             self.assertEqual(status["transcriptions"]["attempted"], 0)
             self.assertFalse(status["openai_secret_configured"])
+
+    def test_cli_parses_transcription_alert_runtime_flags(self) -> None:
+        args = transcription_cli_parse_args(
+            [
+                "--alert-mode",
+                "launch-window",
+                "--success-alert-until",
+                "2026-05-22T00:00:00Z",
+            ]
+        )
+
+        self.assertEqual(args.alert_mode, "launch-window")
+        self.assertEqual(args.success_alert_until, "2026-05-22T00:00:00Z")
+
+    def test_alert_failure_is_recorded_without_leaking_secrets_or_pii(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            webhook = "https://example.invalid/webhook"
+            auth_header = "Authorization: " + "Bearer secret"
+            email = "".join(("seller", "@", "example", ".", "com"))
+            phone = "-".join(("555", "123", "4567"))
+            stderr = io.StringIO()
+            with mock.patch.dict(os.environ, {"SLACK_WEBHOOK_URL": webhook}, clear=True), mock.patch(
+                "gold_coast_data_lake.alerts.post_json",
+                side_effect=RuntimeError(f"{auth_header} {email} {phone} {webhook}"),
+            ):
+                with redirect_stderr(stderr):
+                    exit_code = transcription_cli_main(
+                        [
+                            "--execute",
+                            "--dry-run-output-dir",
+                            tmp,
+                            "--run-id",
+                            "alert-failure",
+                            "--alert-mode",
+                            "failure-only",
+                        ]
+                    )
+            status_path = Path(tmp) / "run-status" / "ghl-call-transcription" / "runs" / "run=alert-failure" / "status.json"
+            log_path = Path(tmp) / "run-status" / "ghl-call-transcription" / "logs" / "run=alert-failure.jsonl"
+            status = json.loads(status_path.read_text(encoding="utf-8"))
+            rendered = json.dumps(status, sort_keys=True) + log_path.read_text(encoding="utf-8")
+
+            self.assertEqual(exit_code, 2)
+            self.assertEqual(status["status"], "failed")
+            self.assertEqual(status["alert_status"], "failed")
+            self.assertEqual(status["alert_error"]["class"], "RuntimeError")
+            self.assertIn("[redacted", rendered)
+            for raw_value in (auth_header, email, phone, webhook):
+                self.assertNotIn(raw_value, rendered)
+            self.assertIn("--execute requires --s3-bucket", stderr.getvalue())
 
     def test_openai_secret_reader_supports_plain_and_json_secret_strings_without_logging_value(self) -> None:
         plain_value = "".join(("sk", "-", "plain", "123456789012"))
@@ -497,6 +580,77 @@ class TranscriptionTests(unittest.TestCase):
             self.assertNotIn("transcript from", stdout.getvalue())
             self.assertEqual(stderr.getvalue(), "")
 
+    def test_execute_run_writes_and_uploads_jsonl_run_log_with_status_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            FakeStatusUploader.instances = []
+
+            args = transcription_cli_parse_args(
+                [
+                    "--execute",
+                    "--max-calls",
+                    "0",
+                    "--max-transcriptions-per-run",
+                    "0",
+                    "--s3-bucket",
+                    "gcoffers-data-lake",
+                    "--status-s3-bucket",
+                    "status-bucket",
+                    "--dry-run-output-dir",
+                    str(tmp_path / "status"),
+                    "--run-id",
+                    "upload-run",
+                ]
+            )
+            with mock.patch(
+                "gold_coast_data_lake.jobs.ghl_call_transcription.S3Uploader",
+                FakeStatusUploader,
+            ):
+                exit_code = run_transcription_job(
+                    args,
+                    provider_factory=lambda args: object(),
+                    source_selector=lambda args, limit: [],
+                    existing_rows_loader=lambda args: [],
+                    recording_downloader=lambda bucket, key, max_bytes: (_ for _ in ()).throw(AssertionError("unused")),
+                    artifact_writer=lambda args, key, payload: None,
+                    curated_publisher=lambda args, rows: PublishedTranscripts(written=None, glue=None),
+                )
+
+            status_path = (
+                tmp_path
+                / "status"
+                / "run-status"
+                / "ghl-call-transcription"
+                / "runs"
+                / "run=upload-run"
+                / "status.json"
+            )
+            log_path = tmp_path / "status" / "run-status" / "ghl-call-transcription" / "logs" / "run=upload-run.jsonl"
+            status_raw = status_path.read_text(encoding="utf-8")
+            status = json.loads(status_raw)
+            log_raw = log_path.read_text(encoding="utf-8")
+            uploads = FakeStatusUploader.instances[0].uploads
+            uploaded_keys = {upload["relative_key"]: upload["content_type"] for upload in uploads}
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(status["status"], "succeeded")
+            self.assertEqual(status["log_path"], "s3://status-bucket/run-status/ghl-call-transcription/logs/run=upload-run.jsonl")
+            self.assertEqual(status["alert_status"], "skipped_policy")
+            self.assertIsNone(status["alert_error"])
+            self.assertIsInstance(status["duration_seconds"], float)
+            self.assertEqual(status_raw.count("\n"), 1)
+            self.assertIn('"event":"run_started"', log_raw)
+            self.assertIn('"event":"source_selection_completed"', log_raw)
+            self.assertIn('"event":"run_completed"', log_raw)
+            self.assertEqual(
+                uploaded_keys["run-status/ghl-call-transcription/runs/run=upload-run/status.json"],
+                "application/json",
+            )
+            self.assertEqual(
+                uploaded_keys["run-status/ghl-call-transcription/logs/run=upload-run.jsonl"],
+                "application/x-ndjson",
+            )
+
     def test_execute_sample_skips_existing_success_when_source_sha_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -666,13 +820,15 @@ class TranscriptionTests(unittest.TestCase):
                 / "run=sample-failure"
                 / "status.json"
             )
+            log_path = tmp_path / "status" / "run-status" / "ghl-call-transcription" / "logs" / "run=sample-failure.jsonl"
             status = json.loads(status_path.read_text(encoding="utf-8"))
-            rendered = json.dumps(status, sort_keys=True) + stdout.getvalue()
+            rendered = json.dumps(status, sort_keys=True) + stdout.getvalue() + log_path.read_text(encoding="utf-8")
 
             self.assertEqual(exit_code, 1)
             self.assertEqual(status["status"], "failed")
             self.assertEqual(status["transcriptions"]["failed"], 0)
             self.assertEqual(status["transcriptions"]["pending_retry"], 1)
+            self.assertIn('"event":"transcription_counts_finalized"', rendered)
             self.assertNotIn(PRIVATE_RECORDING_URI, rendered)
             self.assertNotIn("recordings/ghl/message_id=call1.wav", rendered)
             self.assertEqual(len(artifacts), 1)
