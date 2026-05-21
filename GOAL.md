@@ -23,14 +23,18 @@ Acceptance criteria:
 
 ## Current Status
 
-- Local implementation slices 2-6 are complete through full throttled backfill.
+- Call transcription foundation is complete and live.
+- Local implementation slices 2-7 are complete through recurring production operation.
 - Real sample run `sample-20260520T2258Z` succeeded: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending retry.
 - Longer sample run `long-sample-20260520T2320Z` succeeded on a 318-second call: 1 selected, 1 attempted, 1 succeeded, 0 failed, 0 pending retry.
 - Throttled backfill completed after Tej approved proceeding: 261 additional calls processed across 7 bounded runs, all succeeded, 0 failed, 0 pending retry.
 - `gold_coast.call_transcripts` exists in Glue/Athena with 263 curated rows, all succeeded.
 - Final coverage query showed 263 eligible recorded calls, 263 covered, 0 remaining.
 - Final `sql/data-lake/smoke/005_call_transcripts.sql` passed all duplicate-grain, status, lineage, and non-empty transcript checks.
-- Recurring operation is not enabled yet. JKS driver/reporter crons are disabled for containment.
+- Recurring transcription schedule `gold-coast-data-lake-ghl-call-transcription` is enabled at `rate(1 hour)` and bounded to 10 calls / 10 transcriptions per run.
+- Controlled ECS recurring smoke `recurring-smoke-20260521T1302Z` exited 0, skipped all existing covered calls, and republished 263 transcript rows.
+- Existing core hourly GHL refresh schedule `gold-coast-data-lake-ghl-refresh` remains enabled at `rate(1 hour)` on task definition revision 8. Manual ECS core refresh smoke `20260521T130422Z` exited 0 and passed in-run Athena smoke.
+- JKS driver/reporter crons are disabled after completion.
 
 ## Hard Guardrails
 

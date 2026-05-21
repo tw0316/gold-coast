@@ -2,10 +2,10 @@
     "version": 1,
     "goalId": "gold-coast-call-transcription-foundation",
     "ownerSessionTarget": "session:gold-coast-call-transcription-foundation",
-    "status": "decision-needed",
-    "roughPercent": 95,
+    "status": "completed",
+    "roughPercent": 100,
     "createdAt": "2026-05-20T19:52:00-04:00",
-    "updatedAt": "2026-05-21T00:09:00-04:00",
+    "updatedAt": "2026-05-21T09:10:00-04:00",
     "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-and-insights.md",
     "crons": {
         "driver": {
@@ -30,16 +30,16 @@
             "completed"
         ]
     },
-    "lastReportAt": "2026-05-21T00:09:00-04:00",
-    "lastReportedStatus": "decision-needed",
+    "lastReportAt": "2026-05-21T09:10:00-04:00",
+    "lastReportedStatus": "completed",
     "lastReportedActiveSlice": "slice-7-recurring-operation-final",
     "finalReport": {
-        "sent": false,
-        "sentAt": null,
+        "sent": true,
+        "sentAt": "2026-05-21T09:10:00-04:00",
         "messageId": null
     },
-    "activeSlice": "slice-7-recurring-operation-final",
-    "lastCompletedSlice": "slice-6-bounded-sample-backfill",
+    "activeSlice": null,
+    "lastCompletedSlice": "slice-7-recurring-operation-final",
     "queue": [
         {
             "id": "slice-1-openai-secret-preflight",
@@ -121,15 +121,15 @@
         {
             "id": "slice-7-recurring-operation-final",
             "title": "Enable recurring processing after approval and complete final acceptance",
-            "status": "decision-needed",
+            "status": "completed",
             "startedAt": "2026-05-21T00:09:00-04:00",
-            "completedAt": null,
+            "completedAt": "2026-05-21T09:10:00-04:00",
             "expectedEvidence": [
                 ".jks/call-transcription-final-acceptance-evidence.md",
                 "goal-state.json",
                 "GOAL.md"
             ],
-            "notes": "Backfill is complete. Awaiting explicit approval before enabling recurring transcription processing."
+            "notes": "Completed after Tej approved wrapping up pending items. Recurring transcription schedule is enabled hourly and bounded to 10 calls / 10 transcriptions per run. Controlled ECS smoke recurring-smoke-20260521T1302Z exited 0 and republished 263 rows with 0 new transcriptions because all eligible calls were already covered. Existing core hourly GHL refresh remains enabled and manual ECS core smoke 20260521T130422Z exited 0 with in-run Athena smoke passed."
         }
     ],
     "childReliability": {
@@ -139,7 +139,7 @@
         "replaced": 2,
         "failed": 3,
         "lost": 1,
-        "lastIssue": "Earlier slice-6 workers failed to exit cleanly, so owner completed and verified the real samples/backfill locally. Backfill is complete; driver and reporter crons remain disabled pending recurring-operation approval."
+        "lastIssue": "Earlier slice-6 workers failed to exit cleanly, so owner completed and verified the real samples/backfill locally. Final recurring enablement and acceptance were completed locally after Tej approval. Driver and reporter crons are disabled after completion."
     },
     "childRuns": [
         {
@@ -282,7 +282,13 @@
         "Throttled backfill completed across 7 bounded runs after Tej approved proceeding: 261 additional calls selected/attempted/succeeded, 0 failed, 0 pending retry.",
         "Final gold_coast.call_transcripts count query ea0272c9-5092-47e4-a13b-828db0470be5 returned row_count=263, succeeded_count=263, failed_count=0, pending_retry_count=0.",
         "Final coverage query 58e56f9a-5a24-4cbe-9ba0-939fc1e51a9b returned eligible_calls=263, succeeded_covered_calls=263, remaining_calls=0.",
-        "Final transcript smoke SQL 005_call_transcripts.sql passed all 5 duplicate/status/lineage/non-empty checks in Athena query c3cd5ede-c9bf-48d0-a1d7-6d2c4cd43d96."
+        "Final transcript smoke SQL 005_call_transcripts.sql passed all 5 duplicate/status/lineage/non-empty checks in Athena query c3cd5ede-c9bf-48d0-a1d7-6d2c4cd43d96.",
+        "Recurring transcription schedule gold-coast-data-lake-ghl-call-transcription is enabled at rate(1 hour), task definition revision 1, bounded to max_calls=10 and max_transcriptions_per_run=10.",
+        "Controlled recurring ECS smoke recurring-smoke-20260521T1302Z exited 0, loaded 263 existing transcript rows, selected 0 new calls, and republished 263 curated call_transcripts rows.",
+        "Post-enable transcript smoke SQL 005_call_transcripts.sql passed all 5 duplicate/status/lineage/non-empty checks in Athena query 4801cd07-6dae-4061-9c1d-293f1d301fe5.",
+        "Post-enable transcript count query 4b1c6480-50bc-4f43-baaf-6a89e63322e4 returned row_count=263, succeeded_count=263, failed_count=0, pending_retry_count=0.",
+        "Post-enable transcript coverage query ea83a814-723f-4b43-8e96-c6e5badec14c returned eligible_calls=263, succeeded_covered_calls=263, remaining_calls=0.",
+        "Existing core hourly GHL refresh schedule gold-coast-data-lake-ghl-refresh remains enabled at rate(1 hour), task definition revision 8. Manual ECS core smoke 20260521T130422Z exited 0 and passed in-run Athena smoke."
     ],
     "blockers": [
         {
@@ -312,18 +318,18 @@
         {
             "id": "blocker-recurring-operation-approval",
             "sliceId": "slice-7-recurring-operation-final",
-            "status": "active",
+            "status": "resolved",
             "recordedAt": "2026-05-21T00:09:00-04:00",
-            "lastCheckedAt": "2026-05-21T00:09:00-04:00",
-            "summary": "Backfill is complete. Recurring transcription processing is not enabled until Tej explicitly approves the schedule/runtime enablement."
+            "lastCheckedAt": "2026-05-21T09:10:00-04:00",
+            "summary": "Resolved after Tej approved wrapping up pending items. Recurring transcription is enabled and final acceptance passed."
         }
     ],
     "pauseReason": null,
     "lastDriverTick": {
-        "at": "2026-05-21T00:09:00-04:00",
-        "action": "completed-throttled-backfill",
-        "result": "decision-needed-before-recurring-operation",
-        "details": "263 eligible recorded calls are covered with 263 succeeded transcript rows and 0 remaining. Recurring processing remains disabled pending explicit approval."
+        "at": "2026-05-21T09:10:00-04:00",
+        "action": "completed-recurring-operation-final-acceptance",
+        "result": "completed",
+        "details": "Recurring transcription is enabled hourly, bounded to 10 calls / 10 transcriptions per run, post-enable transcript smoke/count/coverage passed, and the existing core hourly GHL refresh passed manual ECS smoke."
     },
     "guardrails": [
         "Transcription only; no summaries/coaching/CRM datapoints/dashboards/GHL writes",
@@ -380,6 +386,13 @@
             "status": "decision-needed",
             "activeSlice": "slice-7-recurring-operation-final",
             "reason": "throttled backfill completed; recurring enablement requires explicit approval",
+            "messageTs": null
+        },
+        {
+            "at": "2026-05-21T09:10:00-04:00",
+            "status": "completed",
+            "activeSlice": null,
+            "reason": "recurring transcription enabled and final acceptance passed",
             "messageTs": null
         }
     ]

@@ -1,8 +1,8 @@
 # Gold Coast Call Transcription Contract
 
-Status: slice-5 curated publish contract
+Status: live production transcription foundation
 
-Scope: transcript storage/query contract, transcript-specific curated publish helpers, acceptance SQL, and disabled Fargate runtime wiring. This document does not enable real sample transcription, full backfill, recurring production processing, summaries, coaching, CRM extraction, dashboards, Slack scorecards, or GHL write-back.
+Scope: transcript storage/query contract, transcript-specific curated publish helpers, acceptance SQL, Fargate runtime wiring, bounded backfill, and recurring production transcription. This document does not include summaries, coaching, CRM extraction, dashboards, Slack scorecards, or GHL write-back.
 
 ## Table Contract
 
@@ -56,10 +56,10 @@ Transcript fields:
 
 Provider contract:
 
-- V1 planned provider is direct OpenAI API from the transcription runtime.
-- Primary planned model is `gpt-4o-transcribe`, with implementation allowed to add a fallback path for long or failed uploads.
+- V1 provider is the direct OpenAI API from the transcription runtime.
+- Primary model is `gpt-4o-transcribe`, with `whisper-1` fallback for long or failed uploads.
 - OpenAI is not routed through Bedrock in V1.
-- Runtime provider execution remains gated. The container contract, secret injection, lock, logs, and run-status plumbing exist, but recurring processing stays disabled until sample/backfill acceptance.
+- Runtime provider execution is live in the recurring transcription ECS task. The OpenAI key is injected from AWS Secrets Manager.
 
 ## Fargate Runtime
 
@@ -74,7 +74,7 @@ Runtime resources:
 - ECS task definition: `<name-prefix>-ghl-call-transcription`
 - Container name: `ghl-call-transcription`
 - CloudWatch log group: `/gold-coast/data-lake/<environment>/ghl-call-transcription`
-- EventBridge schedule: `<name-prefix>-ghl-call-transcription`, disabled by default
+- EventBridge schedule: `<name-prefix>-ghl-call-transcription`
 - DynamoDB lock table: existing data-lake lock table, separate lock item name `ghl-call-transcription`
 
 The Docker image is the same `apps/data-lake` image used by the core refresh task. The transcription task overrides the ECS container entry point so it calls the transcription module instead of the refresh module:
@@ -156,19 +156,20 @@ It must not receive write permission to `recordings/ghl/*`, raw GHL extraction p
 Terraform variables:
 
 ```text
-transcription_schedule_enabled = false
+transcription_schedule_enabled = true
 transcription_schedule_expression = "rate(1 hour)"
 transcription_max_transcriptions_per_run = 10
 ```
 
-The production schedule must remain disabled until:
+Production state as of 2026-05-21:
 
-1. An approved OpenAI API key exists in Secrets Manager.
-2. A bounded real-call sample passes quality/cost review.
-3. The throttled backfill is accepted.
-4. Tej explicitly approves recurring processing.
+- Schedule: `gold-coast-data-lake-ghl-call-transcription`
+- State: `ENABLED`
+- Expression: `rate(1 hour)`
+- Task definition: `gold-coast-data-lake-ghl-call-transcription:1`
+- Runtime bounds: 10 selected calls and 10 new transcription provider calls per run.
 
-Do not enable transcription just because Terraform can create the schedule.
+The recurring schedule was enabled only after the OpenAI key existed in Secrets Manager, bounded sample runs passed, the throttled backfill completed, and Tej approved wrapping up recurring operation.
 
 ## Logs And Run Status
 
@@ -271,21 +272,21 @@ Required guardrails:
 - Sanitize `error_json` so provider errors do not include transcript text, recording URLs, headers, keys, or raw request bodies.
 - Use counts, IDs, statuses, and checksum lineage in smoke checks. Do not print transcript snippets as proof.
 
-## Sample And Backfill Flow
+## Sample, Backfill, And Recurring Flow
 
-Slice 6 implements the smallest real-call sample path. It does not implement or approve full backfill.
+The pipeline supports bounded samples, throttled backfill, and recurring hourly incremental runs.
 
-Sample behavior:
+Runtime behavior:
 
-1. Select at most one archived recording from Athena using `gold_coast.calls` joined to `gold_coast.call_recordings`.
+1. Select archived recordings from Athena using `gold_coast.calls` joined to `gold_coast.call_recordings`.
 2. Require `has_recording=true` and a non-null archived `object_key`.
-3. Prefer calls with `duration_seconds` between 10 and 120 seconds.
+3. Skip existing successful transcript rows at the current idempotency grain.
 4. Download the private S3 recording object from `recordings/ghl/...`.
 5. Compute missing content type, byte count, and SHA-256 from the S3 download when curated metadata is null.
 6. Call the direct OpenAI provider wrapper.
 7. Upload the raw provider artifact JSON to `ai-artifacts/ghl/transcripts/...`.
 8. Write curated `call_transcripts` Parquet with the existing helper and update/create the Glue table.
-9. Write sanitized local run status, and also S3 run status when `--status-s3-bucket` is supplied.
+9. Write sanitized run status to S3.
 
 Owner one-call sample command template:
 
@@ -312,6 +313,15 @@ python -m gold_coast_data_lake.jobs.ghl_call_transcription \
 This command reads the approved OpenAI secret from AWS Secrets Manager. If running inside ECS with task secret injection, `OPENAI_API_KEY` or `OPENAI_TRANSCRIPTION_API_KEY` is also supported and the `--openai-secret-id` flag is not required.
 
 Do not print or paste transcript text after the sample. Review quality directly from the private S3 artifact or Athena table in an approved operator context.
+
+Production acceptance as of 2026-05-21:
+
+- One-call sample `sample-20260520T2258Z`: succeeded.
+- Longer sample `long-sample-20260520T2320Z`: succeeded on a 318-second call.
+- Throttled backfill: 261 additional calls succeeded, 0 failed, 0 pending retry.
+- Final table count: 263 rows, 263 succeeded.
+- Final coverage: 263 eligible recorded calls, 263 covered, 0 remaining.
+- Recurring smoke `recurring-smoke-20260521T1302Z`: exited 0, skipped already covered calls, and republished 263 curated rows.
 
 ## Idempotency
 
@@ -370,8 +380,6 @@ The existing GHL refresh schedule remains controlled by `schedule_enabled` and `
 
 ## Known Limitations
 
-- Slice 6 supports only a bounded sample path. Full backfill polish and recurring operation are still later gates.
-- No OpenAI sample transcription, cost evidence, or quality review is checked into this repo by this worker.
 - No speaker diarization contract is guaranteed in V1. Provider segments are stored as JSON when available.
 - No summaries, coaching insights, CRM datapoint extraction, dashboards, Slack scorecards, or GHL write-back are in scope.
 - The transcript table stores full text in Athena, so access control matters more than for metadata-only call tables.
