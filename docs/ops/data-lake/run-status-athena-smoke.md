@@ -242,7 +242,7 @@ aws athena start-query-execution \
 Transcription pass criteria:
 
 - `006_transcription_run_status_freshness.sql` returns `result = passed` and latest successful production transcription run finished within 120 minutes.
-- `007_transcription_failure_pending_retry_counts.sql` returns only `passed`; latest production run succeeded with zero failed and zero pending-retry transcriptions, and no production transcription run failed in the last 24 hours.
+- `007_transcription_failure_pending_retry_counts.sql` returns only `passed`; latest production run succeeded with zero failed and zero pending-retry transcriptions, and no production transcription run failed on the latest deployed image tag in the last 24 hours.
 - `008_transcription_transcript_coverage.sql` returns `result = passed`; eligible recorded calls have transcript rows and no failed/pending retry coverage gap.
 - `009_transcription_alert_log_fields.sql` returns only `passed`; latest run has historical status path, JSONL log path, alert status, CloudWatch log URL, and appropriate alert-error metadata.
 - No query output contains transcript text, raw audio, provider payloads, recording URLs, presigned URLs, emails, phone numbers, contact examples, API keys, Slack webhook URLs, or other raw PII.

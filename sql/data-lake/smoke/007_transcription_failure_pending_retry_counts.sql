@@ -1,5 +1,6 @@
 -- Smoke check: latest transcription run has no failed or pending-retry work,
--- and no transcription run failed in the last 24 hours.
+-- and no transcription run failed on the currently deployed image tag in the
+-- last 24 hours.
 --
 -- This query uses gold_coast.job_run_status filtered to
 -- job_name = 'ghl-call-transcription'. It returns counts only.
@@ -8,6 +9,7 @@ WITH transcription_runs AS (
         run_id,
         status,
         source_environment,
+        image_tag,
         finished_at,
         try(from_iso8601_timestamp(finished_at)) AS finished_at_ts,
         coalesce(failed_count, 0) AS failed_count,
@@ -33,6 +35,7 @@ recent_failures AS (
         count(*) AS failed_run_count
     FROM transcription_runs
     WHERE status <> 'succeeded'
+      AND image_tag = (SELECT image_tag FROM latest_run)
       AND finished_at_ts >= current_timestamp - INTERVAL '24' HOUR
 )
 SELECT

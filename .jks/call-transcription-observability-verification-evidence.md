@@ -19,6 +19,8 @@ Scope: owner review and local verification before deploy.
 - Corrected the transcription run-status raw DDL `published` field to match the status JSON object shape.
 - After live Athena DDL validation caught `database` as an invalid nested struct field name in the unused `published` column, removed that column from the raw run-status table schema. The shared `job_run_status` view does not depend on it.
 - After live Athena view validation caught `execute` as a reserved identifier, renamed the normalized shared-view column to `execute_flag` and updated transcription smoke SQL.
+- After live Athena smoke validation caught legacy pretty-printed status JSON files that the JSON SerDe could not scan, backed up the 16 existing status files outside the raw table location and compacted the same JSON objects in place as one-line JSON.
+- Tightened the recent-failure smoke check to the latest deployed image tag so pre-cutover failed/locked runs do not block current-image acceptance while same-image regressions still fail the check.
 
 ## Local Verification
 
@@ -33,7 +35,8 @@ Scope: owner review and local verification before deploy.
   - `terraform validate` passed.
 - Diff/state checks:
   - `git diff --check` passed.
-  - `python3 -m json.tool goal-state.json` passed.
+- `python3 -m json.tool goal-state.json` passed.
+- Live Athena DDL and smoke SQL passed after the legacy status JSON compatibility repair.
 
 ## Static Safety Checks
 

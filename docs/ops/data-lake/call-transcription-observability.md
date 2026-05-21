@@ -136,7 +136,7 @@ sql/data-lake/smoke/009_transcription_alert_log_fields.sql
 Pass criteria:
 
 - `006` returns one row with `result = 'passed'`; latest successful production transcription run finished within 120 minutes.
-- `007` returns only `passed`; latest run succeeded with `failed_count = 0` and `pending_retry_count = 0`, and no failed production transcription run appears in the last 24 hours.
+- `007` returns only `passed`; latest run succeeded with `failed_count = 0` and `pending_retry_count = 0`, and no failed production transcription run appears on the latest deployed image tag in the last 24 hours.
 - `008` returns one row with `result = 'passed'`; eligible recorded calls have transcript rows and no failed/pending retry coverage gap.
 - `009` returns only `passed`; latest run exposes `status_s3_uri`, `log_s3_uri`, `alert_status`, `cloudwatch_log_url`, and appropriate alert-error metadata.
 

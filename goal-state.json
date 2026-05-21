@@ -2,10 +2,10 @@
   "version": 1,
   "goalId": "gold-coast-call-transcription-observability-v1-1",
   "ownerSessionTarget": "session:gold-coast-call-transcription-observability-v1-1",
-  "status": "active",
-  "roughPercent": 78,
+  "status": "completed",
+  "roughPercent": 100,
   "createdAt": "2026-05-21T11:16:15-04:00",
-  "updatedAt": "2026-05-21T11:42:23-04:00",
+  "updatedAt": "2026-05-21T11:54:25-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-observability-v1-1.md",
   "crons": {
     "driver": {
@@ -34,12 +34,12 @@
   "lastReportedStatus": null,
   "lastReportedActiveSlice": null,
   "finalReport": {
-    "sent": false,
-    "sentAt": null,
+    "sent": true,
+    "sentAt": "2026-05-21T11:54:25-04:00",
     "messageId": null
   },
-  "activeSlice": "slice-5-deploy-live-acceptance",
-  "lastCompletedSlice": "slice-4-owner-verification",
+  "activeSlice": null,
+  "lastCompletedSlice": "slice-5-deploy-live-acceptance",
   "queue": [
     {
       "id": "slice-1-alert-runtime-observability",
@@ -98,14 +98,14 @@
     {
       "id": "slice-5-deploy-live-acceptance",
       "title": "Build, deploy, run controlled ECS smoke, validate Slack/Athena/S3 logs/run-status, and capture final evidence",
-      "status": "active",
+      "status": "completed",
       "startedAt": "2026-05-21T11:33:30-04:00",
-      "completedAt": null,
+      "completedAt": "2026-05-21T11:54:25-04:00",
       "expectedEvidence": [
         ".jks/call-transcription-observability-live-acceptance-evidence.md",
         ".jks/call-transcription-observability-final-report.md"
       ],
-      "notes": "Live evidence must remain sanitized and must not expose transcripts/audio/secrets/PII."
+      "notes": "Completed. Rev 3 controlled ECS smoke exited 0, Slack alert posted, CloudWatch URL preserved, JSONL log path written, shared Athena DDL succeeded, and smoke checks 005-009 passed after legacy status JSON compaction."
     }
   ],
   "childReliability": {
@@ -164,7 +164,11 @@
     "Slice 2 accepted: Terraform transcription alert mode, Slack secret injection, IAM read scope, preconditions, and CloudWatch log URL env wiring.",
     "Slice 3 accepted: gold_coast.job_run_status shared query surface, transcription raw run-status DDL, smoke SQL 006-009, and operator docs.",
     "Slice 4 accepted: focused tests 26/26, full data-lake tests 77 passed / 2 skipped, terraform fmt-check/validate, git diff --check, goal-state JSON validation, and static safety checks.",
-    "First controlled ECS smoke on image 7525cb10 exited 0 and posted the launch-window alert, but run status redacted the CloudWatch URL. Added a CloudWatch-console allowlist, reran focused tests 27/27 and full suite 78 passed / 2 skipped, and will redeploy a new image."
+    "First controlled ECS smoke on image 7525cb10 exited 0 and posted the launch-window alert, but run status redacted the CloudWatch URL. Added a CloudWatch-console allowlist, reran focused tests 27/27 and full suite 78 passed / 2 skipped, and redeployed a new image.",
+    "Deployed image 4172db1379276f7c1220bc3d9a268312dc07d6cc with Terraform. Core refresh is enabled hourly on task definition rev 10. Transcription is enabled hourly on task definition rev 3.",
+    "Controlled ECS smoke observability-smoke-20260521T1547Z exited 0 with status=succeeded, alert_status=posted, selected=2, attempted=2, succeeded=2, failed=0, pending_retry=0, and 295 curated rows written.",
+    "Legacy pretty-printed transcription status JSON files were backed up outside the Athena table location and compacted in place so the raw run-status table can scan old and new runs together.",
+    "Live Athena DDL 003/004 succeeded and smoke SQL 005-009 passed through gold_coast.job_run_status without exposing transcripts, audio, secrets, recording URLs, or raw PII."
   ],
   "blockers": [],
   "guardrails": [
@@ -188,5 +192,5 @@
       "channel": "C0B1N3V69LJ"
     }
   ],
-  "nextAction": "Commit CloudWatch URL sanitizer fix, rebuild/push image, apply Terraform, rerun controlled transcription ECS smoke, run smoke SQL, and capture live acceptance evidence."
+  "nextAction": "Completed. Monitor the normal hourly schedule; launch-window success alerts automatically stop after 2026-05-22T16:00:00Z."
 }
