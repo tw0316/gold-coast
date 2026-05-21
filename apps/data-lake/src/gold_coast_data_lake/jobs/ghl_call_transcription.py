@@ -966,7 +966,7 @@ def build_run_status(
         "status_s3_configured": bool(args.status_s3_bucket),
         "source_environment": args.source_environment,
         "image_tag": args.image_tag,
-        "cloudwatch_log_url": sanitize_error_value(args.cloudwatch_log_url),
+        "cloudwatch_log_url": sanitize_cloudwatch_log_url(args.cloudwatch_log_url),
         "log_path": transcription_log_location(args, run_id, dry_run=dry_run),
         "alert_status": "skipped_policy",
         "alert_error": None,
@@ -1161,6 +1161,30 @@ def transcription_log_location(args: argparse.Namespace, run_id: str, *, dry_run
 
 def transcription_log_s3_key(args: argparse.Namespace, run_id: str) -> str:
     return join_s3_key(args.status_s3_prefix.strip("/"), "logs", f"run={run_id}.jsonl")
+
+
+def sanitize_cloudwatch_log_url(value: Any) -> Any:
+    if value is None or value == "":
+        return None
+    text = str(value)
+    if text.startswith("https://console.aws.amazon.com/cloudwatch/") and not any(
+        marker in text.lower()
+        for marker in (
+            "hooks.slack.com/",
+            "authorization:",
+            "bearer ",
+            "x-api-key",
+            "api_key",
+            "apikey",
+            "access_token",
+            "refresh_token",
+            "webhook",
+            "secret",
+            "password",
+        )
+    ):
+        return text
+    return sanitize_error_value(text)
 
 
 def sanitize_log_value(value: Any) -> Any:

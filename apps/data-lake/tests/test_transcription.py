@@ -19,6 +19,7 @@ from gold_coast_data_lake.jobs.ghl_call_transcription import (
     parse_args as transcription_cli_parse_args,
     read_openai_api_key_secret,
     run_transcription_job,
+    sanitize_cloudwatch_log_url,
     select_source_calls_from_athena,
 )
 from gold_coast_data_lake.transcription import (
@@ -361,6 +362,16 @@ class TranscriptionTests(unittest.TestCase):
 
         self.assertEqual(args.alert_mode, "launch-window")
         self.assertEqual(args.success_alert_until, "2026-05-22T00:00:00Z")
+
+    def test_cloudwatch_log_url_is_preserved_but_non_cloudwatch_urls_are_sanitized(self) -> None:
+        cloudwatch_url = (
+            "https://console.aws.amazon.com/cloudwatch/home?region=us-east-1"
+            "#logsV2:log-groups/log-group/%2Fgold-coast%2Fdata-lake%2Fprod%2Fghl-call-transcription"
+        )
+        unsafe_url = "https://example.com/audio/message_id=secret.wav"
+
+        self.assertEqual(sanitize_cloudwatch_log_url(cloudwatch_url), cloudwatch_url)
+        self.assertEqual(sanitize_cloudwatch_log_url(unsafe_url), "[redacted-url]")
 
     def test_alert_failure_is_recorded_without_leaking_secrets_or_pii(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

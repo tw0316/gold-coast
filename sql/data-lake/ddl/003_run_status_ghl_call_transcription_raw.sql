@@ -43,7 +43,6 @@ CREATE EXTERNAL TABLE IF NOT EXISTS gold_coast.run_status_ghl_call_transcription
     selection struct<selected_calls:bigint,existing_rows_loaded:bigint,skipped_existing:bigint,skipped_no_recording:bigint,skipped_over_cap:bigint>,
     transcriptions struct<attempted:bigint,succeeded:bigint,failed:bigint,pending_retry:bigint>,
     artifacts struct<provider_artifacts_written:bigint,curated_rows_submitted:bigint>,
-    published struct<written:struct<name:string,database:string,row_count:bigint,s3_key:string,byte_count:bigint,object_count:bigint>,glue:struct<database:string,name:string,action:string>>,
     notes array<string>,
     log_path string,
     latest_pointers_published boolean,

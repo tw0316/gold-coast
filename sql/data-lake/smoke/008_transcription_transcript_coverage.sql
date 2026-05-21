@@ -12,7 +12,7 @@ WITH latest_success AS (
     WHERE job_name = 'ghl-call-transcription'
       AND status = 'succeeded'
       AND coalesce(dry_run, false) = false
-      AND coalesce(execute, true) = true
+      AND coalesce(execute_flag, true) = true
       AND lower(coalesce(source_environment, 'production')) IN ('prod', 'production')
     ORDER BY try(from_iso8601_timestamp(finished_at)) DESC
     LIMIT 1

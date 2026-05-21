@@ -3,9 +3,9 @@
   "goalId": "gold-coast-call-transcription-observability-v1-1",
   "ownerSessionTarget": "session:gold-coast-call-transcription-observability-v1-1",
   "status": "active",
-  "roughPercent": 72,
+  "roughPercent": 78,
   "createdAt": "2026-05-21T11:16:15-04:00",
-  "updatedAt": "2026-05-21T11:33:30-04:00",
+  "updatedAt": "2026-05-21T11:42:23-04:00",
   "sourceEpic": "/Users/jarvis/.openclaw/workspace/epics/active/gold-coast-call-transcription-observability-v1-1.md",
   "crons": {
     "driver": {
@@ -163,7 +163,8 @@
     "Slice 1 accepted: source-aware transcription alert payloads, alert runtime flags, JSONL logs, run-status alert/log fields, and focused tests.",
     "Slice 2 accepted: Terraform transcription alert mode, Slack secret injection, IAM read scope, preconditions, and CloudWatch log URL env wiring.",
     "Slice 3 accepted: gold_coast.job_run_status shared query surface, transcription raw run-status DDL, smoke SQL 006-009, and operator docs.",
-    "Slice 4 accepted: focused tests 26/26, full data-lake tests 77 passed / 2 skipped, terraform fmt-check/validate, git diff --check, goal-state JSON validation, and static safety checks."
+    "Slice 4 accepted: focused tests 26/26, full data-lake tests 77 passed / 2 skipped, terraform fmt-check/validate, git diff --check, goal-state JSON validation, and static safety checks.",
+    "First controlled ECS smoke on image 7525cb10 exited 0 and posted the launch-window alert, but run status redacted the CloudWatch URL. Added a CloudWatch-console allowlist, reran focused tests 27/27 and full suite 78 passed / 2 skipped, and will redeploy a new image."
   ],
   "blockers": [],
   "guardrails": [
@@ -187,5 +188,5 @@
       "channel": "C0B1N3V69LJ"
     }
   ],
-  "nextAction": "Commit verified changes, build/push image, apply Terraform, apply Athena DDL/view, run controlled transcription ECS smoke, run smoke SQL, and capture live acceptance evidence."
+  "nextAction": "Commit CloudWatch URL sanitizer fix, rebuild/push image, apply Terraform, rerun controlled transcription ECS smoke, run smoke SQL, and capture live acceptance evidence."
 }

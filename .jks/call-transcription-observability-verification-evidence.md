@@ -15,16 +15,19 @@ Scope: owner review and local verification before deploy.
 - Updated transcription smoke SQL filters to accept both `prod` and `production` source environments. The live ECS task uses `prod`.
 - Updated transcription coverage smoke SQL to match the job's eligible-source shape: `calls` joined to `call_recordings` with an archived object key.
 - Added Terraform `CLOUDWATCH_LOG_URL` env injection for the transcription task using the transcription CloudWatch log group URL.
+- After the first controlled ECS smoke showed the runtime was sanitizing the allowed CloudWatch console URL to `[redacted-url]`, added an allowlist for AWS CloudWatch console URLs while preserving redaction for non-CloudWatch URLs.
 - Corrected the transcription run-status raw DDL `published` field to match the status JSON object shape.
+- After live Athena DDL validation caught `database` as an invalid nested struct field name in the unused `published` column, removed that column from the raw run-status table schema. The shared `job_run_status` view does not depend on it.
+- After live Athena view validation caught `execute` as a reserved identifier, renamed the normalized shared-view column to `execute_flag` and updated transcription smoke SQL.
 
 ## Local Verification
 
 - Focused alert/transcription tests:
   - Command: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest tests.test_alerts tests.test_transcription`
-  - Result: 26 tests passed.
+  - Result: 27 tests passed after the CloudWatch URL allowlist fix.
 - Full data-lake unit suite:
   - Command: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest discover tests`
-  - Result: 77 tests passed, 2 skipped.
+  - Result: 78 tests passed, 2 skipped after the CloudWatch URL allowlist fix.
 - Terraform checks:
   - `terraform fmt -check main.tf variables.tf` passed.
   - `terraform validate` passed.
