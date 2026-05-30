@@ -20,6 +20,8 @@ locals {
   container_name                         = "ghl-batch-refresh"
   transcription_container_name           = "ghl-call-transcription"
   transcription_lock_name                = "ghl-call-transcription"
+  refresh_image_tag                      = try(coalesce(var.refresh_image_tag, var.image_tag), null)
+  transcription_image_tag                = try(coalesce(var.transcription_image_tag, var.image_tag), null)
   slack_webhook_secret_configured        = try(trimspace(var.slack_webhook_secret_arn) != "", false)
   transcription_alerting_enabled         = var.transcription_alert_mode != "off"
   openai_transcription_secret_configured = try(trimspace(var.openai_transcription_secret_arn) != "", false)
@@ -372,6 +374,10 @@ resource "aws_ecs_task_definition" "refresh" {
 
   lifecycle {
     precondition {
+      condition     = try(trimspace(local.refresh_image_tag) != "", false)
+      error_message = "refresh_image_tag or image_tag is required for the core GHL refresh task."
+    }
+    precondition {
       condition     = var.alert_mode == "off" || try(trimspace(var.slack_webhook_secret_arn) != "", false)
       error_message = "slack_webhook_secret_arn is required when alert_mode is not off."
     }
@@ -383,9 +389,13 @@ resource "aws_ecs_task_definition" "refresh" {
 
   container_definitions = jsonencode([
     {
-      name      = local.container_name
-      image     = format("%s:%s", aws_ecr_repository.data_lake.repository_url, var.image_tag)
-      essential = true
+      name           = local.container_name
+      image          = format("%s:%s", aws_ecr_repository.data_lake.repository_url, local.refresh_image_tag)
+      essential      = true
+      mountPoints    = []
+      portMappings   = []
+      systemControls = []
+      volumesFrom    = []
       command = concat(
         ["--execute", "--s3-bucket", var.data_lake_bucket, "--download-recordings"],
         var.data_lake_s3_prefix == "" ? [] : ["--s3-prefix", var.data_lake_s3_prefix]
@@ -399,7 +409,7 @@ resource "aws_ecs_task_definition" "refresh" {
         { name = "ATHENA_WORKGROUP", value = var.athena_workgroup },
         { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
         { name = "SOURCE_ENVIRONMENT", value = var.environment },
-        { name = "IMAGE_TAG", value = var.image_tag },
+        { name = "IMAGE_TAG", value = local.refresh_image_tag },
         { name = "ALERT_MODE", value = var.alert_mode },
         { name = "SUCCESS_ALERT_UNTIL", value = var.success_alert_until == null ? "" : var.success_alert_until }
       ]
@@ -445,6 +455,10 @@ resource "aws_ecs_task_definition" "transcription" {
 
   lifecycle {
     precondition {
+      condition     = try(trimspace(local.transcription_image_tag) != "", false)
+      error_message = "transcription_image_tag or image_tag is required for the downstream call transcription task."
+    }
+    precondition {
       condition     = !var.transcription_schedule_enabled || var.transcription_provider != "openai" || local.openai_transcription_secret_configured
       error_message = "openai_transcription_secret_arn is required before enabling the transcription schedule with provider=openai."
     }
@@ -460,10 +474,14 @@ resource "aws_ecs_task_definition" "transcription" {
 
   container_definitions = jsonencode([
     {
-      name       = local.transcription_container_name
-      image      = format("%s:%s", aws_ecr_repository.data_lake.repository_url, var.image_tag)
-      essential  = true
-      entryPoint = ["python", "-m", "gold_coast_data_lake.jobs.ghl_call_transcription"]
+      name           = local.transcription_container_name
+      image          = format("%s:%s", aws_ecr_repository.data_lake.repository_url, local.transcription_image_tag)
+      essential      = true
+      mountPoints    = []
+      portMappings   = []
+      systemControls = []
+      volumesFrom    = []
+      entryPoint     = ["python", "-m", "gold_coast_data_lake.jobs.ghl_call_transcription"]
       command = [
         "--execute",
         "--s3-bucket", var.data_lake_bucket,
@@ -478,7 +496,7 @@ resource "aws_ecs_task_definition" "transcription" {
         "--lock-table-name", aws_dynamodb_table.refresh_lock.name,
         "--lock-name", local.transcription_lock_name,
         "--source-environment", var.environment,
-        "--image-tag", var.image_tag,
+        "--image-tag", local.transcription_image_tag,
         "--glue-database", var.glue_database,
         "--athena-workgroup", var.athena_workgroup
       ]
@@ -492,7 +510,7 @@ resource "aws_ecs_task_definition" "transcription" {
         { name = "LOCK_TABLE_NAME", value = aws_dynamodb_table.refresh_lock.name },
         { name = "LOCK_NAME", value = local.transcription_lock_name },
         { name = "SOURCE_ENVIRONMENT", value = var.environment },
-        { name = "IMAGE_TAG", value = var.image_tag },
+        { name = "IMAGE_TAG", value = local.transcription_image_tag },
         { name = "STATUS_S3_BUCKET", value = var.data_lake_bucket },
         { name = "STATUS_S3_PREFIX", value = local.transcription_status_s3_prefix },
         { name = "CLOUDWATCH_LOG_URL", value = local.transcription_cloudwatch_log_url },

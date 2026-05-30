@@ -77,8 +77,21 @@ variable "openai_transcription_secret_arn" {
 }
 
 variable "image_tag" {
-  description = "Immutable container image tag, normally the git SHA."
+  description = "Backwards-compatible default immutable container image tag, normally the git SHA. Prefer refresh_image_tag and transcription_image_tag for service-specific rollouts."
   type        = string
+  default     = null
+}
+
+variable "refresh_image_tag" {
+  description = "Immutable container image tag for the core GHL refresh task. Defaults to image_tag when null."
+  type        = string
+  default     = null
+}
+
+variable "transcription_image_tag" {
+  description = "Immutable container image tag for the downstream call transcription task. Defaults to image_tag when null."
+  type        = string
+  default     = null
 }
 
 variable "task_cpu" {
