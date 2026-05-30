@@ -44,6 +44,8 @@ class RawRefreshConfig:
     recording_max_bytes: int = 100 * 1024 * 1024
     timeout_seconds: float = 30.0
     max_retries: int = 4
+    request_interval_seconds: float = 0.0
+    max_consecutive_call_detail_errors: int = 10
 
 
 def build_ghl_raw_refresh_phase(config: RawRefreshConfig) -> Phase:
@@ -91,6 +93,8 @@ def run_ghl_raw_refresh(
         download_recordings=config.download_recordings,
         max_recordings=config.max_recordings,
         recording_max_bytes=config.recording_max_bytes,
+        request_interval_seconds=config.request_interval_seconds,
+        max_consecutive_call_detail_errors=config.max_consecutive_call_detail_errors,
     )
     extractor = GHLRawExtractor(
         client,
@@ -107,6 +111,8 @@ def run_ghl_raw_refresh(
         "manifest_s3_uri": manifest.get("manifest_s3_uri"),
         "entity_counts": summary.get("entity_counts", {}),
         "entity_pages": summary.get("entity_pages", {}),
+        "entity_error_counts": summary.get("entity_error_counts", {}),
+        "entity_errors": summary.get("entity_errors", {}),
         "recordings": summarize_recordings(
             manifest.get("recordings", []),
             int(summary.get("recording_attempts") or 0),

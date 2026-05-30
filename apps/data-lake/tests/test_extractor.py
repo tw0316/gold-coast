@@ -93,6 +93,58 @@ class ConversationPagingClient:
         raise AssertionError(f"unexpected path: {path}")
 
 
+class FlakyCallDetailClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict | None]] = []
+
+    def get_json(self, path: str, params: dict | None = None):
+        self.calls.append((path, dict(params or {})))
+        if path == "/conversations/messages/bad-message-id":
+            exc = GHLAPIError("GET /conversations/messages/bad-message-id failed with HTTP 429: rate limited")
+            setattr(exc, "method", "GET")
+            setattr(exc, "path", path)
+            setattr(exc, "status_code", 429)
+            setattr(exc, "retry_attempts", 4)
+            setattr(exc, "retry_after", "60")
+            raise exc
+        if path.startswith("/conversations/messages/"):
+            message_id = path.rsplit("/", 1)[-1]
+            return {"message": {"id": message_id, "messageType": "TYPE_CALL"}}
+        raise AssertionError(f"unexpected path: {path}")
+
+
+class AlwaysFailCallDetailClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict | None]] = []
+
+    def get_json(self, path: str, params: dict | None = None):
+        self.calls.append((path, dict(params or {})))
+        exc = GHLAPIError(f"GET {path} failed with HTTP 503: upstream unavailable")
+        setattr(exc, "method", "GET")
+        setattr(exc, "path", path)
+        setattr(exc, "status_code", 503)
+        setattr(exc, "retry_attempts", 4)
+        setattr(exc, "retry_after", None)
+        raise exc
+
+
+class FailingRecordingClient:
+    def get_json(self, path: str, params: dict | None = None):
+        if path.startswith("/conversations/messages/"):
+            message_id = path.rsplit("/", 1)[-1]
+            return {"message": {"id": message_id, "messageType": "TYPE_CALL"}}
+        raise AssertionError(f"unexpected path: {path}")
+
+    def download_to_file(self, path: str, destination: Path, params: dict | None = None, *, max_bytes: int):
+        exc = GHLAPIError(f"GET {path} failed with HTTP 503: upstream unavailable")
+        setattr(exc, "method", "GET")
+        setattr(exc, "path", path)
+        setattr(exc, "status_code", 503)
+        setattr(exc, "retry_attempts", 4)
+        setattr(exc, "retry_after", None)
+        raise exc
+
+
 class ExtractorTests(unittest.TestCase):
     def test_client_refuses_non_get_methods(self) -> None:
         client = GHLClient(GHLConfig(api_key="secret", location_id="loc"))
@@ -202,6 +254,93 @@ class ExtractorTests(unittest.TestCase):
             self.assertNotIn("skip", fake_client.calls[1][1])
             self.assertEqual(fake_client.calls[1][1]["startAfterDate"], 20)
             self.assertEqual(fake_client.calls[1][1]["startAfterId"], "conv2")
+
+    def test_call_message_detail_api_errors_are_recorded_without_aborting_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = LocalRunStorage(tmp, run_id="20260518T010203Z")
+            fake_client = FlakyCallDetailClient()
+            extractor = GHLRawExtractor(
+                fake_client,  # type: ignore[arg-type]
+                storage,
+                location_id="loc",
+                options=ExtractOptions(message_ids=["good-message-id", "bad-message-id", "next-message-id"]),
+            )
+
+            manifest = extractor.run(["call-details"])
+
+            summary = manifest["summary"]
+            self.assertEqual(summary["entity_counts"]["call_message_details"], 2)
+            self.assertEqual(summary["entity_error_counts"], {"call_message_details": 1})
+            errors = summary["entity_errors"]["call_message_details"]
+            self.assertEqual(len(errors), 1)
+            self.assertEqual(errors[0]["endpoint"], "/conversations/messages/{messageId}")
+            self.assertEqual(errors[0]["status_code"], 429)
+            self.assertEqual(errors[0]["retry_attempts"], 4)
+            self.assertEqual(errors[0]["retry_after"], "60")
+            self.assertNotIn("bad-message-id", json.dumps(errors))
+            raw_path = Path(tmp) / raw_object_key("call_message_details", storage.run_id, storage.ingest_date)
+            self.assertEqual(len(raw_path.read_text(encoding="utf-8").splitlines()), 2)
+            self.assertEqual(
+                [call[0] for call in fake_client.calls],
+                [
+                    "/conversations/messages/good-message-id",
+                    "/conversations/messages/bad-message-id",
+                    "/conversations/messages/next-message-id",
+                ],
+            )
+
+    def test_call_detail_circuit_breaker_records_explicit_terminal_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = LocalRunStorage(tmp, run_id="20260518T010203Z")
+            fake_client = AlwaysFailCallDetailClient()
+            extractor = GHLRawExtractor(
+                fake_client,  # type: ignore[arg-type]
+                storage,
+                location_id="loc",
+                options=ExtractOptions(
+                    message_ids=["bad-1", "bad-2", "bad-3"],
+                    max_consecutive_call_detail_errors=2,
+                ),
+            )
+
+            manifest = extractor.run(["call-details"])
+
+            summary = manifest["summary"]
+            self.assertEqual(summary["entity_counts"]["call_message_details"], 0)
+            self.assertEqual(summary["entity_error_counts"], {"call_message_details": 3})
+            errors = summary["entity_errors"]["call_message_details"]
+            self.assertEqual(errors[-1]["class"], "ConsecutiveGHLAPIErrorLimitReached")
+            self.assertEqual(errors[-1]["consecutive_errors"], 2)
+            self.assertEqual(errors[-1]["unattempted_count"], 1)
+            self.assertNotIn("bad-", json.dumps(errors))
+            self.assertEqual([call[0] for call in fake_client.calls], ["/conversations/messages/bad-1", "/conversations/messages/bad-2"])
+
+    def test_recording_api_errors_are_recorded_without_aborting_call_detail_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = LocalRunStorage(tmp, run_id="20260518T010203Z")
+            extractor = GHLRawExtractor(
+                FailingRecordingClient(),  # type: ignore[arg-type]
+                storage,
+                location_id="actual-location-id",
+                s3_uploader=FakeUploader(),  # type: ignore[arg-type]
+                options=ExtractOptions(
+                    message_ids=["msg1", "msg2"],
+                    download_recordings=True,
+                    max_recordings=2,
+                ),
+            )
+
+            manifest = extractor.run(["call-details"])
+
+            summary = manifest["summary"]
+            self.assertEqual(summary["entity_counts"]["call_message_details"], 2)
+            self.assertEqual(summary["recording_attempts"], 2)
+            self.assertEqual(summary["entity_error_counts"], {"call_message_details": 2})
+            errors = summary["entity_errors"]["call_message_details"]
+            self.assertEqual(errors[0]["endpoint"], "/conversations/messages/{messageId}/locations/{locationId}/recording")
+            self.assertEqual(errors[0]["status_code"], 503)
+            self.assertNotIn("msg1", json.dumps(errors))
+            self.assertNotIn("actual-location-id", json.dumps(errors))
 
 
 if __name__ == "__main__":

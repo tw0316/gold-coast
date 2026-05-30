@@ -106,6 +106,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=float, default=30.0)
     parser.add_argument("--max-retries", type=int, default=4)
     parser.add_argument(
+        "--request-interval-seconds",
+        type=float,
+        default=0.2,
+        help="Minimum delay between high-volume call-message-detail requests.",
+    )
+    parser.add_argument(
+        "--max-consecutive-call-detail-errors",
+        type=int,
+        default=10,
+        help="Stop call-detail extraction after this many consecutive skipped GHL API failures. Use 0 to disable.",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Run production raw-refresh phases. Requires GHL config from --env-file or process env.",
@@ -148,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
             recording_max_bytes=args.recording_max_bytes,
             timeout_seconds=args.timeout_seconds,
             max_retries=args.max_retries,
+            request_interval_seconds=args.request_interval_seconds,
+            max_consecutive_call_detail_errors=args.max_consecutive_call_detail_errors,
         )
         if args.extractor_dry_run or args.skip_curated:
             phases.append(("raw_refresh", build_ghl_raw_refresh_phase(raw_config)))
@@ -193,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
             "conversation_ids": args.conversation_id,
             "message_ids": args.message_id,
             "download_recordings": args.download_recordings,
+            "request_interval_seconds": args.request_interval_seconds,
+            "max_consecutive_call_detail_errors": args.max_consecutive_call_detail_errors,
         },
     )
     print(json.dumps(result, indent=2, sort_keys=True))

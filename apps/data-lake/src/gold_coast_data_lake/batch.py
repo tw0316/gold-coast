@@ -388,6 +388,8 @@ def summarize_phase_results(phase_results: list[dict[str, Any]]) -> dict[str, An
     summary: dict[str, Any] = {
         "manifest_s3_uri": None,
         "entity_counts": {},
+        "entity_error_counts": {},
+        "entity_errors": {},
         "recordings": {
             "attempted": 0,
             "archived": 0,
@@ -406,6 +408,16 @@ def summarize_phase_results(phase_results: list[dict[str, Any]]) -> dict[str, An
         entity_counts = result.get("entity_counts")
         if isinstance(entity_counts, dict):
             summary["entity_counts"].update(entity_counts)
+        entity_error_counts = result.get("entity_error_counts")
+        if isinstance(entity_error_counts, dict):
+            for entity, value in entity_error_counts.items():
+                if isinstance(value, int):
+                    summary["entity_error_counts"][entity] = summary["entity_error_counts"].get(entity, 0) + value
+        entity_errors = result.get("entity_errors")
+        if isinstance(entity_errors, dict):
+            for entity, errors in entity_errors.items():
+                if isinstance(errors, list):
+                    summary["entity_errors"].setdefault(entity, []).extend(errors)
         recording_counts = result.get("recordings")
         if isinstance(recording_counts, dict):
             for key in summary["recordings"]:
@@ -586,6 +598,8 @@ class BatchRefreshRunner:
             "snapshot_date": completed_at.date().isoformat(),
             "snapshot_at": isoformat(completed_at),
             "entity_counts": phase_summary["entity_counts"],
+            "entity_error_counts": phase_summary["entity_error_counts"],
+            "entity_errors": phase_summary["entity_errors"],
             "recordings": phase_summary["recordings"],
             "curated_tables": phase_summary["curated_tables"],
             "smoke_checks": phase_summary["smoke_checks"],

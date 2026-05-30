@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 from gold_coast_data_lake.batch import BatchRunContext
+from gold_coast_data_lake.client import GHLAPIError
 from gold_coast_data_lake.raw_refresh import RawRefreshConfig, run_ghl_raw_refresh
 
 
@@ -29,6 +30,39 @@ class FullRefreshClient:
             return {"messages": [{"id": "msg1", "messageType": "TYPE_CALL"}]}
         if path == "/conversations/messages/msg1":
             return {"message": {"id": "msg1", "messageType": "TYPE_CALL", "meta": {"call": {"duration": 42}}}}
+        raise AssertionError(f"unexpected path: {path}")
+
+
+class FlakyFullRefreshClient(FullRefreshClient):
+    def get_json(self, path: str, params: dict | None = None):
+        self.calls.append((path, dict(params or {})))
+        if path == "/contacts/":
+            return {"contacts": [{"id": "contact1"}]}
+        if path == "/opportunities/pipelines":
+            return {"pipelines": [{"id": "pipeline1"}]}
+        if path == "/opportunities/search":
+            return {"opportunities": [{"id": "opp1", "pipelineId": "pipeline1"}]}
+        if path == "/conversations/search":
+            return {"conversations": [{"id": "conv1", "lastMessageDate": 1}], "total": 1}
+        if path == "/conversations/conv1/messages":
+            return {
+                "messages": [
+                    {"id": "msg1", "messageType": "TYPE_CALL"},
+                    {"id": "bad-msg", "messageType": "TYPE_CALL"},
+                    {"id": "msg3", "messageType": "TYPE_CALL"},
+                ]
+            }
+        if path == "/conversations/messages/bad-msg":
+            exc = GHLAPIError("GET /conversations/messages/bad-msg failed with HTTP 503: upstream unavailable")
+            setattr(exc, "method", "GET")
+            setattr(exc, "path", path)
+            setattr(exc, "status_code", 503)
+            setattr(exc, "retry_attempts", 4)
+            setattr(exc, "retry_after", None)
+            raise exc
+        if path.startswith("/conversations/messages/"):
+            message_id = path.rsplit("/", 1)[-1]
+            return {"message": {"id": message_id, "messageType": "TYPE_CALL", "meta": {"call": {"duration": 42}}}}
         raise AssertionError(f"unexpected path: {path}")
 
 
@@ -66,6 +100,31 @@ class RawRefreshTests(unittest.TestCase):
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["run_id"], "20260518T230000Z")
             self.assertTrue(all(call[0].startswith("/") for call in client.calls))
+
+    def test_raw_refresh_promotes_sanitized_call_detail_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="20260518T230000Z",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 0, tzinfo=timezone.utc),
+            )
+            result = run_ghl_raw_refresh(
+                context,
+                RawRefreshConfig(local_only=True),
+                client=FlakyFullRefreshClient(),
+                location_id="loc",
+            )
+
+            self.assertEqual(result["entity_counts"]["call_message_details"], 2)
+            self.assertEqual(result["entity_error_counts"], {"call_message_details": 1})
+            self.assertEqual(result["entity_errors"]["call_message_details"][0]["endpoint"], "/conversations/messages/{messageId}")
+            self.assertEqual(result["entity_errors"]["call_message_details"][0]["status_code"], 503)
+            self.assertNotIn("bad-msg", json.dumps(result["entity_errors"]))
 
     def test_ghl_config_is_required_without_injected_client(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

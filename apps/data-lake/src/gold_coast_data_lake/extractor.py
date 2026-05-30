@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
+import time
 from typing import Any, Iterable
 from urllib.parse import parse_qsl, urlparse
 
@@ -54,6 +56,8 @@ class ExtractOptions:
     download_recordings: bool = False
     max_recordings: int = 1
     recording_max_bytes: int = 100 * 1024 * 1024
+    request_interval_seconds: float = 0.0
+    max_consecutive_call_detail_errors: int = 10
 
 
 class GHLRawExtractor:
@@ -77,6 +81,8 @@ class GHLRawExtractor:
         self.discovered_conversation_ids: list[str] = []
         self.discovered_call_message_ids: list[str] = []
         self.recording_attempts = 0
+        self.entity_errors: dict[str, list[dict[str, Any]]] = {}
+        self.entity_error_counts: dict[str, int] = {}
 
         if self.options.download_recordings and not self.s3_uploader:
             raise ValueError("recording downloads require --s3-bucket so audio is stored only as encrypted S3 objects")
@@ -109,6 +115,8 @@ class GHLRawExtractor:
             "download_recordings": self.options.download_recordings,
             "entity_counts": {entity: self.counts.get(entity, 0) for entity in normalized},
             "entity_pages": {entity: self.pages.get(entity, 0) for entity in normalized},
+            "entity_error_counts": dict(sorted(self.entity_error_counts.items())),
+            "entity_errors": {entity: errors for entity, errors in sorted(self.entity_errors.items()) if errors},
             "recording_attempts": self.recording_attempts,
         }
         return self.storage.finalize(summary)
@@ -265,11 +273,32 @@ class GHLRawExtractor:
 
     def extract_call_message_details(self) -> None:
         message_ids = self.options.message_ids or self._ensure_call_message_ids()
-        for message_id in message_ids:
+        consecutive_errors = 0
+        for item_ordinal, message_id in enumerate(message_ids, start=1):
             if self._limit_reached(ENTITY_CALL_DETAILS):
                 break
             endpoint = f"/conversations/messages/{message_id}"
-            payload = self.client.get_json(endpoint, None)
+            self._pace_call_detail_request()
+            try:
+                payload = self.client.get_json(endpoint, None)
+            except GHLAPIError as exc:
+                consecutive_errors += 1
+                self._record_entity_error(
+                    ENTITY_CALL_DETAILS,
+                    endpoint=endpoint,
+                    exc=exc,
+                    item_ordinal=item_ordinal,
+                )
+                if self._call_detail_error_limit_reached(consecutive_errors):
+                    self._record_call_detail_circuit_breaker(
+                        endpoint_template=safe_endpoint_template(endpoint),
+                        item_ordinal=item_ordinal,
+                        consecutive_errors=consecutive_errors,
+                        unattempted_count=len(message_ids) - item_ordinal,
+                    )
+                    break
+                continue
+            consecutive_errors = 0
             record = extract_detail_record(payload)
             self.storage.write_record(
                 ENTITY_CALL_DETAILS,
@@ -289,7 +318,28 @@ class GHLRawExtractor:
                 records_seen=self.counts[ENTITY_CALL_DETAILS],
             )
             if self.options.download_recordings:
-                self.archive_recording(str(message_id))
+                try:
+                    self.archive_recording(str(message_id))
+                except GHLAPIError as exc:
+                    consecutive_errors += 1
+                    self._record_entity_error(
+                        ENTITY_CALL_DETAILS,
+                        endpoint=str(getattr(exc, "path", None) or f"/conversations/messages/{message_id}/locations/{self.location_id}/recording"),
+                        exc=exc,
+                        item_ordinal=item_ordinal,
+                    )
+                    if self._call_detail_error_limit_reached(consecutive_errors):
+                        self._record_call_detail_circuit_breaker(
+                            endpoint_template=safe_endpoint_template(
+                                str(getattr(exc, "path", None) or f"/conversations/messages/{message_id}/locations/{self.location_id}/recording")
+                            ),
+                            item_ordinal=item_ordinal,
+                            consecutive_errors=consecutive_errors,
+                            unattempted_count=len(message_ids) - item_ordinal,
+                        )
+                        break
+                    continue
+                consecutive_errors = 0
 
     def archive_recording(self, message_id: str) -> None:
         if self.recording_attempts >= self.options.max_recordings:
@@ -362,6 +412,64 @@ class GHLRawExtractor:
                 temp_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+    def _pace_call_detail_request(self) -> None:
+        if self.options.request_interval_seconds > 0:
+            time.sleep(self.options.request_interval_seconds)
+
+    def _call_detail_error_limit_reached(self, consecutive_errors: int) -> bool:
+        limit = self.options.max_consecutive_call_detail_errors
+        return limit > 0 and consecutive_errors >= limit
+
+    def _record_call_detail_circuit_breaker(
+        self,
+        *,
+        endpoint_template: str,
+        item_ordinal: int,
+        consecutive_errors: int,
+        unattempted_count: int,
+    ) -> None:
+        self.entity_error_counts[ENTITY_CALL_DETAILS] = self.entity_error_counts.get(ENTITY_CALL_DETAILS, 0) + 1
+        error = {
+            "entity": ENTITY_CALL_DETAILS,
+            "endpoint": endpoint_template,
+            "class": "ConsecutiveGHLAPIErrorLimitReached",
+            "message": "Stopped call-detail extraction after consecutive GHL API failures",
+            "item_ordinal": item_ordinal,
+            "consecutive_errors": consecutive_errors,
+            "max_consecutive_errors": self.options.max_consecutive_call_detail_errors,
+            "unattempted_count": unattempted_count,
+        }
+        errors = self.entity_errors.setdefault(ENTITY_CALL_DETAILS, [])
+        if len(errors) >= 25:
+            errors[-1] = error
+        else:
+            errors.append(error)
+
+    def _record_entity_error(
+        self,
+        entity: str,
+        *,
+        endpoint: str,
+        exc: GHLAPIError,
+        item_ordinal: int,
+    ) -> None:
+        self.entity_error_counts[entity] = self.entity_error_counts.get(entity, 0) + 1
+        errors = self.entity_errors.setdefault(entity, [])
+        if len(errors) >= 25:
+            return
+        errors.append(
+            {
+                "entity": entity,
+                "endpoint": safe_endpoint_template(str(getattr(exc, "path", None) or endpoint)),
+                "class": exc.__class__.__name__,
+                "message": "GHL API request failed after retries; item skipped",
+                "status_code": getattr(exc, "status_code", None),
+                "retry_attempts": getattr(exc, "retry_attempts", None),
+                "retry_after": getattr(exc, "retry_after", None),
+                "item_ordinal": item_ordinal,
+            }
+        )
 
     def _extract_paginated(
         self,
@@ -573,6 +681,17 @@ def extract_detail_record(payload: Any) -> Any:
             if isinstance(value, dict):
                 return value
     return payload
+
+
+def safe_endpoint_template(endpoint: str) -> str:
+    endpoint = re.sub(
+        r"^/conversations/messages/[^/]+/locations/[^/]+/recording$",
+        "/conversations/messages/{messageId}/locations/{locationId}/recording",
+        endpoint,
+    )
+    endpoint = re.sub(r"^/conversations/messages/[^/]+$", "/conversations/messages/{messageId}", endpoint)
+    endpoint = re.sub(r"^/conversations/[^/]+/messages$", "/conversations/{conversationId}/messages", endpoint)
+    return endpoint
 
 
 def is_missing_recording_error(exc: GHLAPIError) -> bool:

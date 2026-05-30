@@ -22,6 +22,23 @@ TRANSIENT_HTTP_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
 class GHLAPIError(RuntimeError):
     """Raised for LeadConnector API failures with secrets excluded."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        method: str | None = None,
+        path: str | None = None,
+        status_code: int | None = None,
+        retry_attempts: int | None = None,
+        retry_after: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.method = method
+        self.path = path
+        self.status_code = status_code
+        self.retry_attempts = retry_attempts
+        self.retry_after = retry_after
+
 
 @dataclass(frozen=True)
 class DownloadResult:
@@ -59,7 +76,7 @@ class GHLClient:
         try:
             return json.loads(body.decode("utf-8"))
         except json.JSONDecodeError as exc:
-            raise GHLAPIError(f"GET {path} returned non-JSON response") from exc
+            raise GHLAPIError(f"GET {path} returned non-JSON response", method="GET", path=path) from exc
 
     def download_to_file(
         self,
@@ -112,23 +129,36 @@ class GHLClient:
                 with urlopen(request, timeout=self.timeout_seconds) as response:
                     body = response.read()
                     if max_bytes is not None and len(body) > max_bytes:
-                        raise GHLAPIError(f"GET {path} exceeded max_bytes={max_bytes}")
+                        raise GHLAPIError(f"GET {path} exceeded max_bytes={max_bytes}", method=method, path=path)
                     headers = {key.lower(): value for key, value in response.headers.items()}
                     return body, headers
             except HTTPError as exc:
                 body = exc.read(2048).decode("utf-8", errors="replace")
+                retry_after = exc.headers.get("Retry-After")
                 if exc.code in TRANSIENT_HTTP_STATUS and attempt < self.max_retries:
-                    self._sleep(attempt, retry_after=exc.headers.get("Retry-After"))
+                    self._sleep(attempt, retry_after=retry_after)
                     attempt += 1
                     continue
                 message = _compact_error_body(body)
-                raise GHLAPIError(f"GET {path} failed with HTTP {exc.code}: {message}") from exc
+                raise GHLAPIError(
+                    f"GET {path} failed with HTTP {exc.code}: {message}",
+                    method=method,
+                    path=path,
+                    status_code=exc.code,
+                    retry_attempts=attempt,
+                    retry_after=retry_after,
+                ) from exc
             except URLError as exc:
                 if attempt < self.max_retries:
                     self._sleep(attempt)
                     attempt += 1
                     continue
-                raise GHLAPIError(f"GET {path} failed: {exc.reason}") from exc
+                raise GHLAPIError(
+                    f"GET {path} failed: {exc.reason}",
+                    method=method,
+                    path=path,
+                    retry_attempts=attempt,
+                ) from exc
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -149,7 +179,7 @@ class GHLClient:
     def _sleep(self, attempt: int, retry_after: str | None = None) -> None:
         if retry_after:
             try:
-                delay = min(float(retry_after), 30.0)
+                delay = min(float(retry_after), 120.0)
             except ValueError:
                 delay = self.backoff_seconds
         else:
