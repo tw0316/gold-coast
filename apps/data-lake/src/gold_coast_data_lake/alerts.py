@@ -105,6 +105,12 @@ def ghl_refresh_slack_payload(run_status: dict[str, Any], config: AlertConfig) -
     error = run_status.get("error")
     if isinstance(error, dict):
         fields.append(field("Error", safe_text(error.get("class") or "unknown")))
+        if error.get("status_code") is not None:
+            fields.append(field("HTTP", safe_text(error.get("status_code"))))
+        if error.get("path"):
+            fields.append(field("Endpoint", truncate(safe_text(error.get("path")), 120)))
+        if error.get("retry_attempts") is not None:
+            fields.append(field("Retries", safe_text(error.get("retry_attempts"))))
         if error.get("message"):
             fields.append(field("Message", truncate(safe_text(error.get("message")), 240)))
 

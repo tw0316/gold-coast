@@ -159,6 +159,17 @@ class GHLClient:
                     path=path,
                     retry_attempts=attempt,
                 ) from exc
+            except TimeoutError as exc:
+                if attempt < self.max_retries:
+                    self._sleep(attempt)
+                    attempt += 1
+                    continue
+                raise GHLAPIError(
+                    f"GET {path} timed out",
+                    method=method,
+                    path=path,
+                    retry_attempts=attempt,
+                ) from exc
 
     def _headers(self) -> dict[str, str]:
         return {

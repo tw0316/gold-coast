@@ -472,6 +472,15 @@ def final_validation_error(
     return None
 
 
+def exception_to_error(exc: Exception) -> dict[str, Any]:
+    error: dict[str, Any] = {"class": exc.__class__.__name__, "message": str(exc)}
+    for attr in ("method", "path", "status_code", "retry_attempts", "retry_after"):
+        value = getattr(exc, attr, None)
+        if value is not None:
+            error[attr] = value
+    return error
+
+
 class BatchRefreshRunner:
     def __init__(
         self,
@@ -548,7 +557,7 @@ class BatchRefreshRunner:
                     log.write("phase_succeeded", phase_result)
         except Exception as exc:  # noqa: BLE001
             status = "failed"
-            error = {"class": exc.__class__.__name__, "message": str(exc)}
+            error = exception_to_error(exc)
             log.write("run_failed", {"error": error})
         finally:
             completed_at = self.now()

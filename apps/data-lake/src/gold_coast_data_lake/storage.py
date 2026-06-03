@@ -177,11 +177,15 @@ class LocalRunStorage:
         handle.close()
         return Path(handle.name)
 
-    def finalize(self, summary: dict[str, Any]) -> dict[str, Any]:
+    def close(self) -> None:
         for entity_file in self.files.values():
             if entity_file._handle:
                 entity_file._handle.close()
                 entity_file._handle = None
+
+    def finalize(self, summary: dict[str, Any]) -> dict[str, Any]:
+        self.close()
+        for entity_file in self.files.values():
             if self.s3_uploader and entity_file.s3_uri is None:
                 entity_file.s3_uri = self.s3_uploader.upload_file(
                     entity_file.path,

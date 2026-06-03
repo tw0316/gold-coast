@@ -7,8 +7,10 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 
 from gold_coast_data_lake.alerts import AlertConfig, alert_callback
+from gold_coast_data_lake.client import GHLAPIError, TRANSIENT_HTTP_STATUS
 from gold_coast_data_lake.batch import BatchRefreshRunner, BatchRunContext, DynamoDbTtlLock, Phase
 from gold_coast_data_lake.curated import (
     DEFAULT_CURATED_PREFIX,
@@ -105,6 +107,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--recording-max-bytes", type=int, default=100 * 1024 * 1024)
     parser.add_argument("--timeout-seconds", type=float, default=30.0)
     parser.add_argument("--max-retries", type=int, default=4)
+    parser.add_argument(
+        "--raw-refresh-retries",
+        type=int,
+        default=int(os.environ.get("RAW_REFRESH_RETRIES", "2")),
+        help="Additional full raw-refresh retries for transient upstream GHL API failures before the run fails.",
+    )
+    parser.add_argument(
+        "--raw-refresh-retry-backoff-seconds",
+        type=float,
+        default=float(os.environ.get("RAW_REFRESH_RETRY_BACKOFF_SECONDS", "20")),
+        help="Base exponential backoff before retrying the full raw refresh after a transient GHL API failure.",
+    )
     parser.add_argument(
         "--request-interval-seconds",
         type=float,
@@ -209,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
             "download_recordings": args.download_recordings,
             "request_interval_seconds": args.request_interval_seconds,
             "max_consecutive_call_detail_errors": args.max_consecutive_call_detail_errors,
+            "raw_refresh_retries": args.raw_refresh_retries,
+            "raw_refresh_retry_backoff_seconds": args.raw_refresh_retry_backoff_seconds,
         },
     )
     print(json.dumps(result, indent=2, sort_keys=True))
@@ -231,9 +247,67 @@ def build_lock(args: argparse.Namespace) -> DynamoDbTtlLock | None:
     return DynamoDbTtlLock(table_name=args.lock_table_name, lock_name=args.lock_name)
 
 
+def run_ghl_raw_refresh_with_retries(
+    context: BatchRunContext,
+    raw_config: RawRefreshConfig,
+    *,
+    retries: int,
+    backoff_seconds: float,
+) -> dict[str, object]:
+    max_attempts = max(1, int(retries) + 1)
+    safe_backoff_seconds = max(0.0, float(backoff_seconds))
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = run_ghl_raw_refresh(context, raw_config)
+            result["raw_refresh_attempts"] = attempt
+            return result
+        except Exception as exc:  # noqa: BLE001
+            cleanup_partial_raw_outputs(context.output_dir, context.run_id)
+            if attempt >= max_attempts or not is_retryable_raw_refresh_error(exc):
+                raise
+            delay_seconds = min(safe_backoff_seconds * (2 ** (attempt - 1)), 300.0)
+            print(
+                "raw_refresh_retry "
+                f"attempt={attempt} next_attempt={attempt + 1} "
+                f"max_attempts={max_attempts} error_class={exc.__class__.__name__} "
+                f"delay_seconds={delay_seconds:.1f}",
+                flush=True,
+            )
+            if delay_seconds > 0:
+                time.sleep(delay_seconds)
+    raise RuntimeError("raw refresh retry loop exited unexpectedly")
+
+
+def is_retryable_raw_refresh_error(exc: Exception) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    if isinstance(exc, GHLAPIError):
+        status_code = getattr(exc, "status_code", None)
+        return status_code is None or status_code in TRANSIENT_HTTP_STATUS
+    return False
+
+
+def cleanup_partial_raw_outputs(output_dir: str | Path, run_id: str) -> None:
+    root = Path(output_dir)
+    for pattern in (
+        f"raw/ghl/**/run={run_id}.jsonl",
+        f"manifests/ghl/run={run_id}.json",
+    ):
+        for path in root.glob(pattern):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+
+
 def build_production_refresh_phase(raw_config: RawRefreshConfig, args: argparse.Namespace) -> Phase:
     def phase(context: BatchRunContext) -> dict[str, object]:
-        raw_result = run_ghl_raw_refresh(context, raw_config)
+        raw_result = run_ghl_raw_refresh_with_retries(
+            context,
+            raw_config,
+            retries=args.raw_refresh_retries,
+            backoff_seconds=args.raw_refresh_retry_backoff_seconds,
+        )
         manifest_uri = raw_result.get("manifest_s3_uri")
         if not manifest_uri:
             raise RuntimeError("raw refresh did not publish a manifest_s3_uri for curated build")

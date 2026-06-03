@@ -9,6 +9,7 @@ from unittest import mock
 
 from gold_coast_data_lake.batch import (
     BatchRefreshRunner,
+    BatchRunContext,
     DynamoDbTtlLock,
     LocalTtlLock,
     historical_run_status_key,
@@ -23,11 +24,14 @@ from gold_coast_data_lake.jobs.ghl_batch_refresh import (
     build_lock,
     build_production_refresh_phase,
     build_status_uploader,
+    is_retryable_raw_refresh_error,
     join_s3_prefix,
     parse_args,
     resolve_athena_output_location,
+    run_ghl_raw_refresh_with_retries,
 )
-from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES
+from gold_coast_data_lake.client import GHLAPIError
+from gold_coast_data_lake.raw_refresh import DEFAULT_RAW_REFRESH_ENTITIES, RawRefreshConfig
 
 
 FAKE_SLACK_WEBHOOK = "https://hooks." + "slack.com/services/nope"
@@ -85,6 +89,56 @@ class FakeStatusUploader:
 
 class ConditionalFailure(Exception):
     response = {"Error": {"Code": "ConditionalCheckFailedException"}}
+
+
+class RawRefreshRetryTests(unittest.TestCase):
+    def test_retryable_error_classifier_uses_structured_ghl_status(self) -> None:
+        transient = GHLAPIError("upstream unavailable", status_code=503)
+        auth_failure = GHLAPIError("unauthorized", status_code=401)
+
+        self.assertTrue(is_retryable_raw_refresh_error(transient))
+        self.assertTrue(is_retryable_raw_refresh_error(TimeoutError("socket timed out")))
+        self.assertFalse(is_retryable_raw_refresh_error(auth_failure))
+        self.assertFalse(is_retryable_raw_refresh_error(RuntimeError("curated publish failed")))
+
+    def test_raw_refresh_retries_transient_failure_and_cleans_partial_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="retry-run",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 22, 0, tzinfo=timezone.utc),
+            )
+            partial = context.output_dir / "raw" / "ghl" / "entity=contacts" / "ingest_date=2026-05-18" / "run=retry-run.jsonl"
+            partial.parent.mkdir(parents=True)
+            calls = {"count": 0}
+
+            def fake_refresh(_context, _config):
+                calls["count"] += 1
+                if calls["count"] == 1:
+                    partial.write_text("partial\n", encoding="utf-8")
+                    raise GHLAPIError("GET /contacts/ failed with HTTP 503: upstream unavailable", status_code=503)
+                return {"manifest_s3_uri": "s3://bucket/manifests/ghl/run=retry-run.json"}
+
+            with (
+                mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.run_ghl_raw_refresh", side_effect=fake_refresh),
+                mock.patch("gold_coast_data_lake.jobs.ghl_batch_refresh.time.sleep") as sleep,
+            ):
+                result = run_ghl_raw_refresh_with_retries(
+                    context,
+                    RawRefreshConfig(local_only=True),
+                    retries=1,
+                    backoff_seconds=0.5,
+                )
+
+            self.assertEqual(calls["count"], 2)
+            self.assertEqual(result["raw_refresh_attempts"], 2)
+            self.assertFalse(partial.exists())
+            sleep.assert_called_once_with(0.5)
 
 
 class BatchRunnerTests(unittest.TestCase):

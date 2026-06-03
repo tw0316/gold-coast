@@ -63,6 +63,7 @@ The default schedule_enabled=false keeps the EventBridge schedule disabled after
 - The runner also supports GHL_ENV_FILE for local operator runs, but Fargate uses injected env vars.
 - `LOCK_TABLE_NAME` is injected from Terraform and enables the DynamoDB conditional TTL lock before production work begins.
 - Production non-dry-run tasks run the GET-only raw refresh, then build V1.1 core/reporting Parquet tables from the fresh manifest and update Glue tables.
+- Production raw refresh does up to 2 additional full raw-refresh retries for transient upstream GHL failures before the run fails. `RAW_REFRESH_RETRIES` and `RAW_REFRESH_RETRY_BACKOFF_SECONDS` can override the defaults.
 - Core query tables live in gold_coast. Reporting marts live in gold_coast_reporting.
 - Execute-mode Fargate runs upload immutable run status and sanitized JSONL logs under `run-status/ghl/` in the data lake bucket. Historical Athena rows read only `run-status/ghl/runs/`; pointer files stay outside that table location.
 - Terraform injects `IMAGE_TAG=<immutable image tag>` into the task definition. The CLI reads it through `--image-tag` and writes it to the top-level run-status `image_tag` field.

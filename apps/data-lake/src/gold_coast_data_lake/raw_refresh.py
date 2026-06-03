@@ -103,7 +103,10 @@ def run_ghl_raw_refresh(
         s3_uploader=uploader,
         options=options,
     )
-    manifest = extractor.run(entities)
+    try:
+        manifest = extractor.run(entities)
+    finally:
+        storage.close()
     summary = manifest["summary"]
     return {
         "manifest_path": manifest.get("manifest_path"),

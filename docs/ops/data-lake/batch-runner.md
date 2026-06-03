@@ -14,6 +14,7 @@ The checked-in runner is a local foundation for the production GHL batch refresh
 - optional S3 upload for Athena-queryable run-status artifacts
 - AWS DynamoDB TTL locking when `LOCK_TABLE_NAME` is supplied
 - raw refresh followed by curated table publish for production non-dry-run runs
+- transient upstream GHL failures get 2 additional full raw-refresh retries by default before the run fails
 - in-run Athena smoke checks for the freshly published V1.1 core/reporting query surface
 
 It does not enable schedules by itself.
