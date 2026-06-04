@@ -1,0 +1,31 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-static-site:
+    name: Validate static site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate website files
+        run: bash scripts/deploy/validate-static-site.sh site
+
+      - name: Check Lambda JavaScript syntax
+        run: |
+          node --check lambda/index.js
+          node --check lambda/buyer-signup.js

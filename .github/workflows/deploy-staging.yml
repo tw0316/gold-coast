@@ -1,0 +1,102 @@
+name: Deploy Staging
+
+run-name: Deploy staging from ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit SHA to deploy to staging
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_STAGING_DEPLOY_ROLE_ARN: ${{ vars.AWS_STAGING_DEPLOY_ROLE_ARN }}
+  STAGING_S3_BUCKET: ${{ vars.STAGING_S3_BUCKET }}
+  STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.STAGING_CLOUDFRONT_DISTRIBUTION_ID }}
+  STAGING_URL: https://staging.gcoffers.com
+
+jobs:
+  deploy:
+    name: Deploy staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ env.STAGING_URL }}
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Validate website files
+        run: bash scripts/deploy/validate-static-site.sh site
+
+      - name: Check Lambda JavaScript syntax
+        run: |
+          node --check lambda/index.js
+          node --check lambda/buyer-signup.js
+
+      - name: Validate staging deployment variables
+        run: |
+          missing=0
+          for name in AWS_REGION AWS_STAGING_DEPLOY_ROLE_ARN STAGING_S3_BUCKET STAGING_CLOUDFRONT_DISTRIBUTION_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions variable: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync files to staging S3
+        run: bash scripts/deploy/sync-static-site-with-cache-control.sh site "$STAGING_S3_BUCKET"
+
+      - name: Invalidate staging CloudFront
+        id: invalidate
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$STAGING_CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "invalidation_id=$INVALIDATION_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Staging smoke check
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$STAGING_URL" || echo "000")
+          if [ "$code" = "200" ]; then
+            echo "Staging returned HTTP 200."
+          elif [ "$code" = "403" ]; then
+            echo "::notice::Staging returned HTTP 403, expected when GitHub-hosted runners are blocked by the staging WAF IP allowlist."
+          else
+            echo "::warning::Staging returned HTTP $code. Check $STAGING_URL from an allowed IP after CloudFront finishes invalidating."
+          fi
+
+      - name: Deployment summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Staging deployment complete
+
+          - Ref: \`${{ inputs.ref }}\`
+          - Site: $STAGING_URL
+          - S3 bucket: \`$STAGING_S3_BUCKET\`
+          - CloudFront distribution: \`$STAGING_CLOUDFRONT_DISTRIBUTION_ID\`
+          - Invalidation ID: \`${{ steps.invalidate.outputs.invalidation_id }}\`
+          EOF
