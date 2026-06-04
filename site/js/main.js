@@ -259,6 +259,48 @@
     return qsa('input[name="' + name + '"]:checked', form).map(function (input) { return input.value; });
   }
 
+
+  function initDealFilters() {
+    var buttons = qsa('[data-county-filter]');
+    if (!buttons.length) return;
+    var cards = qsa('[data-county]');
+    var countEl = document.getElementById('deals-count');
+    var regionEl = document.getElementById('deals-region');
+    var emptyMessage = document.getElementById('empty-deals-message');
+
+    function labelFor(filter) {
+      return filter === 'all' ? 'South Florida' : filter;
+    }
+
+    function applyFilter(filter) {
+      var visible = 0;
+      buttons.forEach(function (button) {
+        button.setAttribute('aria-pressed', String(button.getAttribute('data-county-filter') === filter));
+      });
+      cards.forEach(function (card) {
+        var show = filter === 'all' || card.getAttribute('data-county') === filter;
+        card.hidden = !show;
+        if (show) visible += 1;
+      });
+      var label = labelFor(filter);
+      if (countEl) countEl.textContent = visible + ' active ' + (filter === 'all' ? 'deal' : label + ' deal') + (visible === 1 ? '' : 's');
+      if (regionEl) regionEl.textContent = label;
+      if (emptyMessage && visible === 0) {
+        emptyMessage.textContent = filter === 'all'
+          ? 'We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.'
+          : 'No active ' + label + ' deals right now. Join the buyer list and we will send the next matching opportunity before it posts here.';
+      }
+      trackEvent('deal_filter_selected', { county: filter });
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        applyFilter(button.getAttribute('data-county-filter') || 'all');
+      });
+    });
+    applyFilter('all');
+  }
+
   function initBuyerForm() {
     var form = document.getElementById('buyer-form');
     if (!form) return;
@@ -324,4 +366,5 @@
   initFaqAccordion();
   initSellerForm();
   initBuyerForm();
+  initDealFilters();
 })();
