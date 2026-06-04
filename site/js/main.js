@@ -51,6 +51,23 @@
     });
   }
 
+  function scrollToElement(el) {
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setOfferStep(form, step) {
+    if (!form) return;
+    var target = Number(step) || 0;
+    qsa('.offer-step', form).forEach(function (panel) {
+      panel.classList.toggle('is-active', Number(panel.getAttribute('data-step')) === target);
+    });
+    qsa('.offer-progress span', form).forEach(function (bar, index) {
+      bar.classList.toggle('is-active', target >= 3 || index <= target);
+    });
+    form.setAttribute('data-current-step', String(target));
+  }
+
   function trackEvent(name, data) {
     if (window.gtag) window.gtag('event', name, data || {});
   }
@@ -69,6 +86,82 @@
       navToggle.setAttribute('aria-expanded', String(!open));
       navLinks.classList.toggle('active', !open);
       document.body.classList.toggle('nav-open', !open);
+    });
+  }
+
+  function initHeroAddressForm() {
+    var heroForm = document.getElementById('hero-address-form');
+    var offerForm = document.getElementById('seller-form');
+    if (!heroForm || !offerForm) return;
+    heroForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var heroAddress = qs('#hero-address', heroForm);
+      var offerAddress = qs('#property-address', offerForm);
+      var value = heroAddress ? heroAddress.value.trim() : '';
+      if (heroAddress && !value) {
+        heroAddress.focus();
+        return;
+      }
+      if (offerAddress) {
+        offerAddress.value = value;
+        setFieldError(offerAddress, false);
+      }
+      setStatus('seller', null);
+      setOfferStep(offerForm, 0);
+      scrollToElement(document.getElementById('offer'));
+      if (offerAddress) setTimeout(function () { offerAddress.focus(); }, 320);
+      trackEvent('hero_address_started', { page: 'homepage' });
+    });
+  }
+
+  function initOfferWizard() {
+    var form = document.getElementById('seller-form');
+    if (!form) return;
+    setOfferStep(form, 0);
+
+    qsa('.offer-next', form).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var next = Number(button.getAttribute('data-next')) || 0;
+        var address = qs('#property-address', form);
+        if (next === 1 && address) {
+          var hasAddressError = !address.value.trim() || address.value.trim().length < 5;
+          setFieldError(address, hasAddressError);
+          if (hasAddressError) {
+            address.focus();
+            return;
+          }
+        }
+        setStatus('seller', null);
+        setOfferStep(form, next);
+      });
+    });
+
+    qsa('.offer-back', form).forEach(function (button) {
+      button.addEventListener('click', function () {
+        setStatus('seller', null);
+        setOfferStep(form, Number(button.getAttribute('data-back')) || 0);
+      });
+    });
+
+    qsa('.offer-reset', form).forEach(function (button) {
+      button.addEventListener('click', function () {
+        form.reset();
+        setStatus('seller', null);
+        qsa('.error', form).forEach(function (field) { field.classList.remove('error'); field.removeAttribute('aria-invalid'); });
+        qsa('.error-message', form).forEach(function (msg) { msg.classList.remove('active'); });
+        setOfferStep(form, 0);
+      });
+    });
+  }
+
+  function initFaqAccordion() {
+    qsa('.faq-row').forEach(function (row) {
+      row.addEventListener('toggle', function () {
+        if (!row.open) return;
+        qsa('.faq-row').forEach(function (other) {
+          if (other !== row) other.open = false;
+        });
+      });
     });
   }
 
@@ -101,6 +194,13 @@
       var email = qs('#email', form);
       var serviceConsent = qs('#service-consent', form);
       var marketingConsent = qs('#marketing-consent', form);
+      var beds = qs('#beds', form);
+      var baths = qs('#baths', form);
+      var sqft = qs('#sqft', form);
+      var condition = qs('#condition', form);
+      var timeline = qs('#timeline', form);
+      var propertyType = qs('#property-type', form);
+      var repairs = qs('#repairs', form);
       var valid = true;
 
       setFieldError(address, !address.value.trim() || address.value.trim().length < 5);
@@ -117,11 +217,14 @@
         phone: phoneDigits(phone.value),
         fullName: fullName.value.trim(),
         email: email.value.trim().toLowerCase(),
-        condition: qs('#condition', form).value || null,
-        timeline: qs('#timeline', form).value || null,
-        propertyType: qs('#property-type', form).value || null,
+        beds: beds && beds.value ? beds.value.trim() : null,
+        baths: baths && baths.value ? baths.value.trim() : null,
+        sqft: sqft && sqft.value ? sqft.value.trim() : null,
+        condition: condition && condition.value ? condition.value : null,
+        timeline: timeline && timeline.value ? timeline.value : null,
+        propertyType: propertyType && propertyType.value ? propertyType.value : null,
         occupancy: null,
-        repairs: qs('#repairs', form).value.trim() || null,
+        repairs: repairs && repairs.value ? repairs.value.trim() : null,
         serviceConsent: serviceConsent.checked,
         marketingConsent: marketingConsent.checked,
         tcpaConsent: serviceConsent.checked,
@@ -140,6 +243,7 @@
         .then(function () {
           setStatus('seller', 'success');
           form.reset();
+          setOfferStep(form, 3);
           trackEvent('lead_submitted', { page: 'homepage', source: 'redesign_static' });
         })
         .catch(function () {
@@ -215,6 +319,9 @@
     });
   }
 
+  initHeroAddressForm();
+  initOfferWizard();
+  initFaqAccordion();
   initSellerForm();
   initBuyerForm();
 })();

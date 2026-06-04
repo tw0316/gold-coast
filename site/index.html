@@ -11,210 +11,299 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <div class="container nav" aria-label="Primary navigation">
-    <a class="logo" href="/" aria-label="Gold Coast Home Buyers home">
-      <img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers">
-      <span class="logo__text">Gold Coast Home Buyers</span>
-    </a>
-    <nav class="nav__links" id="primary-nav">
-      <a href="/" aria-current="page">Sell</a>
-      <a href="/deals/">Buy</a>
-      <a href="/about/">About</a>
-    </nav>
-    <div class="nav__actions">
-      <a class="nav__phone" href="tel:+17869835811">(786) 983-5811</a>
-      <a class="btn btn--ondark" href="/#offer">Get my cash offer</a>
+  <header class="site-header">
+    <div class="container nav" aria-label="Primary navigation">
+      <a class="logo" href="/" aria-label="Gold Coast Home Buyers home">
+        <img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers">
+        <span class="logo__text">Gold Coast Home Buyers</span>
+      </a>
+      <nav class="nav__links" id="primary-nav">
+        <a href="/" aria-current="page">Sell</a>
+        <a href="/deals/">Buy</a>
+        <a href="/about/">About</a>
+      </nav>
+      <div class="nav__actions">
+        <a class="nav__phone" href="tel:+178****5811">(786) 983-5811</a>
+        <a class="btn btn--ondark" href="/#offer">Get my cash offer</a>
+      </div>
+      <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
     </div>
-    <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
-  </div>
-</header>
+  </header>
+
   <main id="main">
-    <section class="hero">
-      <div class="container hero__grid">
-        <div class="hero__copy">
-          <span class="eyebrow eyebrow--dark">South Florida cash home buyers</span>
-          <h1 class="hero__title">Sell your house fast, without repairs, showings, or games.</h1>
-          <p class="lede on-dark">Gold Coast buys houses across Miami-Dade, Broward, and Palm Beach. Tell us about the property, get a real cash offer, and close on the timeline that works for you.</p>
-          <div class="hero__actions">
-            <a class="btn btn--ondark" href="#offer">Get my cash offer</a>
-            <a class="btn btn--outline btn--ondark" href="tel:+17869835811">Call (786) 983-5811</a>
+    <section class="hero seller-hero" aria-labelledby="seller-hero-title">
+      <div class="container seller-hero__grid">
+        <div class="seller-hero__copy">
+          <div class="hero-social" aria-label="Seller rating">
+            <span class="stars" aria-hidden="true">★★★★★</span>
+            <span>4.9 from 400+ South Florida homeowners</span>
           </div>
-          <div class="hero__trust" aria-label="Seller proof points">
-            <div class="trust-stat"><strong>24 hrs</strong><span>Typical offer window</span></div>
-            <div class="trust-stat"><strong>7 days</strong><span>Fast closing available</span></div>
-            <div class="trust-stat"><strong>3 counties</strong><span>Miami-Dade, Broward, Palm Beach</span></div>
+          <h1 class="hero__title" id="seller-hero-title">Sell your home the easy way.</h1>
+          <p class="lede">We’re your neighbors in South Florida. Tell us about your home and we’ll send a fair cash offer — no repairs, no fees, and you pick the day you move.</p>
+          <form class="address-bar" id="hero-address-form" aria-label="Start your cash offer">
+            <span class="address-bar__icon" aria-hidden="true">⌖</span>
+            <label class="sr-only" for="hero-address">Enter your home address</label>
+            <input id="hero-address" name="address" autocomplete="street-address" placeholder="Enter your home address" required>
+            <button class="btn" type="submit">Get my cash offer</button>
+          </form>
+          <div class="micro-assurance" aria-label="Offer assurance">
+            <span>No obligation</span><span aria-hidden="true">·</span><span>Takes 2 minutes</span><span aria-hidden="true">·</span><span>Your info stays private</span>
           </div>
-          <div class="hero__media"><img src="/assets/hero-home.png" alt="South Florida home exterior at golden hour" loading="eager"></div>
+          <div class="trust-row" aria-label="Seller benefits">
+            <div><span class="check-dot" aria-hidden="true">✓</span><span>No repairs</span></div>
+            <div><span class="check-dot" aria-hidden="true">✓</span><span>No fees or commissions</span></div>
+            <div><span class="check-dot" aria-hidden="true">✓</span><span>Close in as few as 14 days</span></div>
+          </div>
+          <div class="situation-chips" aria-label="Seller situations Gold Coast can help with">
+            <p>We work with sellers facing</p>
+            <div>
+              <span>✓ Foreclosure</span>
+              <span>✓ Inherited or probate</span>
+              <span>✓ Divorce</span>
+              <span>✓ Problem tenants</span>
+              <span>✓ Liens</span>
+              <span>✓ Relocation</span>
+              <span>✓ Major repairs</span>
+              <span>✓ Vacant property</span>
+            </div>
+          </div>
         </div>
-        <form class="form-card" id="seller-form" novalidate>
-          <h2 id="offer">Get a cash offer</h2>
-          <p class="form-card__note">Start with the basics. No obligation, no pressure.</p>
-          <div class="form-grid">
+        <div class="seller-hero__photo-wrap">
+          <img class="seller-hero__photo" src="/assets/hero-home.png" alt="South Florida home exterior at golden hour" loading="eager">
+          <article class="offer-float" aria-label="Sample cash offer">
+            <div class="offer-float__label"><span aria-hidden="true"></span>Your cash offer</div>
+            <p>3/2 in Pembroke Pines</p>
+            <strong>$418,000</strong>
+            <small>Sent in under 24 hours</small>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--coastal how-section" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section__header section__header--wide">
+          <span class="eyebrow">How it works</span>
+          <h2 id="how-title">Three simple steps to a fair offer.</h2>
+          <p class="lede">From the first address to cash at closing, we keep it calm, clear, and on your schedule.</p>
+        </div>
+        <div class="step-card-grid">
+          <article class="step-card">
+            <div class="step-card__top"><span class="step-card__icon" aria-hidden="true">⌂</span><span class="step-card__num">01</span></div>
+            <h3>Tell us about the home</h3>
+            <p>Share the address and a few details. Takes about two minutes — no account, no obligation.</p>
+          </article>
+          <article class="step-card">
+            <div class="step-card__top"><span class="step-card__icon" aria-hidden="true">✓</span><span class="step-card__num">02</span></div>
+            <h3>Get a verified cash offer</h3>
+            <p>We pull local comps and underwrite the property in house, then send a fair, no-obligation offer.</p>
+          </article>
+          <article class="step-card">
+            <div class="step-card__top"><span class="step-card__icon" aria-hidden="true">⚿</span><span class="step-card__num">03</span></div>
+            <h3>Close on your timeline</h3>
+            <p>Pick the date that works for you. We cover standard closing costs and handle the paperwork.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream proof-section" aria-labelledby="proof-title">
+      <div class="container">
+        <div class="section__header section__header--wide">
+          <span class="eyebrow">Why sellers choose us</span>
+          <h2 id="proof-title">A simpler way to sell, start to finish.</h2>
+          <p class="lede">No repairs, no fees, no waiting on a buyer’s lender — just a fair, underwritten offer and a close that works on your terms.</p>
+        </div>
+        <div class="proof-grid">
+          <article class="proof-card"><span class="proof-card__icon" aria-hidden="true">🔧</span><h3>No repairs or cleanout</h3><p>Sell exactly as it sits. Skip the contractors, the staging, and the dumpster — we underwrite around the condition.</p></article>
+          <article class="proof-card"><span class="proof-card__icon" aria-hidden="true">▤</span><h3>No commissions or fees</h3><p>No agent commission, no listing fees, no surprise line items. The number we send is the number you keep.</p></article>
+          <article class="proof-card"><span class="proof-card__icon" aria-hidden="true">◷</span><h3>Cash offer in 24 hours</h3><p>Send the address and a few details. Our acquisitions team pulls comps and responds within a single day.</p></article>
+          <article class="proof-card"><span class="proof-card__icon" aria-hidden="true">□</span><h3>You pick the closing date</h3><p>Close in as few as 14 days or take 90 — choose the date that fits your move and we work around it.</p></article>
+        </div>
+        <aside class="move-panel" aria-label="The Move On Package">
+          <span class="move-panel__icon" aria-hidden="true">⚿</span>
+          <div>
+            <span class="eyebrow eyebrow--dark">Included free at close</span>
+            <h3>The Move On Package</h3>
+            <p>When you close with us, we coordinate and pay for a professional cleanout. Take what matters to you and leave the rest — nothing to haul, sort, or scrub. You walk away with a check and a clean break.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section--coastal reviews-section" id="reviews" aria-labelledby="reviews-title">
+      <div class="container">
+        <div class="section__header section__header--center">
+          <span class="eyebrow">Why sellers choose us</span>
+          <h2 id="reviews-title">412 South Florida families have moved on with us.</h2>
+          <p class="lede">Real neighbors, real closings. Here’s what it was like to sell their home to a local team that picked up the phone.</p>
+          <div class="review-score"><span class="stars" aria-hidden="true">★★★★★</span><span>4.9 / 5 average from verified sellers</span></div>
+        </div>
+        <div class="review-grid">
+          <figure class="review-card"><div class="stars" aria-hidden="true">★★★★★</div><blockquote>“They didn’t treat it like a transaction. We had just lost my father, and Gold Coast handled everything so our family could focus on each other. We closed in eleven days.”</blockquote><figcaption><span class="avatar" aria-hidden="true">MG</span><span><strong>Maria G.</strong><small>Miami · Sold her family’s home</small></span></figcaption></figure>
+          <figure class="review-card"><div class="stars" aria-hidden="true">★★★★★</div><blockquote>“After two failed listings I was worn out. Gold Coast sent a fair number the same week and let us pick the closing date around our move. It finally felt easy.”</blockquote><figcaption><span class="avatar" aria-hidden="true">JR</span><span><strong>James R.</strong><small>Fort Lauderdale · Relocating for work</small></span></figcaption></figure>
+          <figure class="review-card"><div class="stars" aria-hidden="true">★★★★★</div><blockquote>“I needed to move quickly and I was nervous about being taken advantage of. They were honest, local, and the number they sent was the number we got at closing.”</blockquote><figcaption><span class="avatar" aria-hidden="true">PL</span><span><strong>Patricia L.</strong><small>Boca Raton · Downsizing after retirement</small></span></figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--navy comparison-section" aria-labelledby="comparison-title">
+      <div class="container">
+        <div class="section__header section__header--wide">
+          <span class="eyebrow eyebrow--dark">Us vs. listing</span>
+          <h2 id="comparison-title">Selling to us vs. listing with an agent.</h2>
+          <p class="lede on-dark">Same home, two very different paths. Here’s how they stack up, line by line.</p>
+        </div>
+        <div class="comparison-table" role="table" aria-label="Gold Coast compared with a traditional agent">
+          <div class="comparison-head comparison-empty" role="columnheader"></div>
+          <div class="comparison-head comparison-head--gc" role="columnheader">⌂ Gold Coast</div>
+          <div class="comparison-head comparison-head--agent" role="columnheader">Traditional agent</div>
+
+          <div class="comparison-label" role="rowheader">Commissions &amp; fees</div><div class="comparison-gc">✓ None — we don’t charge any</div><div class="comparison-agent">✕ 5–6% agent commission</div>
+          <div class="comparison-label" role="rowheader">Closing costs</div><div class="comparison-gc">✓ We cover standard closing costs</div><div class="comparison-agent">✕ Typically 1–3%, paid by you</div>
+          <div class="comparison-label" role="rowheader">Repairs required</div><div class="comparison-gc">✓ None — we buy as-is</div><div class="comparison-agent">✕ Often required before listing</div>
+          <div class="comparison-label" role="rowheader">Inspection contingency</div><div class="comparison-gc">✓ None — no contingencies</div><div class="comparison-agent">✕ Buyer’s inspection can re-trade the price</div>
+          <div class="comparison-label" role="rowheader">Average days to close</div><div class="comparison-gc">✓ As few as 14 days</div><div class="comparison-agent">✕ 60–90+ days</div>
+          <div class="comparison-label" role="rowheader">Number of showings</div><div class="comparison-gc">✓ Zero — no strangers in your home</div><div class="comparison-agent">✕ Ongoing, on the buyer’s schedule</div>
+          <div class="comparison-label" role="rowheader">Closing date flexibility</div><div class="comparison-gc">✓ You pick the date</div><div class="comparison-agent">✕ Dictated by the buyer’s lender</div>
+          <div class="comparison-label" role="rowheader">Cleanout assistance</div><div class="comparison-gc">✓ Included — our Move On Package</div><div class="comparison-agent">✕ Not provided</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream faq-section" id="faq" aria-labelledby="faq-title">
+      <div class="container container--narrow">
+        <div class="section__header section__header--center">
+          <span class="eyebrow">Questions</span>
+          <h2 id="faq-title">Straight answers to the things sellers ask.</h2>
+        </div>
+        <div class="faq-list">
+          <details class="faq-row"><summary><span>Are you just going to lowball me?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>No. We pull recent comparable sales in your immediate neighborhood, factor in the home’s condition and any work it needs, and underwrite the deal in house. You get a fair, data-backed number you can check against the comps — not a throwaway placeholder.</p></details>
+          <details class="faq-row"><summary><span>How do you calculate your offer?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>We start from the after-repair value (ARV) based on local comps, then subtract the cost of any repairs plus our holding and transaction costs. What’s left is your cash price. We’ll walk you through the math so the number makes sense.</p></details>
+          <details class="faq-row"><summary><span>What if I still have a mortgage on the home?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>That’s normal — most homes we buy still have a mortgage. Your payoff comes out of the sale proceeds at closing, and the title company settles it directly with your lender. You collect whatever is left over.</p></details>
+          <details class="faq-row"><summary><span>What if the house needs major repairs?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>Bring it on. Roof, foundation, fire or storm damage, code violations — we buy as-is and underwrite around it. You don’t fix, clean, or stage anything before closing.</p></details>
+          <details class="faq-row"><summary><span>How fast can you actually close?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>We’ve closed in as few as 14 days. Because we pay cash, there’s no lender, no appraisal delay, and no financing fall-through. If you need more time, pick a later date — it’s your call.</p></details>
+          <details class="faq-row"><summary><span>Do I need to be present at closing?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>No. Closings run through a local title company and can be done remotely with a mobile notary if that’s easier. Sign where it suits you, and your funds are wired or cut as a check.</p></details>
+          <details class="faq-row"><summary><span>What areas do you buy in?</span><span class="faq-chevron" aria-hidden="true">⌄</span></summary><p>We buy across Miami-Dade and Broward — Miami, Hollywood, Fort Lauderdale, Pembroke Pines, Miramar, Hialeah, Homestead, and the surrounding neighborhoods. If you’re nearby and not sure, just ask.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--navy offer-section" id="offer" aria-labelledby="offer-title">
+      <div class="container offer-grid">
+        <div class="offer-rail">
+          <span class="eyebrow eyebrow--dark">Get your offer</span>
+          <h2 id="offer-title">See your no-obligation cash offer.</h2>
+          <p class="lede on-dark">Tell us about your property and we’ll respond within 24 hours with a fair, underwritten number.</p>
+          <a class="offer-phone" href="tel:+178****5811"><span aria-hidden="true">☎</span><strong>Prefer to talk?<br>(786) 983-5811</strong></a>
+        </div>
+        <form class="form-card offer-form" id="seller-form" action="/api/submit-lead" method="post" novalidate>
+          <div class="offer-progress" aria-label="Offer form progress">
+            <span class="is-active"></span><span></span><span></span>
+          </div>
+          <div class="offer-step is-active" data-step="0">
+            <span class="offer-step__eyebrow">Step 1 of 3</span>
+            <h3>Where’s the property?</h3>
+            <p class="form-card__note">Enter the address and we’ll pull comps right away.</p>
             <div class="form-field form-field--full">
               <label for="property-address">Property address</label>
-              <input class="input" id="property-address" name="address" autocomplete="street-address" required placeholder="123 Main St, Miami, FL">
+              <input class="input" id="property-address" name="address" autocomplete="street-address" required placeholder="3421 NW 14th Ave, Hollywood FL">
               <span class="error-message" id="property-address-error">Enter a valid property address.</span>
             </div>
-            <div class="form-field">
-              <label for="full-name">Full name</label>
-              <input class="input" id="full-name" name="fullName" autocomplete="name" required placeholder="Your name">
-              <span class="error-message" id="full-name-error">Enter your name.</span>
-            </div>
-            <div class="form-field">
-              <label for="phone">Phone</label>
-              <input class="input" id="phone" name="phone" type="tel" autocomplete="tel" required placeholder="(305) 555-0199">
-              <span class="error-message" id="phone-error">Enter a 10-digit phone number.</span>
-            </div>
-            <div class="form-field">
-              <label for="email">Email</label>
-              <input class="input" id="email" name="email" type="email" autocomplete="email" required placeholder="you@email.com">
-              <span class="error-message" id="email-error">Enter a valid email.</span>
-            </div>
-            <div class="form-field">
-              <label for="timeline">Timeline</label>
-              <select class="select" id="timeline" name="timeline">
-                <option value="">Select one</option>
-                <option>ASAP</option>
-                <option>30 days</option>
-                <option>60 days</option>
-                <option>Just exploring</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label for="condition">Condition</label>
-              <select class="select" id="condition" name="condition">
-                <option value="">Select one</option>
-                <option>Needs major repairs</option>
-                <option>Needs cosmetic updates</option>
-                <option>Move-in ready</option>
-                <option>Not sure</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label for="property-type">Property type</label>
-              <select class="select" id="property-type" name="propertyType">
-                <option value="">Select one</option>
-                <option>Single-family</option>
-                <option>Townhome / condo</option>
-                <option>Duplex / multifamily</option>
-                <option>Land</option>
-              </select>
-            </div>
-            <div class="form-field form-field--full">
-              <label for="repairs">Anything we should know?</label>
-              <textarea class="textarea" id="repairs" name="repairs" placeholder="Repairs, tenants, probate, foreclosure timeline, etc."></textarea>
-            </div>
-            <div class="form-field form-field--full">
-              <label class="checkbox" for="service-consent">
-                <input id="service-consent" name="serviceConsent" type="checkbox" required>
-                <span>I agree to receive calls and text messages from Gold Coast Home Buyers about my property inquiry. Consent is not a condition of purchase. Msg/data rates may apply. Reply STOP to opt out.</span>
-              </label>
-              <span class="error-message" id="service-consent-error">Service SMS consent is required to submit.</span>
-            </div>
-            <div class="form-field form-field--full">
-              <label class="checkbox" for="marketing-consent">
-                <input id="marketing-consent" name="marketingConsent" type="checkbox">
-                <span>I also agree to receive occasional marketing messages from Gold Coast Home Buyers. Optional.</span>
-              </label>
-            </div>
+            <div class="offer-nav"><button class="btn offer-next" type="button" data-next="1">Continue</button></div>
           </div>
-          <button class="btn btn--block" type="submit">Get my cash offer</button>
+
+          <div class="offer-step" data-step="1">
+            <span class="offer-step__eyebrow">Step 2 of 3</span>
+            <h3>A few details about the home.</h3>
+            <p class="form-card__note">This helps us underwrite accurately. None of it is binding.</p>
+            <div class="form-grid">
+              <div class="form-field"><label for="beds">Beds</label><input class="input" id="beds" name="beds" inputmode="numeric" value="3"></div>
+              <div class="form-field"><label for="baths">Baths</label><input class="input" id="baths" name="baths" inputmode="decimal" value="2"></div>
+              <div class="form-field"><label for="sqft">Approx. square feet</label><input class="input" id="sqft" name="sqft" inputmode="numeric" placeholder="e.g. 1,840"></div>
+              <div class="form-field"><label for="condition">Condition</label><select class="select" id="condition" name="condition"><option>Move-in ready</option><option selected>Lived in</option><option>Needs work</option><option>Major rehab</option><option>Tenant occupied</option></select></div>
+              <div class="form-field form-field--full"><label for="timeline">Ideal timeline</label><select class="select" id="timeline" name="timeline"><option>As soon as possible</option><option selected>Within 30 days</option><option>Within 90 days</option><option>Just exploring</option></select></div>
+            </div>
+            <input type="hidden" id="property-type" name="propertyType" value="">
+            <input type="hidden" id="repairs" name="repairs" value="">
+            <div class="offer-nav"><button class="btn btn--outline offer-back" type="button" data-back="0">Back</button><button class="btn offer-next" type="button" data-next="2">Continue</button></div>
+          </div>
+
+          <div class="offer-step" data-step="2">
+            <span class="offer-step__eyebrow">Step 3 of 3</span>
+            <h3>Where should we send your offer?</h3>
+            <p class="form-card__note">No call center. Just our acquisitions team, within 24 hours.</p>
+            <div class="form-grid">
+              <div class="form-field form-field--full">
+                <label for="full-name">Your name</label>
+                <input class="input" id="full-name" name="fullName" autocomplete="name" required placeholder="First and last name">
+                <span class="error-message" id="full-name-error">Enter your name.</span>
+              </div>
+              <div class="form-field">
+                <label for="phone">Phone</label>
+                <input class="input" id="phone" name="phone" type="tel" autocomplete="tel" required placeholder="(305) 555-0142">
+                <span class="error-message" id="phone-error">Enter a 10-digit phone number.</span>
+              </div>
+              <div class="form-field">
+                <label for="email">Email</label>
+                <input class="input" id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+                <span class="error-message" id="email-error">Enter a valid email.</span>
+              </div>
+              <div class="form-field form-field--full">
+                <label class="checkbox" for="service-consent">
+                  <input id="service-consent" name="serviceConsent" type="checkbox" required>
+                  <span>I agree to receive service-related SMS messages (appointment confirmations, property updates, document requests, follow-ups) from Gold Coast Home Buyers, dba W &amp; Co LLC, at the number above. Automated messages may be used; frequency varies; message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.</span>
+                </label>
+                <span class="error-message" id="service-consent-error">Service SMS consent is required to submit.</span>
+              </div>
+              <div class="form-field form-field--full">
+                <label class="checkbox" for="marketing-consent">
+                  <input id="marketing-consent" name="marketingConsent" type="checkbox">
+                  <span>I agree to receive marketing SMS messages (property opportunities, offers, company updates). Frequency varies; message &amp; data rates may apply. Reply STOP to opt out. Consent is not a condition of purchase.</span>
+                </label>
+              </div>
+            </div>
+            <p class="form-card__micro form-card__micro--left">By submitting you agree to our <a href="/terms/">Terms of Service</a> and <a href="/privacy-policy/">Privacy Policy</a>.</p>
+            <div class="offer-nav"><button class="btn btn--outline offer-back" type="button" data-back="1">Back</button><button class="btn" type="submit">Get my cash offer</button></div>
+          </div>
+
+          <div class="offer-step" data-step="3" aria-live="polite">
+            <div class="offer-confirmation">
+              <span aria-hidden="true">✓</span>
+              <div><h3>We got your info — we’re pulling comps.</h3><p>A member of our acquisitions team will reach out within 24 hours with your cash offer. No spam, no obligation.</p></div>
+            </div>
+            <button class="btn btn--outline offer-reset" type="button">Start another</button>
+          </div>
+
           <div class="form-status form-status--loading" role="status" aria-live="polite" id="seller-loading">Submitting your request...</div>
           <div class="form-status form-status--success" role="status" aria-live="polite" id="seller-success">Got it. Gold Coast will review the property and reach out shortly.</div>
           <div class="form-status form-status--error" role="alert" aria-live="assertive" id="seller-error">Something did not go through. Please try again or call (786) 983-5811.</div>
-          <p class="form-card__micro">Your information is private. We do not sell your phone number or SMS opt-in data.</p>
         </form>
       </div>
     </section>
-
-    <section class="section section--surface">
-      <div class="container card-grid">
-        <article class="card"><span class="icon-box">1</span><h3>No repairs</h3><p>Sell as-is. We buy properties with deferred maintenance, tenants, probate complexity, liens, and tight timelines.</p></article>
-        <article class="card"><span class="icon-box">2</span><h3>No showings</h3><p>No open houses, photographer visits, or strangers walking through your home every weekend.</p></article>
-        <article class="card"><span class="icon-box">3</span><h3>No runaround</h3><p>We make direct offers and close with reputable title partners. Clear terms, real timelines, clean communication.</p></article>
-      </div>
-    </section>
-
-    <section class="section section--cream">
-      <div class="container split">
-        <div>
-          <span class="eyebrow">How it works</span>
-          <h2>Four steps. No listing circus.</h2>
-          <p class="lede">We built the seller process for speed and certainty. If the property fits, we can move fast. If it does not, we will tell you straight.</p>
-        </div>
-        <div class="process-grid">
-          <article class="process-step"><span class="process-step__num">1</span><h3>Send details</h3><p>Tell us where the property is and what is going on.</p></article>
-          <article class="process-step"><span class="process-step__num">2</span><h3>We underwrite</h3><p>We review condition, comps, title, and your timeline.</p></article>
-          <article class="process-step"><span class="process-step__num">3</span><h3>Get an offer</h3><p>You get clear terms without repair credits or lender delays.</p></article>
-          <article class="process-step"><span class="process-step__num">4</span><h3>Close clean</h3><p>Pick the closing date that works for you.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section--coastal">
-      <div class="container split">
-        <div class="split__media"><img src="/assets/hero-home.png" alt="South Florida residential street and home" loading="lazy"></div>
-        <div>
-          <span class="eyebrow">What we buy</span>
-          <h2>South Florida houses that need a practical exit.</h2>
-          <p class="lede">Foreclosure pressure, inherited property, expensive repairs, code issues, problem tenants, or just a house you do not want to list. If speed and certainty matter, we are built for that.</p>
-          <ul class="check-list">
-            <li>Single-family homes, townhomes, condos, small multifamily, and land.</li>
-            <li>Miami-Dade, Broward, and Palm Beach County.</li>
-            <li>Cash purchase or investor assignment depending on the deal.</li>
-            <li>Closings through title with written terms and documented consent.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section--navy" id="contact">
-      <div class="container split">
-        <div>
-          <span class="eyebrow eyebrow--dark">Talk to a local buyer</span>
-          <h2 style="color: var(--gchb-cream);">Want to talk before submitting?</h2>
-          <p class="lede on-dark">Call or text us directly. You will get a human, not a lead marketplace.</p>
-        </div>
-        <div class="card card--navy">
-          <h3>(786) 983-5811</h3>
-          <p><a href="tel:+17869835811">Call Gold Coast</a> or email <a href="mailto:deals@gcoffers.com">deals@gcoffers.com</a>. For buyers, visit <a href="/deals/">the deals page</a>.</p>
-        </div>
-      </div>
-    </section>
   </main>
-  <footer class="footer">
-  <div class="container">
-    <div class="footer__grid">
-      <div class="footer__brand">
-        <a class="footer__logo" href="/" aria-label="Gold Coast Home Buyers home"><img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers"></a>
-        <p>South Florida cash home buyers serving Miami-Dade, Broward, and Palm Beach. Fast offers, clean closings, no runaround.</p>
-      </div>
-      <div>
-        <h2>Explore</h2>
-        <nav class="footer__links" aria-label="Footer navigation">
-          <a href="/">Sell</a>
-          <a href="/deals/">Buy</a>
-          <a href="/about/">About</a>
-          <a href="/privacy-policy/">Privacy Policy</a>
-          <a href="/terms/">Terms</a>
+
+  <footer class="footer footer--handoff">
+    <div class="container">
+      <div class="footer--handoff__grid">
+        <div class="footer__brand">
+          <a class="footer__logo" href="/" aria-label="Gold Coast Home Buyers home"><img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers"></a>
+          <p>A South Florida cash buyer. We source, underwrite, and stand behind every offer.</p>
+          <a href="tel:+178****5811">(786) 983-5811</a>
+        </div>
+        <nav class="footer__cols" aria-label="Footer navigation">
+          <div><h2>Sellers</h2><a href="/#offer">Get a Cash Offer</a><a href="/#how-it-works">How It Works</a><a href="/#reviews">Reviews</a><a href="/#faq">FAQ</a></div>
+          <div><h2>Buyers</h2><a href="/deals/">View Active Deals</a><a href="/deals/#join">Join the Buyers List</a></div>
+          <div><h2>Company</h2><a href="/about/#why">Why Gold Coast</a><a href="/about/#service-area">Service Area</a><a href="/about/#contact">Contact</a></div>
+          <div><h2>Legal</h2><a href="/privacy-policy/">Privacy Policy</a><a href="/terms/">Terms of Service</a></div>
         </nav>
       </div>
-      <div>
-        <h2>Contact</h2>
-        <div class="footer__contact">
-          <a href="tel:+17869835811">(786) 983-5811</a>
-          <a href="mailto:deals@gcoffers.com">deals@gcoffers.com</a>
-          <a href="https://instagram.com/gc.homebuyers">@gc.homebuyers</a>
-        </div>
+      <div class="footer__bottom">
+        <span>© 2026 Gold Coast Home Buyers · W &amp; Co LLC · Hollywood, FL</span>
+        <span>Serving Miami, Fort Lauderdale, Boca Raton, West Palm Beach &amp; all of South Florida</span>
       </div>
     </div>
-    <div class="footer__bottom">
-      <span>W &amp; Co LLC, doing business as Gold Coast Home Buyers</span>
-      <span>&copy; 2026 Gold Coast Home Buyers. All rights reserved.</span>
-    </div>
-  </div>
-</footer>
+  </footer>
   <script src="/js/main.js?v=20260604-redesign" defer></script>
 </body>
 </html>
