@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.3
         with:
           ref: main
 
@@ -66,7 +66,7 @@ jobs:
           exit "$missing"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6.2.0
         with:
           role-to-assume: ${{ env.AWS_PRODUCTION_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
