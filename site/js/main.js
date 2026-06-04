@@ -1,426 +1,220 @@
 /**
- * Gold Coast Home Buyers — gcoffers.com
- * Form handling, validation, and submission
+ * Gold Coast Home Buyers — static site interactions and forms.
  */
-
 (function () {
   'use strict';
 
-  // ---------- Config ----------
-  var API_ENDPOINT = 'https://mxxax8a8y9.execute-api.us-east-1.amazonaws.com/api/submit-lead';
+  var SELLER_ENDPOINT = '/api/submit-lead';
+  var BUYER_ENDPOINT = '/api/buyer-signup';
 
-  // ---------- Helpers ----------
+  function qs(selector, root) { return (root || document).querySelector(selector); }
+  function qsa(selector, root) { return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+
   function formatPhone(value) {
-    var digits = value.replace(/\D/g, '');
+    var digits = String(value || '').replace(/\D/g, '').slice(0, 10);
     if (digits.length === 0) return '';
     if (digits.length <= 3) return '(' + digits;
     if (digits.length <= 6) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3);
-    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6, 10);
+    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
   }
 
-  function isValidPhone(value) {
-    var digits = value.replace(/\D/g, '');
-    return digits.length === 10;
-  }
+  function phoneDigits(value) { return String(value || '').replace(/\D/g, ''); }
+  function isValidPhone(value) { return phoneDigits(value).length === 10; }
+  function isValidEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim()); }
 
-  function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-
-  function setError(input, show) {
-    if (show) {
-      input.classList.add('error');
-    } else {
-      input.classList.remove('error');
+  function setFieldError(field, hasError) {
+    if (!field) return;
+    field.classList.toggle('error', !!hasError);
+    field.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+    var error = document.getElementById(field.id + '-error');
+    if (error) {
+      error.classList.toggle('active', !!hasError);
+      field.setAttribute('aria-describedby', error.id);
     }
   }
 
-  // ---------- Phone Formatting ----------
-  var phoneInputs = document.querySelectorAll('input[type="tel"]');
-  phoneInputs.forEach(function (input) {
+  function setManualError(id, hasError) {
+    var error = document.getElementById(id);
+    if (error) error.classList.toggle('active', !!hasError);
+    var fieldId = id.replace(/-error$/, '');
+    var field = document.getElementById(fieldId);
+    if (field) {
+      field.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+      field.setAttribute('aria-describedby', id);
+    }
+  }
+
+  function setStatus(formName, status) {
+    ['loading', 'success', 'error'].forEach(function (state) {
+      var el = document.getElementById(formName + '-' + state);
+      if (el) el.classList.toggle('active', state === status);
+    });
+  }
+
+  function trackEvent(name, data) {
+    if (window.gtag) window.gtag('event', name, data || {});
+  }
+
+  qsa('input[type="tel"]').forEach(function (input) {
     input.addEventListener('input', function () {
-      var pos = input.selectionStart;
-      var prev = input.value;
       input.value = formatPhone(input.value);
-      // Try to maintain cursor position
-      if (input.value.length > prev.length) {
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
     });
   });
 
-  // ---------- Step 1 Form (Homepage — A2P Single-Page) ----------
-  var step1Form = document.getElementById('step1-form');
-  if (step1Form) {
-    step1Form.addEventListener('submit', function (e) {
-      e.preventDefault();
-
-      var fullName = document.getElementById('full-name');
-      var address = document.getElementById('property-address');
-      var phone = document.getElementById('phone');
-      var email = document.getElementById('email');
-      var serviceConsent = document.getElementById('service-consent');
-      var marketingConsent = document.getElementById('marketing-consent');
-      var valid = true;
-
-      // Validate full name
-      if (!fullName || !fullName.value.trim() || fullName.value.trim().length < 2) {
-        if (fullName) setError(fullName, true);
-        var nameErr = document.getElementById('name-error');
-        if (nameErr) nameErr.style.display = 'block';
-        valid = false;
-      } else {
-        setError(fullName, false);
-        var nameErr2 = document.getElementById('name-error');
-        if (nameErr2) nameErr2.style.display = 'none';
-      }
-
-      // Validate address
-      if (!address.value.trim() || address.value.trim().length < 5) {
-        setError(address, true);
-        var addrErr = document.getElementById('address-error');
-        if (addrErr) addrErr.style.display = 'block';
-        valid = false;
-      } else {
-        setError(address, false);
-        var addrErr2 = document.getElementById('address-error');
-        if (addrErr2) addrErr2.style.display = 'none';
-      }
-
-      // Validate phone
-      if (!isValidPhone(phone.value)) {
-        setError(phone, true);
-        var phoneErr = document.getElementById('phone-error');
-        if (phoneErr) phoneErr.style.display = 'block';
-        valid = false;
-      } else {
-        setError(phone, false);
-        var phoneErr2 = document.getElementById('phone-error');
-        if (phoneErr2) phoneErr2.style.display = 'none';
-      }
-
-      // Validate email
-      if (!email || !isValidEmail(email.value)) {
-        if (email) setError(email, true);
-        var emailErr = document.getElementById('email-error');
-        if (emailErr) emailErr.style.display = 'block';
-        valid = false;
-      } else {
-        setError(email, false);
-        var emailErr2 = document.getElementById('email-error');
-        if (emailErr2) emailErr2.style.display = 'none';
-      }
-
-      // Service consent is optional — no validation needed
-
-      if (!valid) return;
-
-      // Build payload
-      var payload = {
-        address: address.value.trim(),
-        phone: phone.value.replace(/\D/g, ''),
-        fullName: fullName.value.trim(),
-        email: email.value.trim().toLowerCase(),
-        condition: null,
-        timeline: null,
-        serviceConsent: serviceConsent ? serviceConsent.checked : false,
-        marketingConsent: marketingConsent ? marketingConsent.checked : false,
-        tcpaConsent: serviceConsent ? serviceConsent.checked : false,
-        tcpaTimestamp: new Date().toISOString(),
-        source: 'website',
-        page: window.location.pathname,
-        referrer: document.referrer || null,
-        userAgent: navigator.userAgent
-      };
-
-      // Show loading
-      var submitBtn = step1Form.querySelector('button[type="submit"]');
-      var loadingEl = document.getElementById('hero-form-loading');
-      var successEl = document.getElementById('hero-form-success');
-      if (submitBtn) submitBtn.style.display = 'none';
-      if (loadingEl) loadingEl.style.display = 'block';
-
-      // Submit to API
-      fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      .then(function () {
-        // Show success
-        step1Form.querySelectorAll('.form-group, .form-checkbox, .hero__micro-trust').forEach(function (el) { el.style.display = 'none'; });
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (successEl) successEl.style.display = 'block';
-        trackEvent('lead_submitted', { page: 'homepage', source: 'a2p_single_page' });
-      })
-      .catch(function () {
-        // Show success anyway (lead may be in S3)
-        step1Form.querySelectorAll('.form-group, .form-checkbox, .hero__micro-trust').forEach(function (el) { el.style.display = 'none'; });
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (successEl) successEl.style.display = 'block';
-      });
+  var navToggle = qs('.nav__toggle');
+  var navLinks = qs('#primary-nav');
+  if (navToggle && navLinks) {
+    navToggle.addEventListener('click', function () {
+      var open = navToggle.getAttribute('aria-expanded') === 'true';
+      navToggle.setAttribute('aria-expanded', String(!open));
+      navLinks.classList.toggle('active', !open);
+      document.body.classList.toggle('nav-open', !open);
     });
   }
 
-  // ---------- Step 2 Form (Get Your Offer) ----------
-  var step2Form = document.getElementById('step2-form');
-  if (step2Form) {
-    // Populate hidden fields from Step 1
-    var storedAddress = sessionStorage.getItem('gc_address');
-    var storedPhone = sessionStorage.getItem('gc_phone');
-
-    if (!storedAddress || !storedPhone) {
-      // If someone lands here directly without Step 1, redirect home
-      window.location.href = '/';
-      return;
+  async function postJson(endpoint, payload) {
+    var response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    var body = null;
+    try { body = await response.json(); } catch (err) { body = null; }
+    if (!response.ok) {
+      var message = body && (body.error || body.message) ? (body.error || body.message) : 'Submission failed';
+      throw new Error(message);
     }
+    return body;
+  }
 
-    document.getElementById('s2-address').value = storedAddress;
-    document.getElementById('s2-phone').value = storedPhone;
+  function initSellerForm() {
+    var form = document.getElementById('seller-form');
+    if (!form) return;
 
-    step2Form.addEventListener('submit', function (e) {
-      e.preventDefault();
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      setStatus('seller', null);
 
-      var fullName = document.getElementById('full-name');
-      var email = document.getElementById('email');
-      var tcpa = document.getElementById('tcpa-consent');
-      var tcpaError = document.getElementById('tcpa-error');
+      var address = qs('#property-address', form);
+      var fullName = qs('#full-name', form);
+      var phone = qs('#phone', form);
+      var email = qs('#email', form);
+      var serviceConsent = qs('#service-consent', form);
+      var marketingConsent = qs('#marketing-consent', form);
       var valid = true;
 
-      // Validate name
-      if (!fullName.value.trim()) {
-        setError(fullName, true);
-        valid = false;
-      } else {
-        setError(fullName, false);
-      }
+      setFieldError(address, !address.value.trim() || address.value.trim().length < 5);
+      setFieldError(fullName, !fullName.value.trim() || fullName.value.trim().length < 2);
+      setFieldError(phone, !isValidPhone(phone.value));
+      setFieldError(email, !isValidEmail(email.value));
+      setManualError('service-consent-error', !serviceConsent.checked);
 
-      // Validate email
-      if (!isValidEmail(email.value)) {
-        setError(email, true);
-        valid = false;
-      } else {
-        setError(email, false);
-      }
-
-      // Validate TCPA consent (MUST be checked)
-      if (!tcpa.checked) {
-        tcpaError.style.display = 'block';
-        valid = false;
-      } else {
-        tcpaError.style.display = 'none';
-      }
-
+      valid = !qsa('.error', form).length && serviceConsent.checked;
       if (!valid) return;
 
-      // Build payload
       var payload = {
-        address: storedAddress,
-        phone: storedPhone,
+        address: address.value.trim(),
+        phone: phoneDigits(phone.value),
         fullName: fullName.value.trim(),
         email: email.value.trim().toLowerCase(),
-        condition: document.getElementById('condition').value || null,
-        timeline: document.getElementById('timeline').value || null,
-        tcpaConsent: true,
+        condition: qs('#condition', form).value || null,
+        timeline: qs('#timeline', form).value || null,
+        propertyType: qs('#property-type', form).value || null,
+        occupancy: null,
+        repairs: qs('#repairs', form).value.trim() || null,
+        serviceConsent: serviceConsent.checked,
+        marketingConsent: marketingConsent.checked,
+        tcpaConsent: serviceConsent.checked,
         tcpaTimestamp: new Date().toISOString(),
         source: 'website',
-        page: window.location.pathname,
+        page: window.location.pathname || '/',
         referrer: document.referrer || null,
         userAgent: navigator.userAgent
       };
 
-      // Show loading, hide form
-      step2Form.style.display = 'none';
-      document.getElementById('form-loading').classList.add('active');
+      var submit = qs('button[type="submit"]', form);
+      if (submit) submit.disabled = true;
+      setStatus('seller', 'loading');
 
-      // Submit to API
-      fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(function (res) {
-          if (!res.ok) throw new Error('Submission failed');
-          return res.json();
-        })
+      postJson(SELLER_ENDPOINT, payload)
         .then(function () {
-          // Success
-          document.getElementById('form-loading').classList.remove('active');
-          document.getElementById('form-success').classList.add('active');
-          // Clear session data
-          sessionStorage.removeItem('gc_address');
-          sessionStorage.removeItem('gc_phone');
+          setStatus('seller', 'success');
+          form.reset();
+          trackEvent('lead_submitted', { page: 'homepage', source: 'redesign_static' });
         })
         .catch(function () {
-          // Even on API error, show success (lead may have been saved to S3)
-          // Better UX than showing an error when the lead might actually be captured
-          document.getElementById('form-loading').classList.remove('active');
-          document.getElementById('form-success').classList.add('active');
-          sessionStorage.removeItem('gc_address');
-          sessionStorage.removeItem('gc_phone');
+          setStatus('seller', 'error');
+        })
+        .finally(function () {
+          if (submit) submit.disabled = false;
         });
     });
   }
 
-  // ---------- CTA Scroll Button ----------
-  var ctaBtn = document.getElementById('cta-scroll-btn');
-  if (ctaBtn) {
-    ctaBtn.addEventListener('click', function (e) {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Focus the address input after scroll
-      setTimeout(function () {
-        var addr = document.getElementById('property-address');
-        if (addr) addr.focus();
-      }, 600);
-    });
+  function checkedValues(form, name) {
+    return qsa('input[name="' + name + '"]:checked', form).map(function (input) { return input.value; });
   }
-  // ---------- Address Autocomplete (Mapbox Geocoding API) ----------
-  (function initAddressAutocomplete() {
-    var input = document.getElementById('property-address');
-    var list = document.getElementById('address-autocomplete');
-    if (!input || !list) return;
 
-    var token = input.getAttribute('data-mapbox-token');
-    if (!token) return;
+  function initBuyerForm() {
+    var form = document.getElementById('buyer-form');
+    if (!form) return;
 
-    var debounceTimer;
-    var activeIndex = -1;
-    var results = [];
-    var suppressNextInput = false;
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      setStatus('buyer', null);
 
-    function clearList() {
-      list.innerHTML = '';
-      list.classList.remove('active');
-      activeIndex = -1;
-    }
+      var fullName = qs('#buyer-full-name', form);
+      var email = qs('#buyer-email', form);
+      var phone = qs('#buyer-phone', form);
+      var buyerType = qs('#buyer-type', form);
+      var serviceConsent = qs('#buyer-service-consent', form);
+      var marketingConsent = qs('#buyer-marketing-consent', form);
+      var areas = checkedValues(form, 'areas');
 
-    function renderList(items) {
-      if (!items.length) {
-        clearList();
-        return;
-      }
-      list.innerHTML = items.map(function(item, idx) {
-        var primary = item.place_name;
-        var secondary = '';
-        if (item.place_name && item.place_name.indexOf(',') !== -1) {
-          var parts = item.place_name.split(',');
-          primary = parts.shift().trim();
-          secondary = parts.join(',').trim();
-        }
-        return '<div class="address-item" data-idx="' + idx + '">' +
-          '<div class="address-primary">' + primary + '</div>' +
-          (secondary ? '<div class="address-secondary">' + secondary + '</div>' : '') +
-        '</div>';
-      }).join('');
-      list.classList.add('active');
-    }
+      setFieldError(fullName, !fullName.value.trim() || fullName.value.trim().length < 2);
+      setFieldError(email, !isValidEmail(email.value));
+      setFieldError(phone, !isValidPhone(phone.value));
+      setFieldError(buyerType, !buyerType.value);
+      setManualError('buyer-areas-error', areas.length === 0);
+      setManualError('buyer-service-consent-error', !serviceConsent.checked);
 
-    function fetchSuggestions(query) {
-      if (!query || query.length < 3) {
-        clearList();
-        return;
-      }
-      var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' +
-        encodeURIComponent(query) + '.json' +
-        '?autocomplete=true&types=address&limit=6&country=US&access_token=' + encodeURIComponent(token);
+      if (qsa('.error', form).length || areas.length === 0 || !serviceConsent.checked) return;
 
-      fetch(url)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          results = (data && data.features) ? data.features : [];
-          renderList(results);
+      var payload = {
+        fullName: fullName.value.trim(),
+        email: email.value.trim().toLowerCase(),
+        phone: phoneDigits(phone.value),
+        buyerType: buyerType.value,
+        areas: areas,
+        propertyTypes: [],
+        priceRange: qs('#price-range', form).value || null,
+        purchaseMethod: qs('#purchase-method', form).value || null,
+        serviceConsent: serviceConsent.checked,
+        marketingConsent: marketingConsent.checked,
+        consentTimestamp: new Date().toISOString(),
+        source: 'deals-page',
+        submittedAt: new Date().toISOString()
+      };
+
+      var submit = qs('button[type="submit"]', form);
+      if (submit) submit.disabled = true;
+      setStatus('buyer', 'loading');
+
+      postJson(BUYER_ENDPOINT, payload)
+        .then(function () {
+          setStatus('buyer', 'success');
+          form.reset();
+          trackEvent('buyer_signup_submitted', { page: 'deals' });
         })
-        .catch(function() { clearList(); });
-    }
-
-    input.addEventListener('input', function() {
-      if (suppressNextInput) {
-        suppressNextInput = false;
-        return;
-      }
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function() {
-        fetchSuggestions(input.value.trim());
-      }, 200);
-    });
-
-    input.addEventListener('keydown', function(e) {
-      var items = list.querySelectorAll('.address-item');
-      if (!items.length) return;
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        activeIndex = (activeIndex + 1) % items.length;
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        activeIndex = (activeIndex - 1 + items.length) % items.length;
-      } else if (e.key === 'Enter' && activeIndex >= 0) {
-        e.preventDefault();
-        items[activeIndex].click();
-        return;
-      } else {
-        return;
-      }
-      items.forEach(function(el, i) {
-        el.classList.toggle('active', i === activeIndex);
-      });
-    });
-
-    list.addEventListener('mousedown', function(e) {
-      var item = e.target.closest('.address-item');
-      if (!item) return;
-      var idx = parseInt(item.getAttribute('data-idx'), 10);
-      var feature = results[idx];
-      if (feature) {
-        input.value = feature.place_name;
-        suppressNextInput = true;
-      }
-      clearList();
-    });
-
-    document.addEventListener('click', function(e) {
-      if (!list.contains(e.target) && e.target !== input) {
-        clearList();
-      }
-    });
-  })();
-
-  // ---------- Event Tracking ----------
-  function trackEvent(eventName, data) {
-    if (typeof gtag === 'function') {
-      gtag('event', eventName, data || {});
-    }
-    if (typeof fbq === 'function' && eventName === 'form_submit') {
-      fbq('track', 'Lead');
-    }
-    // Console log for dev
-    console.log('[GC Event]', eventName, data || {});
-  }
-
-  // Track all data-gc-event clicks
-  document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-gc-event]');
-    if (el) {
-      trackEvent(el.getAttribute('data-gc-event'));
-    }
-  });
-
-  // Track form field focus (form start)
-  var heroAddr = document.getElementById('property-address');
-  if (heroAddr) {
-    var formStarted = false;
-    heroAddr.addEventListener('focus', function () {
-      if (!formStarted) {
-        formStarted = true;
-        trackEvent('form_start');
-      }
+        .catch(function () {
+          setStatus('buyer', 'error');
+        })
+        .finally(function () {
+          if (submit) submit.disabled = false;
+        });
     });
   }
 
-  // Track phone call taps
-  document.querySelectorAll('a[href^="tel:"]').forEach(function (link) {
-    link.addEventListener('click', function () {
-      trackEvent('phone_click', { number: link.href });
-    });
-  });
+  initSellerForm();
+  initBuyerForm();
 })();

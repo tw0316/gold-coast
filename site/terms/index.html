@@ -3,25 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/assets/favicon.ico">
+  <link rel="preload" href="/assets/fonts/SourceSans3-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/css/styles.css">
   <title>Terms of Service | Gold Coast Home Buyers</title>
   <meta name="description" content="Terms of Service for Gold Coast Home Buyers.">
-  <link rel="icon" href="/assets/favicon.ico">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-
-  <header class="header">
-    <div class="container header__inner">
-      <a href="/" class="header__logo">Gold Coast <span>Home Buyers</span></a>
-      <a href="tel:+17869835811" class="header__phone">📞 (786) 983-5811</a>
+  <a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="container nav" aria-label="Primary navigation">
+    <a class="logo" href="/" aria-label="Gold Coast Home Buyers home">
+      <img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers">
+      <span class="logo__text">Gold Coast Home Buyers</span>
+    </a>
+    <nav class="nav__links" id="primary-nav">
+      <a href="/">Sell</a>
+      <a href="/deals/">Buy</a>
+      <a href="/about/">About</a>
+    </nav>
+    <div class="nav__actions">
+      <a class="nav__phone" href="tel:+17869835811">(786) 983-5811</a>
+      <a class="btn btn--ondark" href="/#offer">Get my cash offer</a>
     </div>
-  </header>
-
-  <main class="legal-page">
-    <div class="container">
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+  </div>
+</header>
+  <main id="main" class="legal-page">
+    <div class="container legal-content">
       <h1>Terms of Service</h1>
       <p><strong>Last Updated:</strong> March 6, 2026</p>
 
@@ -99,19 +108,38 @@
       </ul>
     </div>
   </main>
-
   <footer class="footer">
-    <div class="container footer__inner">
-      <div class="footer__logo">Gold Coast <span>Home Buyers</span></div>
-      <nav class="footer__links">
-        <a href="/privacy-policy/">Privacy Policy</a>
-        <a href="/terms/">Terms of Service</a>
-        <a href="/#contact">Contact</a>
-      </nav>
-      <p class="footer__dba">W &amp; Co LLC, doing business as Gold Coast Home Buyers</p>
-      <p class="footer__copy">&copy; 2026 Gold Coast Home Buyers. All rights reserved.</p>
+  <div class="container">
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <a class="footer__logo" href="/" aria-label="Gold Coast Home Buyers home"><img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers"></a>
+        <p>South Florida cash home buyers serving Miami-Dade, Broward, and Palm Beach. Fast offers, clean closings, no runaround.</p>
+      </div>
+      <div>
+        <h2>Explore</h2>
+        <nav class="footer__links" aria-label="Footer navigation">
+          <a href="/">Sell</a>
+          <a href="/deals/">Buy</a>
+          <a href="/about/">About</a>
+          <a href="/privacy-policy/">Privacy Policy</a>
+          <a href="/terms/">Terms</a>
+        </nav>
+      </div>
+      <div>
+        <h2>Contact</h2>
+        <div class="footer__contact">
+          <a href="tel:+17869835811">(786) 983-5811</a>
+          <a href="mailto:deals@gcoffers.com">deals@gcoffers.com</a>
+          <a href="https://instagram.com/gc.homebuyers">@gc.homebuyers</a>
+        </div>
+      </div>
     </div>
-  </footer>
-
+    <div class="footer__bottom">
+      <span>W &amp; Co LLC, doing business as Gold Coast Home Buyers</span>
+      <span>&copy; 2026 Gold Coast Home Buyers. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+  <script src="/js/main.js?v=20260604-redesign" defer></script>
 </body>
 </html>
