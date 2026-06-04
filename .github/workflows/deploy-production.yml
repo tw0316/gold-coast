@@ -1,0 +1,112 @@
+name: Deploy Production
+
+run-name: Deploy production from main
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_PRODUCTION_DEPLOY_ROLE_ARN: ${{ vars.AWS_PRODUCTION_DEPLOY_ROLE_ARN }}
+  PRODUCTION_S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+  PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID }}
+  PRODUCTION_URL: https://gcoffers.com
+
+jobs:
+  guard:
+    name: Confirm production deploy is being run from main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main branch
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "::error::Production deploy must be run from the main branch workflow. Selected: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    needs: guard
+    environment:
+      name: production
+      url: ${{ env.PRODUCTION_URL }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate website files
+        run: bash scripts/deploy/validate-static-site.sh site
+
+      - name: Check Lambda JavaScript syntax
+        run: |
+          node --check lambda/index.js
+          node --check lambda/buyer-signup.js
+
+      - name: Validate production deployment variables
+        run: |
+          missing=0
+          for name in AWS_REGION AWS_PRODUCTION_DEPLOY_ROLE_ARN PRODUCTION_S3_BUCKET PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions variable: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_PRODUCTION_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync files to production S3
+        run: bash scripts/deploy/sync-static-site-with-cache-control.sh site "$PRODUCTION_S3_BUCKET"
+
+      - name: Invalidate production CloudFront
+        id: invalidate
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "invalidation_id=$INVALIDATION_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Production smoke check
+        run: |
+          code="000"
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$PRODUCTION_URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "Production returned HTTP 200."
+              exit 0
+            fi
+            echo "Attempt $attempt returned HTTP $code; waiting for CloudFront."
+            sleep 10
+          done
+          echo "::error::Production smoke check failed: $PRODUCTION_URL returned HTTP $code."
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Production deployment complete
+
+          - Ref: \`main\`
+          - Site: $PRODUCTION_URL
+          - S3 bucket: \`$PRODUCTION_S3_BUCKET\`
+          - CloudFront distribution: \`$PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID\`
+          - Invalidation ID: \`${{ steps.invalidate.outputs.invalidation_id }}\`
+          EOF

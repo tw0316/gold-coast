@@ -18,15 +18,15 @@ Lead generation website for Gold Coast Home Buyers, a South Florida real estate 
 | Production  | gcoffers.com | Public |
 | Staging     | staging.gcoffers.com | IP-restricted |
 
-## Quick Start
+## Deployment
 
-```bash
-# Deploy to staging
-./scripts/deploy.sh staging
+Deployments run through GitHub Actions, not local scripts.
 
-# Deploy to production
-./scripts/deploy.sh prod
-```
+- **PR Check:** validates static site files and Lambda JavaScript syntax on PRs into `main`.
+- **Deploy Staging:** manual workflow, deploys a selected branch/tag/SHA to `staging.gcoffers.com`.
+- **Deploy Production:** manual workflow, deploys `main` to `gcoffers.com` after approval.
+
+See [docs/deployment-pipeline.md](docs/deployment-pipeline.md) for the release flow, required GitHub variables, and break-glass policy.
 
 ## Architecture
 

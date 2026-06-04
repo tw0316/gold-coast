@@ -1,80 +1,82 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Gold Coast Home Buyers — Deploy Script
-# Usage: ./scripts/deploy.sh [staging|prod]
+# Gold Coast Home Buyers — break-glass local deploy wrapper.
+# Normal deployments run through GitHub Actions. This script intentionally refuses
+# to run unless explicitly unlocked for an emergency.
+#
+# Usage:
+#   ALLOW_LOCAL_DEPLOY=1 ./scripts/deploy.sh staging --confirm-local-break-glass
+#   ALLOW_LOCAL_DEPLOY=1 ./scripts/deploy.sh prod --confirm-local-break-glass
 
-ENV="${1:-staging}"
+ENVIRONMENT="${1:-}"
+CONFIRMATION="${2:-}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SITE_DIR="$PROJECT_ROOT/site"
 
-# Environment config
-if [[ "$ENV" == "staging" ]]; then
-  BUCKET="gcoffers-site-staging"
-  CF_DIST="E2MA4HGXAENEX6"
-  DOMAIN="staging.gcoffers.com"
-elif [[ "$ENV" == "prod" ]]; then
-  BUCKET="gcoffers-site"
-  CF_DIST="E2M3ODBLV2EE62"
-  DOMAIN="gcoffers.com"
-else
-  echo "Usage: $0 [staging|prod]"
-  exit 1
+case "$ENVIRONMENT" in
+  staging)
+    BUCKET="gcoffers-site-staging"
+    CF_DIST="E2MA4HGXAENEX6"
+    DOMAIN="staging.gcoffers.com"
+    ;;
+  prod|production)
+    ENVIRONMENT="prod"
+    BUCKET="gcoffers-site"
+    CF_DIST="E2M3ODBLV2EE62"
+    DOMAIN="gcoffers.com"
+    ;;
+  *)
+    echo "Use GitHub Actions for standard deploys." >&2
+    echo "Break-glass usage: ALLOW_LOCAL_DEPLOY=1 $0 staging|prod --confirm-local-break-glass" >&2
+    exit 64
+    ;;
+esac
+
+if [[ "${ALLOW_LOCAL_DEPLOY:-}" != "1" || "$CONFIRMATION" != "--confirm-local-break-glass" ]]; then
+  echo "Local deploys are disabled by default." >&2
+  echo "Use GitHub Actions: Deploy Staging or Deploy Production." >&2
+  echo "Break-glass usage: ALLOW_LOCAL_DEPLOY=1 $0 $ENVIRONMENT --confirm-local-break-glass" >&2
+  exit 78
 fi
 
+cd "$PROJECT_ROOT"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Refusing local deploy from a dirty working tree." >&2
+  git status --short >&2
+  exit 78
+fi
+
+if [[ "$ENVIRONMENT" == "prod" && "$(git branch --show-current)" != "main" ]]; then
+  echo "Refusing production deploy from a non-main branch." >&2
+  exit 78
+fi
+
+bash scripts/deploy/validate-static-site.sh "$SITE_DIR"
+
 echo "========================================="
-echo "  Deploying Gold Coast Home Buyers"
-echo "  Environment: $ENV"
+echo "  BREAK-GLASS local deploy"
+echo "  Environment: $ENVIRONMENT"
 echo "  Bucket: $BUCKET"
 echo "  CloudFront: $CF_DIST"
 echo "========================================="
 
-# Step 1: Upload to S3
-echo ""
-echo "→ Step 1: Uploading site to S3..."
-aws s3 sync "$SITE_DIR" "s3://$BUCKET" \
-  --delete \
-  --cache-control "public, max-age=3600" \
-  --exclude "*.DS_Store"
+bash scripts/deploy/sync-static-site-with-cache-control.sh "$SITE_DIR" "$BUCKET"
 
-# Step 2: Set longer cache for static assets
-echo ""
-echo "→ Step 2: Setting asset cache headers..."
-aws s3 cp "s3://$BUCKET/css/" "s3://$BUCKET/css/" \
-  --recursive \
-  --cache-control "public, max-age=31536000, immutable" \
-  --content-type "text/css" \
-  --metadata-directive REPLACE
-
-aws s3 cp "s3://$BUCKET/js/" "s3://$BUCKET/js/" \
-  --recursive \
-  --cache-control "public, max-age=31536000, immutable" \
-  --content-type "application/javascript" \
-  --metadata-directive REPLACE
-
-# Step 3: Invalidate CloudFront
-echo ""
-echo "→ Step 3: Invalidating CloudFront cache..."
 INVALIDATION_ID=$(aws cloudfront create-invalidation \
   --distribution-id "$CF_DIST" \
   --paths "/*" \
   --query "Invalidation.Id" \
   --output text)
-echo "  Invalidation: $INVALIDATION_ID"
 
-# Step 4: Smoke test
-echo ""
-echo "→ Step 4: Smoke test..."
-sleep 5
+echo "Invalidation: $INVALIDATION_ID"
+
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN" || echo "000")
 if [[ "$HTTP_CODE" == "200" ]]; then
-  echo "✅ Site is live at https://$DOMAIN (HTTP $HTTP_CODE)"
+  echo "Site is reachable at https://$DOMAIN (HTTP $HTTP_CODE)"
+elif [[ "$ENVIRONMENT" == "staging" && "$HTTP_CODE" == "403" ]]; then
+  echo "Staging returned HTTP 403, expected when current IP is not in the staging WAF allowlist."
 else
-  echo "⚠️  Site returned HTTP $HTTP_CODE — may need a few minutes for cache invalidation"
+  echo "Site returned HTTP $HTTP_CODE; CloudFront may still be invalidating."
 fi
-
-echo ""
-echo "========================================="
-echo "  Deploy complete!"
-echo "  URL: https://$DOMAIN"
-echo "========================================="

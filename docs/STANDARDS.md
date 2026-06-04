@@ -119,10 +119,12 @@ style: adjust hero CTA button spacing
 
 ### Testing Workflow
 1. Build locally → test in browser
-2. Deploy to staging → test all forms, responsive, links
-3. Tej reviews staging (staging.gcoffers.com)
-4. Merge staging → main → auto-deploy to prod
-5. Smoke test prod
+2. Open PR → PR Check validates the static site and Lambda JavaScript syntax
+3. Run the Deploy Staging GitHub Actions workflow with the PR branch/ref
+4. Tej reviews staging from an allowed IP (`staging.gcoffers.com` is WAF-restricted)
+5. Merge PR into `main`
+6. Run the Deploy Production GitHub Actions workflow from `main`
+7. Smoke test prod
 
 ### Lambda Testing
 - Test locally with `sam local invoke` or simple Node.js test script
@@ -141,26 +143,30 @@ style: adjust hero CTA button spacing
 1. Create AWS resources (S3 buckets, CloudFront, Route 53, Lambda, API Gateway)
 2. Point Namecheap nameservers to Route 53
 3. Request ACM certificate for gcoffers.com + *.gcoffers.com
-4. Create GitHub repo (private)
-5. Set up deploy scripts
+4. Configure AWS GitHub Actions OIDC provider and deploy roles
+5. Configure GitHub Actions variables and environments
 
 ### Deploy to Staging
-```bash
-./scripts/deploy.sh staging
-```
+Run the **Deploy Staging** GitHub Actions workflow and provide the branch, tag, or SHA to deploy.
 
 ### Deploy to Production
+Run the **Deploy Production** GitHub Actions workflow from `main` after staging approval.
+
+### Local Break-Glass Deploy
+Local deployment is emergency-only and intentionally guarded:
+
 ```bash
-./scripts/deploy.sh prod
+ALLOW_LOCAL_DEPLOY=1 ./scripts/deploy.sh staging --confirm-local-break-glass
 ```
 
-### Deploy Script Should:
-1. Validate environment (staging/prod)
-2. Upload site files to correct S3 bucket
-3. Upload Lambda code (if changed)
-4. Invalidate CloudFront cache
-5. Run smoke test (curl homepage, check 200)
-6. Print deploy summary
+### Deployment Pipeline Should:
+1. Validate environment and required GitHub Actions variables
+2. Validate static site files and Lambda JavaScript syntax
+3. Upload site files to the correct S3 bucket
+4. Apply cache-control metadata
+5. Invalidate CloudFront cache
+6. Run smoke checks
+7. Print deploy summary
 
 ---
 
@@ -211,7 +217,8 @@ goldcoast-website/
 │   ├── outputs.tf
 │   └── staging.tfvars
 ├── scripts/
-│   ├── deploy.sh             # Deploy script
+│   ├── deploy.sh             # Break-glass local deploy wrapper
+│   ├── deploy/               # GitHub Actions deploy helpers
 │   └── setup.sh              # One-time infra setup
 ├── .gitignore
 └── README.md
