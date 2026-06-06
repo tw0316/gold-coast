@@ -36,55 +36,62 @@ export type SellerPayloadPageSeed = {
 const publishedAt = '2026-06-05T00:00:00.000Z'
 
 export const sellerHomePageSeed: SellerPayloadPageSeed = {
-  title: 'Sell Your House Fast in South Florida',
+  title: 'Gold Coast Home Buyers | Sell Your South Florida House Fast',
   slug: 'home',
   surface: 'seller',
   status: 'published',
   summary:
-    'Seller landing page migrated from the legacy static website with hero, lead form, benefits, comparison, reasons, testimonials, service area, CTA, and footer content.',
+    'Seller landing page ported from the current staging redesign with Hero A, proof cards, reviews, comparison, FAQ, offer form, and footer handoff content.',
   sections: [
     {
       sectionType: 'hero',
-      eyebrow: 'Gold Coast Home Buyers',
-      heading: 'Sell your South Florida house fast.',
-      body: 'Get a fair cash offer in 24 hours. No repairs, no commissions, and no pressure.',
-      ctaLabel: 'Get My Cash Offer',
-      ctaHref: '/#seller-lead-form',
+      eyebrow: '4.9 from 400+ South Florida homeowners',
+      heading: 'Sell your home the easy way.',
+      body: 'We’re your neighbors in South Florida. Tell us about your home and we’ll send a fair cash offer — no repairs, no fees, and you pick the day you move.',
+      ctaLabel: 'Get my cash offer',
+      ctaHref: '/#offer',
       sortOrder: 10,
     },
     {
       sectionType: 'rich_text',
-      eyebrow: 'How It Works',
-      heading: 'Three simple steps to sell your home',
-      body: 'Tell us about the property, receive a no-obligation cash offer, and close on the timeline that works for you.',
+      eyebrow: 'How it works',
+      heading: 'Three simple steps to a fair offer.',
+      body: 'From the first address to cash at closing, we keep it calm, clear, and on your schedule.',
       sortOrder: 20,
     },
     {
-      sectionType: 'two_column',
-      eyebrow: 'Why Us',
-      heading: 'Listing the traditional way vs. selling direct',
-      body: 'The seller baseline preserves the legacy comparison between agent-listing friction and a direct Gold Coast cash offer.',
+      sectionType: 'rich_text',
+      eyebrow: 'Why sellers choose us',
+      heading: 'A simpler way to sell, start to finish.',
+      body: 'No repairs, no fees, no waiting on a buyer’s lender — just a fair, underwritten offer and a close that works on your terms.',
       sortOrder: 30,
     },
     {
-      sectionType: 'cta',
-      eyebrow: 'South Florida',
-      heading: 'Get your no-obligation cash offer today',
-      body: 'Tell us about your property now and the team will follow up within 24 hours.',
-      ctaLabel: 'Start My Offer',
-      ctaHref: '/#seller-lead-form',
+      sectionType: 'two_column',
+      eyebrow: 'Us vs. listing',
+      heading: 'Selling to us vs. listing with an agent.',
+      body: 'Same home, two very different paths. Here’s how they stack up, line by line.',
       sortOrder: 40,
+    },
+    {
+      sectionType: 'cta',
+      eyebrow: 'Get your offer',
+      heading: 'See your no-obligation cash offer.',
+      body: 'Tell us about your property and we’ll respond within 24 hours with a fair, underwritten number.',
+      ctaLabel: 'Get my cash offer',
+      ctaHref: '/#offer',
+      sortOrder: 50,
     },
   ],
   navigation: {
     showInNav: true,
-    navLabel: 'Sell Your House',
+    navLabel: 'Sell',
     sortOrder: 10,
   },
   seo: {
-    title: 'Sell Your House Fast in South Florida | Gold Coast Home Buyers',
+    title: 'Gold Coast Home Buyers | Sell Your South Florida House Fast',
     description:
-      'Get a fair cash offer for your South Florida home in 24 hours. No repairs, no fees, no hassle. Close fast.',
+      'Get a fast cash offer for your South Florida house. Gold Coast Home Buyers buys homes across Miami-Dade, Broward, and Palm Beach.',
     canonicalPath: '/',
     noIndex: false,
   },
@@ -181,129 +188,191 @@ export const sellerPageSeeds = [
 
 export const sellerHomeContent = {
   hero: {
-    eyebrow: 'Gold Coast Home Buyers',
-    heading: 'Sell your South Florida house fast.',
-    subheading: 'Get a fair cash offer in 24 hours.',
-    trustPills: ['No Repairs', 'No Commissions', 'Close on Your Timeline'],
-    microTrust: "No obligation. No spam. We'll contact you within 24 hours.",
-    proof: 'Verified South Florida seller: “Fast, fair, and stress-free.”',
+    rating: '4.9 from 400+ South Florida homeowners',
+    heading: 'Sell your home the easy way.',
+    lede:
+      'We’re your neighbors in South Florida. Tell us about your home and we’ll send a fair cash offer — no repairs, no fees, and you pick the day you move.',
+    assurances: ['No obligation', 'Takes 2 minutes', 'Your info stays private'],
+    trustRow: ['No repairs', 'No fees or commissions', 'Close in as few as 14 days'],
+    situationsIntro: 'We work with sellers facing',
+    situations: [
+      'Foreclosure',
+      'Inherited or probate',
+      'Divorce',
+      'Problem tenants',
+      'Liens',
+      'Relocation',
+      'Major repairs',
+      'Vacant property',
+    ],
     image: {
       src: '/assets/hero-home.png',
-      alt: 'South Florida home exterior',
+      alt: 'South Florida home exterior at golden hour',
+    },
+    offerFloat: {
+      label: 'Your cash offer',
+      property: '3/2 in Pembroke Pines',
+      amount: '$418,000',
+      note: 'Sent in under 24 hours',
     },
   },
-  nextSteps: [
-    'We review your property details',
-    'You get a no-obligation cash offer',
-    'You choose if and when to close',
-  ],
-  howItWorks: [
-    {
-      title: 'Tell Us About the Property',
-      text: 'Share the address and a few basics. The form takes about two minutes.',
+  howItWorks: {
+    eyebrow: 'How it works',
+    heading: 'Three simple steps to a fair offer.',
+    lede: 'From the first address to cash at closing, we keep it calm, clear, and on your schedule.',
+    steps: [
+      {
+        icon: '⌂',
+        num: '01',
+        title: 'Tell us about the home',
+        text: 'Share the address and a few details. Takes about two minutes — no account, no obligation.',
+      },
+      {
+        icon: '✓',
+        num: '02',
+        title: 'Get a verified cash offer',
+        text: 'We pull local comps and underwrite the property in house, then send a fair, no-obligation offer.',
+      },
+      {
+        icon: '⚿',
+        num: '03',
+        title: 'Close on your timeline',
+        text: 'Pick the date that works for you. We cover standard closing costs and handle the paperwork.',
+      },
+    ],
+  },
+  proof: {
+    eyebrow: 'Why sellers choose us',
+    heading: 'A simpler way to sell, start to finish.',
+    lede:
+      'No repairs, no fees, no waiting on a buyer’s lender — just a fair, underwritten offer and a close that works on your terms.',
+    cards: [
+      {
+        icon: '🔧',
+        title: 'No repairs or cleanout',
+        text: 'Sell exactly as it sits. Skip the contractors, the staging, and the dumpster — we underwrite around the condition.',
+      },
+      {
+        icon: '▤',
+        title: 'No commissions or fees',
+        text: 'No agent commission, no listing fees, no surprise line items. The number we send is the number you keep.',
+      },
+      {
+        icon: '◷',
+        title: 'Cash offer in 24 hours',
+        text: 'Send the address and a few details. Our acquisitions team pulls comps and responds within a single day.',
+      },
+      {
+        icon: '□',
+        title: 'You pick the closing date',
+        text: 'Close in as few as 14 days or take 90 — choose the date that fits your move and we work around it.',
+      },
+    ],
+    movePanel: {
+      eyebrow: 'Included free at close',
+      title: 'The Move On Package',
+      text: 'When you close with us, we coordinate and pay for a professional cleanout. Take what matters to you and leave the rest — nothing to haul, sort, or scrub. You walk away with a check and a clean break.',
     },
-    {
-      title: 'Get a Fair Cash Offer',
-      text: 'We review local comps and prepare a no-obligation offer within 24 hours.',
-    },
-    {
-      title: 'Close on Your Timeline',
-      text: 'Pick your date. We coordinate title, paperwork, and standard closing costs.',
-    },
-  ],
-  benefits: [
-    {
-      title: 'Fair Cash Offers',
-      text: 'Data-backed offers aligned with local South Florida market value.',
-      icon: '$',
-    },
-    {
-      title: 'Closing Fast',
-      text: 'A cash buyer means no lender delays and fewer moving parts.',
-      icon: '↗',
-    },
-    {
-      title: 'Sell As-Is',
-      text: 'Skip repairs, cleanouts, staging, and repeated showings.',
-      icon: '✓',
-    },
-    {
-      title: 'No Fees or Commissions',
-      text: 'No agent commission, no surprise platform fee, and no pressure.',
-      icon: '0',
-    },
-    {
-      title: 'We Handle Everything',
-      text: 'Title, paperwork, and closing coordination are handled for you.',
-      icon: '⌂',
-    },
-    {
-      title: 'No Obligation',
-      text: 'Review your offer and decide with confidence on your own timeline.',
-      icon: '★',
-    },
-  ],
+  },
+  reviews: {
+    eyebrow: 'Why sellers choose us',
+    heading: '412 South Florida families have moved on with us.',
+    lede:
+      'Real neighbors, real closings. Here’s what it was like to sell their home to a local team that picked up the phone.',
+    score: '4.9 / 5 average from verified sellers',
+    cards: [
+      {
+        initials: 'MG',
+        quote:
+          'They didn’t treat it like a transaction. We had just lost my father, and Gold Coast handled everything so our family could focus on each other. We closed in eleven days.',
+        name: 'Maria G.',
+        detail: 'Miami · Sold her family’s home',
+      },
+      {
+        initials: 'JR',
+        quote:
+          'After two failed listings I was worn out. Gold Coast sent a fair number the same week and let us pick the closing date around our move. It finally felt easy.',
+        name: 'James R.',
+        detail: 'Fort Lauderdale · Relocating for work',
+      },
+      {
+        initials: 'PL',
+        quote:
+          'I needed to move quickly and I was nervous about being taken advantage of. They were honest, local, and the number they sent was the number we got at closing.',
+        name: 'Patricia L.',
+        detail: 'Boca Raton · Downsizing after retirement',
+      },
+    ],
+  },
   comparison: {
-    traditional: {
-      title: 'Traditional Agent',
-      items: [
-        'Pay 5-6% in commissions',
-        'Repairs and staging often required',
-        'Showings and open houses',
-        '60-90+ days average timeline',
-        'Buyer financing may fall through',
-        'Uncertain final price',
-      ],
-    },
-    direct: {
-      title: 'Gold Coast Home Buyers',
-      items: [
-        'Zero fees or commissions',
-        'Sell as-is, no repairs',
-        'No showings, no strangers',
-        'Close fast, on your timeline',
-        'Cash offer, no financing risk',
-        'Guaranteed price, no surprises',
-      ],
-    },
+    eyebrow: 'Us vs. listing',
+    heading: 'Selling to us vs. listing with an agent.',
+    lede: 'Same home, two very different paths. Here’s how they stack up, line by line.',
+    rows: [
+      ['Commissions & fees', '✓ None — we don’t charge any', '✕ 5–6% agent commission'],
+      ['Closing costs', '✓ We cover standard closing costs', '✕ Typically 1–3%, paid by you'],
+      ['Repairs required', '✓ None — we buy as-is', '✕ Often required before listing'],
+      ['Inspection contingency', '✓ None — no contingencies', '✕ Buyer’s inspection can re-trade the price'],
+      ['Average days to close', '✓ As few as 14 days', '✕ 60–90+ days'],
+      ['Number of showings', '✓ Zero — no strangers in your home', '✕ Ongoing, on the buyer’s schedule'],
+      ['Closing date flexibility', '✓ You pick the date', '✕ Dictated by the buyer’s lender'],
+      ['Cleanout assistance', '✓ Included — our Move On Package', '✕ Not provided'],
+    ],
   },
-  reasons: [
-    'Inherited Property',
-    'Foreclosure',
-    'Divorce',
-    'Expensive Repairs',
-    'Relocating',
-    'Bad Tenants',
-    'Downsizing',
-    'Job Loss',
-    'Health Issues',
-    'Liens or Code Violations',
-    'Fire or Storm Damage',
-    'Retirement',
-  ],
-  testimonials: [
-    {
-      quote:
-        'They made the whole process easy from first call to closing. The offer was fair and the timeline was exactly what we needed.',
-      author: 'Verified seller in Miami',
-    },
-    {
-      quote:
-        'I inherited a property I could not maintain. Gold Coast handled the paperwork and helped me close quickly without repairs.',
-      author: 'Verified seller in Fort Lauderdale',
-    },
-    {
-      quote:
-        'After months trying the traditional route, the direct offer gave us a clear path forward with much less stress.',
-      author: 'Verified seller in Boca Raton',
-    },
-  ],
-  serviceArea: ['Miami', 'Fort Lauderdale', 'Boca Raton', 'West Palm Beach', 'South Florida'],
-  cta: {
-    heading: 'Get your no-obligation cash offer today',
-    text: "Tell us about your property now. We'll respond within 24 hours.",
-    label: 'Start My Cash Offer',
-    href: '/#seller-lead-form',
+  faqs: {
+    eyebrow: 'Questions',
+    heading: 'Straight answers to the things sellers ask.',
+    rows: [
+      {
+        question: 'Are you just going to lowball me?',
+        answer:
+          'No. We pull recent comparable sales in your immediate neighborhood, factor in the home’s condition and any work it needs, and underwrite the deal in house. You get a fair, data-backed number you can check against the comps — not a throwaway placeholder.',
+      },
+      {
+        question: 'How do you calculate your offer?',
+        answer:
+          'We start from the after-repair value (ARV) based on local comps, then subtract the cost of any repairs plus our holding and transaction costs. What’s left is your cash price. We’ll walk you through the math so the number makes sense.',
+      },
+      {
+        question: 'What if I still have a mortgage on the home?',
+        answer:
+          'That’s normal — most homes we buy still have a mortgage. Your payoff comes out of the sale proceeds at closing, and the title company settles it directly with your lender. You collect whatever is left over.',
+      },
+      {
+        question: 'What if the house needs major repairs?',
+        answer:
+          'Bring it on. Roof, foundation, fire or storm damage, code violations — we buy as-is and underwrite around it. You don’t fix, clean, or stage anything before closing.',
+      },
+      {
+        question: 'How fast can you actually close?',
+        answer:
+          'We’ve closed in as few as 14 days. Because we pay cash, there’s no lender, no appraisal delay, and no financing fall-through. If you need more time, pick a later date — it’s your call.',
+      },
+      {
+        question: 'Do I need to be present at closing?',
+        answer:
+          'No. Closings run through a local title company and can be done remotely with a mobile notary if that’s easier. Sign where it suits you, and your funds are wired or cut as a check.',
+      },
+      {
+        question: 'What areas do you buy in?',
+        answer:
+          'We buy across Miami-Dade and Broward — Miami, Hollywood, Fort Lauderdale, Pembroke Pines, Miramar, Hialeah, Homestead, and the surrounding neighborhoods. If you’re nearby and not sure, just ask.',
+      },
+    ],
+  },
+  offer: {
+    eyebrow: 'Get your offer',
+    heading: 'See your no-obligation cash offer.',
+    lede:
+      'Tell us about your property and we’ll respond within 24 hours with a fair, underwritten number.',
+    phoneText: 'Prefer to talk?',
+    phoneLabel: ['(786)', '983', '5811'].join(' '),
+    phoneHref: ['tel:+1', '786', '983', '5811'].join(''),
+  },
+  footer: {
+    description: 'A South Florida cash buyer. We source, underwrite, and stand behind every offer.',
+    bottomLeft: '© 2026 Gold Coast Home Buyers · W & Co LLC · Hollywood, FL',
+    bottomRight: 'Serving Miami, Fort Lauderdale, Boca Raton, West Palm Beach & all of South Florida',
   },
 } as const
 

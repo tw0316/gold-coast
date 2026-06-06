@@ -224,7 +224,7 @@ const sellerBuild = pipeline.buildSellerLeadSubmission(
   metadata,
   fixedNow,
 )
-assert(sellerBuild.ok, 'seller lead build preserves required seller lead capture payload')
+assert(sellerBuild.ok, 'seller lead build accepts seller capture payload with optional phone provided')
 if (sellerBuild.ok) {
   assert(
     /^seller-leads\/2026-02-03\/seller-2026-02-03T04-05-06-007Z-[a-f0-9]{16}\.json$/.test(
@@ -238,6 +238,21 @@ if (sellerBuild.ok) {
     'seller lead keeps GHL best-effort tag semantics',
   )
 }
+
+const sellerNoPhoneBuild = pipeline.buildSellerLeadSubmission(
+  {
+    fullName: '[REDACTED_NAME]',
+    address: ['REDACTED', 'PROPERTY', 'PLACEHOLDER'].join(' '),
+    email: safeSellerEmail,
+  },
+  metadata,
+  fixedNow,
+)
+assert(sellerNoPhoneBuild.ok, 'seller lead build accepts missing optional phone')
+assert(
+  sellerNoPhoneBuild.ok && sellerNoPhoneBuild.submission.sideEffectExpectations.smsEligible === false,
+  'seller lead does not enable SMS behavior without phone plus consent',
+)
 
 if (buyerBuild.ok) {
   const events = []

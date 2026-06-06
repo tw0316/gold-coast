@@ -310,7 +310,8 @@ export function buildSellerLeadSubmission(
   const fullName = trimAndLimit(getStringField(body, 'fullName'), 160)
   const address = trimAndLimit(getStringField(body, 'address'), 300)
   const email = normalizeEmail(getStringField(body, 'email'))
-  const phone = normalizePhone(getStringField(body, 'phone'))
+  const phoneRaw = getStringField(body, 'phone')
+  const phone = phoneRaw ? normalizePhone(phoneRaw) : null
 
   if (fullName.length < 2) {
     errors.push(requiredError('fullName', 'Full name is required.'))
@@ -321,11 +322,11 @@ export function buildSellerLeadSubmission(
   if (!email) {
     errors.push(requiredError('email', 'Valid email is required.'))
   }
-  if (!phone) {
-    errors.push(requiredError('phone', 'Valid phone is required.'))
+  if (phoneRaw && !phone) {
+    errors.push(requiredError('phone', 'Phone must be valid when provided.'))
   }
 
-  if (errors.length > 0 || !email || !phone) {
+  if (errors.length > 0 || !email) {
     return { ok: false, errors }
   }
 
