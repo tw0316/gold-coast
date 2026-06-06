@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+
+# Public crawl rules will be expanded after CMS visibility/access controls land.
