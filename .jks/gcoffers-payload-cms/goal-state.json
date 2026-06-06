@@ -5,7 +5,7 @@
   "status": "completed",
   "roughPercent": 100,
   "createdAt": "2026-06-05T23:45:56Z",
-  "updatedAt": "2026-06-06T06:06:45Z",
+  "updatedAt": "2026-06-06T14:43:00Z",
   "sourceEpic": "/Users/jarvis/LocalRepos/gold-coast/epics/active/gcoffers-payload-cms-whole-site.md",
   "requestedProjectRoot": "/Users/jarvis/LocalRepos/gold-coast",
   "implementationRoot": "/Users/jarvis/LocalRepos/gold-coast-gcoffers-payload-cms",
@@ -15,12 +15,12 @@
     "driver": {
       "id": "a84db3f6a4fb",
       "cadence": "every 15m",
-      "status": "active"
+      "status": "paused"
     },
     "reporter": {
       "id": "fea7887d4e6b",
       "cadence": "every 15m wakeup with variable posting",
-      "status": "active"
+      "status": "paused"
     }
   },
   "reportingPolicy": {
@@ -34,16 +34,16 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-06-06T03:03:23Z",
-  "lastReportedStatus": "active",
+  "lastReportAt": "2026-06-06T14:43:00Z",
+  "lastReportedStatus": "completed",
   "lastReportedActiveSlice": null,
   "finalReport": {
-    "sent": false,
-    "sentAt": null,
-    "messageId": null
+    "sent": true,
+    "sentAt": "2026-06-06T14:43:00Z",
+    "messageId": "slack-thread-final-response"
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-8-docs-pr-evidence",
+  "lastCompletedSlice": "slice-11-staging-verification",
   "queue": [
     {
       "id": "slice-1-preflight-adr",
@@ -153,6 +153,49 @@
         "https://github.com/tw0316/gold-coast/pull/5"
       ],
       "notes": "Completed. Final docs/runbook/PR evidence added, owner verification passed, branch pushed, and PR opened: https://github.com/tw0316/gold-coast/pull/5"
+    },
+    {
+      "id": "slice-9-pr-merge-reconcile",
+      "title": "Merge PR and reconcile local branch",
+      "status": "completed",
+      "startedAt": "2026-06-06T13:47:26Z",
+      "completedAt": "2026-06-06T14:09:14Z",
+      "expectedEvidence": [
+        "https://github.com/tw0316/gold-coast/pull/5",
+        "git log -1 78cb7e0"
+      ],
+      "notes": "PR #5 is merged into feat/data-lake-monorepo-slice-1 and local source checkout is fast-forwarded to merge commit 78cb7e0."
+    },
+    {
+      "id": "slice-10-staging-deploy",
+      "title": "Deploy Payload runtime to staging with cutover disabled",
+      "status": "completed",
+      "startedAt": "2026-06-06T14:12:00Z",
+      "completedAt": "2026-06-06T14:43:00Z",
+      "expectedEvidence": [
+        "infra/payload-site Terraform state/resources",
+        "ECR image tag",
+        "ECS service health",
+        "CloudFront or ALB staging URL",
+        ".jks/gcoffers-payload-cms/slice-10-staging-deploy-evidence.md"
+      ],
+      "notes": "Completed. Stage-0 and runtime Terraform applies succeeded, staging image pushed to ECR, secrets injected via Secrets Manager, ECS reached steady state 1/1/0, cutover/prod aliases/live alerts remained disabled."
+    },
+    {
+      "id": "slice-11-staging-verification",
+      "title": "Verify staging runtime, admin, site pages, forms, and evidence bundle",
+      "status": "completed",
+      "startedAt": "2026-06-06T14:43:00Z",
+      "completedAt": "2026-06-06T14:43:00Z",
+      "expectedEvidence": [
+        "/api/health/readiness JSON",
+        "/admin Payload response",
+        "seller/buyer/deals page HTTP checks",
+        "safe form route checks",
+        "docs/evidence artifact",
+        ".jks/gcoffers-payload-cms/slice-11-staging-verification-evidence.md"
+      ],
+      "notes": "Completed. All staging verification checks passed against the Payload CloudFront URL; temporary fake seller-lead S3 test object was deleted."
     }
   ],
   "childReliability": {
@@ -162,7 +205,7 @@
     "replaced": 0,
     "failed": 1,
     "lost": 0,
-    "lastIssue": "Slice-8 worker output verified by owner; PR opened successfully. Launch-time secrets/image/health endpoint caveats remain documented and are not PR blockers."
+    "lastIssue": "No active child issues. Staging deployment and verification completed by owner with direct verification."
   },
   "childRuns": [
     {
@@ -583,55 +626,28 @@
   ],
   "lastVerifiedEvidence": [
     {
-      "slice": "slice-2-repo-scaffold",
-      "type": "commands",
-      "result": "passed",
-      "details": "verify:scaffold, typecheck, build, scoped safety scan passed; spec/quality accepted after fixes"
+      "at": "2026-06-06T14:43:00Z",
+      "sliceId": "slice-10-staging-deploy",
+      "evidence": ".jks/gcoffers-payload-cms/slice-10-staging-deploy-evidence.md",
+      "summary": "Staging runtime deployed with cutover, prod aliases, and live alerts disabled. ECS desired/running/pending = 1/1/0."
     },
     {
-      "slice": "slice-3-payload-schema-access",
-      "type": "commands",
-      "result": "passed",
-      "details": "verify:schema-access, typecheck, build, scoped safety scan passed; public query/media/API exposure fixes verified"
-    },
-    {
-      "slice": "slice-4-seller-site-baseline",
-      "type": "commands",
-      "result": "passed",
-      "details": "verify:seller-site, verify:scaffold, verify:schema-access, typecheck, build passed"
-    },
-    {
-      "slice": "slice-5-buyer-deals-baseline",
-      "type": "commands",
-      "result": "passed",
-      "details": "verify:buyer-deals-site, typecheck, build, verify:seller-site, verify:schema-access, scoped safety scan, git diff --check, and final spec/quality re-review passed"
-    },
-    {
-      "slice": "slice-6-s3-first-form-pipeline",
-      "type": "commands",
-      "result": "passed",
-      "details": "verify:s3-first-form-pipeline, typecheck, build, verify:buyer-deals-site, verify:seller-site, git diff --check, and scoped safety scan passed; no live side effects performed"
-    },
-    {
-      "slice": "slice-7-aws-infra",
-      "type": "commands",
-      "result": "passed",
-      "details": "terraform fmt -check -recursive, terraform init -backend=false -input=false, terraform validate, git diff --check, static guard verification, and scoped safety scan passed; no plan/apply or live AWS mutation performed"
-    },
-    {
-      "slice": "slice-8-docs-pr-evidence",
-      "type": "commands-pr",
-      "result": "passed",
-      "details": "Final app verification, Terraform validate, safety scan, git diff --check, local commit, branch push, and PR creation passed. PR: https://github.com/tw0316/gold-coast/pull/5"
+      "at": "2026-06-06T14:43:00Z",
+      "sliceId": "slice-11-staging-verification",
+      "evidence": ".jks/gcoffers-payload-cms/slice-11-staging-verification-evidence.md",
+      "summary": "Readiness, admin, site pages, redirect, validation, and S3-first fake seller lead checks passed."
     }
   ],
   "blockers": [],
   "guardrails": [
     "Do not merge PRs, push to main, deploy, apply Terraform, change DNS, send live GHL/Slack/email alerts, or mutate production AWS resources without explicit approval.",
     "Do not expose secrets or raw PII in Slack, docs, logs, run-status artifacts, PR evidence, or committed files.",
-    "Terraform PR work is validate/plan-only with cutover disabled by default.",
+    "Terraform implementation work was validate/plan-only until Tej approved staging deployment; staging applies are allowed only with cutover/prod aliases/live alerts disabled.",
     "Keep S3-first persistence for seller leads, buyer signups, and deal-interest.",
-    "Protect deal exact addresses and hidden/draft media by default."
+    "Protect deal exact addresses and hidden/draft media by default.",
+    "PR merge and staging deployment are now in scope per Tej 2026-06-06 DoD revision.",
+    "Keep enable_dns_cutover=false, enable_prod_alias=false, and enable_live_alerts=false for staging deployment.",
+    "Do not change production DNS, attach production CloudFront aliases, mutate legacy production S3/API Gateway/Lambda, or send live AWS/GHL/Slack/email alerts without separate explicit production approval."
   ],
   "resourceManifest": [
     {
@@ -652,7 +668,7 @@
       "thread": "1780702987.289439"
     }
   ],
-  "nextAction": "Goal completed locally. PR is open at https://github.com/tw0316/gold-coast/pull/5. Do not merge/deploy/apply Terraform/change DNS/send live alerts without explicit approval. Owner can disable JKS crons after receiving final report.",
+  "nextAction": "Done. Await explicit approval before DNS cutover, production alias attachment, live alerts, production Terraform, or production deployment. Recommended hygiene: review/merge follow-up repo changes that capture the staging CloudFront policy fix and evidence.",
   "pullRequest": {
     "url": "https://github.com/tw0316/gold-coast/pull/5",
     "number": 5,
@@ -661,6 +677,13 @@
     "headBranch": "feat/gcoffers-payload-cms-site",
     "openedAt": "2026-06-06T06:06:45Z",
     "latestVerifiedCommit": "0f668db49713895ae539d219eb8243adc3424c96",
-    "merged": false
-  }
+    "merged": true,
+    "mergedAt": "2026-06-06T13:47:26Z",
+    "mergeCommit": "78cb7e0954da86079eae7da9c4d80b021162df51"
+  },
+  "caveats": [
+    "staging.gcoffers.com remains legacy until DNS/alias cutover is explicitly approved.",
+    "cloudfront.tf no-cache policy fix is local and should be committed/pushed in a follow-up repo hygiene step.",
+    "Staging DATABASE_URI uses sslmode=no-verify; revisit CA verification before production cutover."
+  ]
 }
