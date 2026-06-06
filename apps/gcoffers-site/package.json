@@ -1,0 +1,38 @@
+{
+  "name": "gcoffers-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0 <23",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "npm run payload:importmap",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "payload": "payload",
+    "payload:importmap": "payload generate:importmap",
+    "payload:types": "payload generate:types",
+    "verify:schema-access": "node scripts/verify-payload-schema-access.mjs",
+    "verify:scaffold": "node scripts/verify-scaffold.mjs",
+    "verify:seller-site": "node scripts/verify-seller-site.mjs"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "3.85.0",
+    "@payloadcms/next": "3.85.0",
+    "next": "16.2.7",
+    "payload": "3.85.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "sharp": "0.34.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.20",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.3"
+  }
+}
