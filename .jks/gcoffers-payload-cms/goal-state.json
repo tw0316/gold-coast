@@ -5,7 +5,7 @@
   "status": "completed",
   "roughPercent": 100,
   "createdAt": "2026-06-05T23:45:56Z",
-  "updatedAt": "2026-06-06T14:43:00Z",
+  "updatedAt": "2026-06-06T18:21:04Z",
   "sourceEpic": "/Users/jarvis/LocalRepos/gold-coast/epics/active/gcoffers-payload-cms-whole-site.md",
   "requestedProjectRoot": "/Users/jarvis/LocalRepos/gold-coast",
   "implementationRoot": "/Users/jarvis/LocalRepos/gold-coast-gcoffers-payload-cms",
@@ -34,13 +34,13 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-06-06T14:43:00Z",
-  "lastReportedStatus": "completed",
+  "lastReportAt": "2026-06-06T18:21:04Z",
+  "lastReportedStatus": "completed-after-staging-remediation",
   "lastReportedActiveSlice": null,
   "finalReport": {
     "sent": true,
-    "sentAt": "2026-06-06T14:43:00Z",
-    "messageId": "slack-thread-final-response"
+    "sentAt": "2026-06-06T18:21:04Z",
+    "messageId": "slack-thread-staging-remediation-report"
   },
   "activeSlice": null,
   "lastCompletedSlice": "slice-11-staging-verification",
@@ -186,7 +186,7 @@
       "title": "Verify staging runtime, admin, site pages, forms, and evidence bundle",
       "status": "completed",
       "startedAt": "2026-06-06T14:43:00Z",
-      "completedAt": "2026-06-06T14:43:00Z",
+      "completedAt": "2026-06-06T18:21:04Z",
       "expectedEvidence": [
         "/api/health/readiness JSON",
         "/admin Payload response",
@@ -195,7 +195,7 @@
         "docs/evidence artifact",
         ".jks/gcoffers-payload-cms/slice-11-staging-verification-evidence.md"
       ],
-      "notes": "Completed. All staging verification checks passed against the Payload CloudFront URL; temporary fake seller-lead S3 test object was deleted."
+      "notes": "Completed after staging remediation. Initial HTTP-only admin verification missed a browser-rendered Next error. Root cause was missing Payload Postgres schema; migrations/prodMigrations fix was committed to PR #6, deployed to staging image stage-851dbf1-20260606180226, and verified by browser admin/homepage checks, S3-first seller lead POST, and CloudWatch error absence."
     }
   ],
   "childReliability": {
@@ -636,6 +636,12 @@
       "sliceId": "slice-11-staging-verification",
       "evidence": ".jks/gcoffers-payload-cms/slice-11-staging-verification-evidence.md",
       "summary": "Readiness, admin, site pages, redirect, validation, and S3-first fake seller lead checks passed."
+    },
+    {
+      "at": "2026-06-06T18:21:04Z",
+      "sliceId": "slice-11-staging-verification",
+      "evidence": ".jks/gcoffers-payload-cms/slice-11-staging-verification-evidence.md",
+      "summary": "Post-remediation browser verification passed: Payload admin renders styled first-user setup UI with hasNextError=false and no browser console errors; homepage renders styled; seller-lead S3-first POST persisted to real S3 and test object was deleted; old users-table error count was 0 in the latest CloudWatch check."
     }
   ],
   "blockers": [],
@@ -668,7 +674,7 @@
       "thread": "1780702987.289439"
     }
   ],
-  "nextAction": "Done. Await explicit approval before DNS cutover, production alias attachment, live alerts, production Terraform, or production deployment. Recommended hygiene: review/merge follow-up repo changes that capture the staging CloudFront policy fix and evidence.",
+  "nextAction": "Staging remediation complete and PR #6 is open/clean. Await explicit approval before merge, DNS cutover, production alias attachment, live alerts, production Terraform, or production deployment.",
   "pullRequest": {
     "url": "https://github.com/tw0316/gold-coast/pull/5",
     "number": 5,
@@ -683,7 +689,40 @@
   },
   "caveats": [
     "staging.gcoffers.com remains legacy until DNS/alias cutover is explicitly approved.",
-    "cloudfront.tf no-cache policy fix is local and should be committed/pushed in a follow-up repo hygiene step.",
-    "Staging DATABASE_URI uses sslmode=no-verify; revisit CA verification before production cutover."
-  ]
+    "Staging DATABASE_URI uses sslmode=no-verify; revisit CA verification before production cutover.",
+    "Dependency audit still reports 11 moderate severity vulnerabilities; remediate before production/cutover.",
+    "Do not merge PR #6, deploy production, apply production Terraform, change DNS, attach production aliases, or send live alerts without explicit approval."
+  ],
+  "followUpPullRequest": {
+    "url": "https://github.com/tw0316/gold-coast/pull/6",
+    "number": 6,
+    "repository": "tw0316/gold-coast",
+    "baseBranch": "feat/data-lake-monorepo-slice-1",
+    "headBranch": "chore/gcoffers-staging-runtime-evidence",
+    "state": "OPEN",
+    "mergeStateStatus": "CLEAN",
+    "latestVerifiedCommit": "851dbf1b997c491e66c476d60d94dc1978cab248",
+    "latestStagingImageTag": "stage-851dbf1-20260606180226"
+  },
+  "stagingRemediation": {
+    "approvedAt": "2026-06-06T18:00:00Z",
+    "completedAt": "2026-06-06T18:21:04Z",
+    "rootCause": "Payload admin queried missing Postgres schema tables, including users/users_sessions; this rendered a Next error page despite HTTP 200 and healthy CSS/JS assets.",
+    "fix": "Generated initial Payload migrations and configured prodMigrations in the Payload Postgres adapter.",
+    "commit": "851dbf1b997c491e66c476d60d94dc1978cab248",
+    "imageTag": "stage-851dbf1-20260606180226",
+    "runtimeUrl": "https://d15i9adzz532yk.cloudfront.net",
+    "browserAdminVerified": true,
+    "browserHomepageVerified": true,
+    "sellerLeadS3Verified": true,
+    "oldUsersRelationErrorsLast15Min": 0,
+    "guardrails": {
+      "enable_dns_cutover": false,
+      "enable_prod_alias": false,
+      "enable_live_alerts": false,
+      "dnsCutoverPerformed": false,
+      "productionAliasAttached": false,
+      "liveAlertsSent": false
+    }
+  }
 }
