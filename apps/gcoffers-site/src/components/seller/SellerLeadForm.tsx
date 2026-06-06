@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-import { SELLER_LEAD_POST_TARGET, SELLER_LEAD_SOURCE } from '@/lib/seller/formContract'
+import { SELLER_LEAD_HONEYPOT_FIELD, SELLER_LEAD_POST_TARGET, SELLER_LEAD_SOURCE } from '@/lib/seller/formContract'
 
 type SellerLeadContext = {
   page: string
@@ -40,6 +40,10 @@ export function SellerLeadForm() {
       <input type="hidden" name="page" value={leadContext.page} />
       <input type="hidden" name="referrer" value={leadContext.referrer} />
       <input type="hidden" name="userAgent" value={leadContext.userAgent} />
+      <div className="sr-only" aria-hidden="true">
+        <label htmlFor="seller-lead-website">Leave this field blank</label>
+        <input id="seller-lead-website" name={SELLER_LEAD_HONEYPOT_FIELD} type="text" autoComplete="off" tabIndex={-1} />
+      </div>
 
       <div className="form-group">
         <label htmlFor="fullName">Full Name</label>

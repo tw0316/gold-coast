@@ -783,3 +783,2227 @@ p {
     min-height: 520px;
   }
 }
+
+/* Buyer/deals baseline for deals.gcoffers.com. Uses safe placeholder visuals only. */
+select,
+textarea {
+  font: inherit;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.required {
+  color: var(--color-error);
+}
+
+.optional {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.buyer-site {
+  background: #f8fafc;
+  color: var(--color-black);
+  min-height: 100vh;
+}
+
+.buyer-header {
+  background: rgb(255 255 255 / 96%);
+  border-bottom: 1px solid #e4e7ec;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.buyer-header__inner {
+  align-items: center;
+  display: flex;
+  gap: var(--space-lg);
+  justify-content: space-between;
+  min-height: 76px;
+}
+
+.buyer-header__logo {
+  align-items: center;
+  color: #0f172a;
+  display: inline-flex;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.buyer-header__logo:hover {
+  color: #0f172a;
+}
+
+.buyer-header__logo-mark {
+  align-items: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+  border-radius: 16px;
+  color: var(--color-white);
+  display: inline-flex;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.buyer-header__logo strong,
+.buyer-header__logo small {
+  display: block;
+  line-height: 1.1;
+}
+
+.buyer-header__logo small {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.buyer-header__nav {
+  align-items: center;
+  display: flex;
+  gap: 1.4rem;
+}
+
+.buyer-header__nav a {
+  color: var(--color-dark-gray);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.buyer-header__nav a:hover,
+.buyer-text-link:hover {
+  color: var(--color-primary-dark);
+}
+
+.buyer-header__cta {
+  white-space: nowrap;
+}
+
+.buyer-hero {
+  background:
+    radial-gradient(circle at top right, rgb(213 178 56 / 18%), transparent 36rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  overflow: hidden;
+  padding: clamp(3rem, 7vw, 6.25rem) 0;
+}
+
+.buyer-hero__layout {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2xl);
+  grid-template-columns: 1fr;
+}
+
+.buyer-hero__copy {
+  max-width: 760px;
+}
+
+.buyer-hero__subheading {
+  color: var(--color-mid-gray);
+  font-size: clamp(1.08rem, 2vw, 1.28rem);
+  line-height: 1.7;
+  margin: var(--space-md) 0 var(--space-xl);
+  max-width: 660px;
+}
+
+.buyer-hero__microcopy,
+.buyer-form-card__fine-print,
+.buyer-detail-card__note {
+  color: #64748b;
+  font-size: 0.86rem;
+  margin-top: var(--space-sm);
+}
+
+.buyer-hero__panel-card {
+  background: #0f172a;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+  color: rgb(255 255 255 / 82%);
+  padding: var(--space-2xl);
+}
+
+.buyer-hero__panel-card span {
+  display: block;
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+}
+
+.buyer-hero__panel-card h2 {
+  color: var(--color-white);
+  font-size: clamp(1.45rem, 3vw, 2.1rem);
+  margin-bottom: var(--space-md);
+}
+
+.buyer-email-capture {
+  align-items: stretch;
+  background: var(--color-white);
+  border: 1px solid #d0d5dd;
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  gap: var(--space-sm);
+  max-width: 560px;
+  padding: var(--space-sm);
+}
+
+.buyer-email-capture input[type='email'] {
+  border: 0;
+  border-radius: 12px;
+  color: var(--color-black);
+  min-height: 52px;
+  padding: 0 1rem;
+  width: 100%;
+}
+
+.buyer-email-capture input[type='email']:focus {
+  box-shadow: 0 0 0 3px rgb(47 99 174 / 18%);
+  outline: none;
+}
+
+.buyer-email-capture__copy {
+  align-self: center;
+  color: #475467;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.buyer-email-capture__button {
+  min-height: 52px;
+}
+
+.buyer-email-capture--inline {
+  box-shadow: none;
+  margin: var(--space-lg) auto 0;
+}
+
+.buyer-trust-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: var(--space-lg);
+}
+
+.buyer-section,
+.buyer-join-page,
+.buyer-faq-page {
+  padding: var(--space-4xl) 0;
+}
+
+.buyer-section {
+  background: var(--color-white);
+}
+
+.buyer-section--alt {
+  background: #f1f5f9;
+}
+
+.buyer-section__header,
+.buyer-page-header {
+  margin: 0 auto var(--space-2xl);
+  max-width: 760px;
+  text-align: center;
+}
+
+.buyer-section__header p,
+.buyer-page-header p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-sm);
+}
+
+.buyer-steps-grid,
+.buyer-value-grid,
+.buyer-persona-grid,
+.buyer-deals-grid,
+.buyer-detail-grid,
+.buyer-join-page__layout {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: 1fr;
+}
+
+.buyer-info-card,
+.buyer-deal-card,
+.buyer-form-card,
+.buyer-detail-card,
+.buyer-empty-state,
+.buyer-faq-item,
+.buyer-faq-cta {
+  background: var(--color-white);
+  border: 1px solid #e4e7ec;
+  border-radius: 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.buyer-info-card {
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.buyer-info-card p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-sm);
+}
+
+.buyer-info-card__icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-md);
+}
+
+.buyer-deal-card {
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.buyer-deal-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.buyer-deal-card__link-wrap {
+  color: inherit;
+  display: block;
+  height: 100%;
+}
+
+.buyer-deal-card__visual,
+.buyer-detail-hero__visual {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 210px;
+  position: relative;
+  text-align: center;
+}
+
+.buyer-deal-card__visual span,
+.buyer-detail-hero__visual span {
+  font-size: 3.5rem;
+}
+
+.buyer-deal-card__visual small,
+.buyer-detail-hero__visual p {
+  color: rgb(255 255 255 / 82%);
+  font-weight: 800;
+  margin-top: var(--space-sm);
+}
+
+.buyer-deal-card__visual--blue,
+.buyer-detail-hero__visual--blue {
+  background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+}
+
+.buyer-deal-card__visual--gold,
+.buyer-detail-hero__visual--gold {
+  background: linear-gradient(135deg, #92400e, #d5b238);
+}
+
+.buyer-deal-card__visual--green,
+.buyer-detail-hero__visual--green {
+  background: linear-gradient(135deg, #166534, #22c55e);
+}
+
+.buyer-deal-card__visual--slate,
+.buyer-detail-hero__visual--slate {
+  background: linear-gradient(135deg, #334155, #64748b);
+}
+
+.buyer-deal-card__badges,
+.buyer-detail-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.buyer-deal-card__badges {
+  left: var(--space-md);
+  position: absolute;
+  right: var(--space-md);
+  top: var(--space-md);
+}
+
+.buyer-badge {
+  border-radius: 999px;
+  color: var(--color-white);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  padding: 0.32rem 0.72rem;
+  text-transform: uppercase;
+}
+
+.buyer-badge--available,
+.buyer-badge--coming-soon {
+  background: var(--color-primary);
+}
+
+.buyer-badge--under-contract {
+  background: #f59e0b;
+}
+
+.buyer-badge--sold {
+  background: var(--color-success);
+}
+
+.buyer-badge--type {
+  background: rgb(15 23 42 / 82%);
+}
+
+.buyer-deal-card__body {
+  padding: var(--space-lg);
+}
+
+.buyer-deal-card__location {
+  color: var(--color-primary-dark);
+  font-size: 0.86rem;
+  font-weight: 900;
+  margin-bottom: var(--space-xs);
+}
+
+.buyer-deal-card__specs,
+.buyer-deal-card__summary,
+.buyer-deal-card__profit {
+  color: var(--color-mid-gray);
+  font-size: 0.92rem;
+  margin-top: var(--space-sm);
+}
+
+.buyer-deal-card__numbers,
+.buyer-detail-metrics,
+.buyer-detail-list {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: var(--space-lg) 0 0;
+}
+
+.buyer-deal-card__numbers div,
+.buyer-detail-metrics div,
+.buyer-detail-list div {
+  background: #f8fafc;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+
+.buyer-deal-card__numbers dt,
+.buyer-detail-metrics dt,
+.buyer-detail-list dt {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.buyer-deal-card__numbers dd,
+.buyer-detail-metrics dd,
+.buyer-detail-list dd {
+  color: #0f172a;
+  font-weight: 900;
+  margin: 0.15rem 0 0;
+}
+
+.buyer-deal-card__cta,
+.buyer-text-link {
+  color: var(--color-primary);
+  display: inline-flex;
+  font-weight: 900;
+  margin-top: var(--space-lg);
+}
+
+.buyer-empty-state {
+  padding: var(--space-2xl);
+  text-align: center;
+}
+
+.buyer-empty-state div {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-sm);
+}
+
+.buyer-join-page {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+}
+
+.buyer-join-page__intro {
+  align-self: start;
+  background: #0f172a;
+  border-radius: 28px;
+  color: rgb(255 255 255 / 78%);
+  padding: var(--space-2xl);
+}
+
+.buyer-join-page__intro h1 {
+  color: var(--color-white);
+}
+
+.buyer-join-page__intro p {
+  margin-top: var(--space-md);
+}
+
+.buyer-check-list {
+  display: grid;
+  gap: 0.7rem;
+  list-style: none;
+  margin: var(--space-xl) 0;
+  padding: 0;
+}
+
+.buyer-check-list li::before {
+  color: #93c5fd;
+  content: '✓ ';
+  font-weight: 900;
+}
+
+.buyer-form-card,
+.buyer-detail-card {
+  padding: var(--space-xl);
+}
+
+.buyer-form-card--compact {
+  max-width: 760px;
+}
+
+.buyer-form-card__header {
+  margin-bottom: var(--space-xl);
+}
+
+.buyer-form-card__header p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-sm);
+}
+
+.form-group select,
+.form-group textarea,
+.form-group input[type='text'],
+.form-group input[type='email'],
+.form-group input[type='tel'] {
+  background: var(--color-white);
+  border: 1px solid #d0d5dd;
+  border-radius: 14px;
+  color: var(--color-black);
+  display: block;
+  font-size: 1rem;
+  padding: 0.9rem 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.form-group select:focus,
+.form-group textarea:focus,
+.form-group input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(47 99 174 / 20%);
+  outline: none;
+}
+
+.buyer-fieldset {
+  border: 0;
+  margin: 0 0 0.85rem;
+  padding: 0;
+}
+
+.buyer-fieldset legend {
+  color: var(--color-dark-gray);
+  font-size: 0.83rem;
+  font-weight: 800;
+  margin-bottom: 0.45rem;
+}
+
+.buyer-checkbox-grid {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: 1fr;
+}
+
+.buyer-check-pill {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  color: var(--color-dark-gray);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-sm);
+  padding: 0.75rem;
+}
+
+.buyer-check-pill input,
+.buyer-legal-checkbox input {
+  accent-color: var(--color-primary);
+}
+
+.buyer-legal-checkbox label {
+  font-size: 0.76rem;
+}
+
+.buyer-faq-page {
+  background: var(--color-white);
+}
+
+.buyer-faq-page__container {
+  max-width: 980px;
+}
+
+.buyer-faq-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.buyer-faq-item {
+  padding: var(--space-lg);
+}
+
+.buyer-faq-item summary {
+  color: #0f172a;
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-weight: 800;
+}
+
+.buyer-faq-item p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-md);
+}
+
+.buyer-faq-cta {
+  margin-top: var(--space-2xl);
+  padding: var(--space-2xl);
+  text-align: center;
+}
+
+.buyer-faq-cta p {
+  color: var(--color-mid-gray);
+  margin: var(--space-sm) 0 var(--space-lg);
+}
+
+.buyer-faq-cta__actions,
+.buyer-bottom-cta__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.buyer-btn--outline {
+  background: var(--color-white);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.buyer-detail-hero {
+  background: var(--color-white);
+  padding: var(--space-3xl) 0;
+}
+
+.buyer-detail-hero__layout {
+  display: grid;
+  gap: var(--space-2xl);
+  grid-template-columns: 1fr;
+}
+
+.buyer-detail-hero__visual {
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.buyer-detail-hero__badges {
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.buyer-detail-hero__location {
+  color: var(--color-primary-dark);
+  font-weight: 900;
+  margin-top: var(--space-md);
+}
+
+.buyer-detail-hero__address-note,
+.buyer-detail-hero__exact-address,
+.buyer-detail-hero__summary {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-md);
+}
+
+.buyer-detail-hero__address-note {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  color: #1e40af;
+  padding: var(--space-md);
+}
+
+.buyer-detail-card p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-md);
+}
+
+.buyer-detail-card--warning {
+  border-color: #fcd34d;
+}
+
+.buyer-detail-interest {
+  display: grid;
+  justify-items: center;
+}
+
+.buyer-bottom-cta {
+  background: linear-gradient(135deg, var(--color-primary), #1e40af);
+  color: rgb(255 255 255 / 82%);
+  padding: var(--space-4xl) 0;
+  text-align: center;
+}
+
+.buyer-bottom-cta h2 {
+  color: var(--color-white);
+}
+
+.buyer-bottom-cta p {
+  margin: var(--space-md) auto 0;
+  max-width: 620px;
+}
+
+.buyer-footer {
+  background: #0f172a;
+  color: rgb(255 255 255 / 72%);
+  padding: var(--space-2xl) 0;
+}
+
+.buyer-footer__inner {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.buyer-footer__top {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.buyer-footer__brand {
+  align-items: center;
+  color: var(--color-white);
+  display: inline-flex;
+  gap: var(--space-sm);
+}
+
+.buyer-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.buyer-footer__links a {
+  color: rgb(255 255 255 / 78%);
+  font-weight: 800;
+}
+
+.buyer-footer__disclaimer,
+.buyer-footer__copy {
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .buyer-email-capture {
+    grid-template-columns: 1fr auto;
+  }
+
+  .buyer-checkbox-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .buyer-steps-grid,
+  .buyer-persona-grid,
+  .buyer-deals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .buyer-value-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .buyer-footer__top {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+}
+
+@media (min-width: 1024px) {
+  .buyer-hero__layout,
+  .buyer-detail-hero__layout,
+  .buyer-join-page__layout {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
+  }
+
+  .buyer-deals-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .buyer-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .buyer-header__nav {
+    display: none;
+  }
+
+  .buyer-header__inner {
+    min-height: 68px;
+  }
+
+  .buyer-header__logo small {
+    display: none;
+  }
+
+  .buyer-header__cta {
+    font-size: 0.86rem;
+    padding: 0.72rem 0.9rem;
+  }
+
+  .buyer-deal-card__numbers,
+  .buyer-detail-metrics,
+  .buyer-detail-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Buyer/deals baseline styles migrated from apps/deals and scoped to .buyer-site. */
+
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.btn--accent {
+  background: var(--color-accent);
+  color: var(--color-black);
+}
+
+.btn--accent:hover {
+  background: var(--color-accent-dark);
+  color: var(--color-black);
+  transform: translateY(-1px);
+}
+
+.btn--outline {
+  background: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn--outline:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.buyer-site {
+  --buyer-card-radius: 18px;
+  background: var(--color-white);
+  color: var(--color-black);
+  min-height: 100vh;
+}
+
+.buyer-header {
+  background: rgb(255 255 255 / 96%);
+  border-bottom: 1px solid var(--color-light-gray);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.buyer-header__inner {
+  align-items: center;
+  display: flex;
+  gap: var(--space-md);
+  justify-content: space-between;
+  min-height: 76px;
+}
+
+.buyer-header__logo,
+.buyer-footer__brand {
+  align-items: center;
+  color: var(--color-primary);
+  display: inline-flex;
+  font-family: var(--font-heading);
+  gap: var(--space-sm);
+  line-height: 1.1;
+}
+
+.buyer-header__logo:hover {
+  color: var(--color-primary-dark);
+}
+
+.buyer-header__logo-mark {
+  align-items: center;
+  background: var(--color-primary);
+  border-radius: 10px;
+  color: var(--color-white);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.buyer-header__logo small {
+  color: var(--color-mid-gray);
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.buyer-header__nav {
+  align-items: center;
+  display: none;
+  gap: var(--space-lg);
+}
+
+.buyer-header__nav a {
+  color: var(--color-dark-gray);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.buyer-header__nav a:hover {
+  color: var(--color-primary);
+}
+
+.buyer-header__cta {
+  font-size: 0.9rem;
+  padding: 0.75rem 1.05rem;
+}
+
+.buyer-hero {
+  background: linear-gradient(135deg, #1a3a6e 0%, var(--color-primary) 55%, #4f83ca 100%);
+  color: var(--color-white);
+  overflow: hidden;
+  padding: var(--space-4xl) 0;
+  position: relative;
+  text-align: center;
+}
+
+.buyer-hero::before {
+  background: radial-gradient(circle at top right, rgb(255 255 255 / 18%), transparent 36rem);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.buyer-hero__layout,
+.buyer-hero__content,
+.buyer-detail__hero-inner,
+.buyer-page-hero__content {
+  position: relative;
+  z-index: 1;
+}
+
+.buyer-hero__content {
+  margin: 0 auto;
+  max-width: 760px;
+}
+
+.buyer-hero h1,
+.buyer-page-hero h1,
+.buyer-detail__hero h1 {
+  color: inherit;
+}
+
+.buyer-hero .eyebrow,
+.buyer-page-hero .eyebrow,
+.buyer-detail__hero .eyebrow {
+  color: rgb(255 255 255 / 78%);
+}
+
+.buyer-hero__subheading {
+  font-size: clamp(1.08rem, 2.4vw, 1.28rem);
+  line-height: 1.7;
+  margin: var(--space-md) auto var(--space-xl);
+  max-width: 650px;
+  opacity: 0.92;
+}
+
+.buyer-hero__email-form {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 auto var(--space-md);
+  max-width: 560px;
+}
+
+.buyer-hero__email-form input {
+  background: rgb(255 255 255 / 16%);
+  border: 2px solid rgb(255 255 255 / 32%);
+  border-radius: 14px;
+  color: var(--color-white);
+  min-height: 54px;
+  padding: 0 1rem;
+}
+
+.buyer-hero__email-form input::placeholder {
+  color: rgb(255 255 255 / 72%);
+}
+
+.buyer-hero__email-form input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.buyer-hero__microcopy {
+  font-size: 0.86rem;
+  opacity: 0.78;
+}
+
+.buyer-hero__trust-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+.buyer-trust-pill {
+  background: rgb(255 255 255 / 13%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  color: var(--color-white);
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 0.45rem 0.9rem;
+}
+
+.buyer-section,
+.buyer-page-shell .buyer-section {
+  padding: var(--space-4xl) 0;
+}
+
+.buyer-section--alt {
+  background: var(--color-off-white);
+}
+
+.buyer-section__header {
+  margin: 0 auto var(--space-2xl);
+  max-width: 720px;
+  text-align: center;
+}
+
+.buyer-section__header p:not(.eyebrow) {
+  color: var(--color-mid-gray);
+  font-size: 1.05rem;
+  margin-top: var(--space-sm);
+}
+
+.buyer-steps,
+.buyer-value-grid,
+.buyer-deals-grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.buyer-steps,
+.buyer-value-grid {
+  margin-top: var(--space-2xl);
+}
+
+.buyer-step,
+.buyer-value-card,
+.buyer-empty-state,
+.buyer-form,
+.buyer-faq-item,
+.buyer-faq-cta,
+.buyer-numbers-card,
+.buyer-map-card {
+  background: var(--color-white);
+  border: 1px solid #e4e7ec;
+  border-radius: var(--buyer-card-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.buyer-step,
+.buyer-value-card {
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.buyer-step__number,
+.buyer-value-card__icon {
+  align-items: center;
+  background: rgb(47 99 174 / 9%);
+  border-radius: 999px;
+  color: var(--color-primary);
+  display: inline-flex;
+  font-weight: 900;
+  height: 52px;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+  width: 52px;
+}
+
+.buyer-step p,
+.buyer-value-card p {
+  color: var(--color-mid-gray);
+  margin-top: var(--space-sm);
+}
+
+.buyer-deals-grid {
+  grid-template-columns: 1fr;
+}
+
+.buyer-deal-card {
+  background: var(--color-white);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--buyer-card-radius);
+  box-shadow: var(--shadow-sm);
+  color: inherit;
+  display: block;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.buyer-deal-card:hover {
+  box-shadow: var(--shadow-md);
+  color: inherit;
+  transform: translateY(-2px);
+}
+
+.buyer-deal-card[data-status='coming_soon'] {
+  border-left-color: var(--color-primary-light);
+}
+
+.buyer-deal-card[data-status='under_contract'] {
+  border-left-color: #f59e0b;
+}
+
+.buyer-deal-card[data-status='sold'] {
+  border-left-color: var(--color-success);
+}
+
+.buyer-deal-card__media {
+  height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.buyer-deal-card__image,
+.buyer-gallery img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.buyer-deal-card__placeholder,
+.buyer-gallery__placeholder {
+  align-items: center;
+  background: linear-gradient(135deg, #4a7cc9 0%, #2f63ae 55%, #244e8a 100%);
+  color: rgb(255 255 255 / 78%);
+  display: flex;
+  font-size: 3rem;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.buyer-deal-card__placeholder--sold {
+  background: linear-gradient(135deg, #1f7a45 0%, #15803d 55%, #14532d 100%);
+}
+
+.buyer-deal-card__badges,
+.buyer-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.buyer-deal-card__badges {
+  left: var(--space-md);
+  position: absolute;
+  top: var(--space-md);
+}
+
+.buyer-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.buyer-badge--available,
+.buyer-badge--coming-soon {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.buyer-badge--under-contract {
+  background: #f59e0b;
+  color: #111827;
+}
+
+.buyer-badge--sold {
+  background: var(--color-success);
+  color: var(--color-white);
+}
+
+.buyer-badge--type {
+  background: rgb(255 255 255 / 92%);
+  color: var(--color-black);
+}
+
+.buyer-deal-card__body {
+  padding: var(--space-lg);
+}
+
+.buyer-deal-card__location,
+.buyer-detail__location {
+  color: var(--color-mid-gray);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.buyer-deal-card h3 {
+  margin: 0.25rem 0 var(--space-sm);
+}
+
+.buyer-deal-card__specs,
+.buyer-detail__specs {
+  color: var(--color-dark-gray);
+  font-weight: 700;
+}
+
+.buyer-deal-card__numbers,
+.buyer-numbers-card__grid {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-md);
+}
+
+.buyer-deal-card__price {
+  color: #0f172a;
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  font-weight: 900;
+  grid-column: 1 / -1;
+}
+
+.buyer-deal-card__stat span,
+.buyer-numbers-card dt,
+.buyer-detail-list dt {
+  color: var(--color-mid-gray);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.buyer-deal-card__stat strong,
+.buyer-numbers-card dd,
+.buyer-detail-list dd {
+  color: #0f172a;
+  font-weight: 900;
+  margin: 0;
+}
+
+.buyer-deal-card__stat--accent strong,
+.buyer-numbers-card__accent {
+  color: var(--color-accent-dark);
+}
+
+.buyer-deal-card__link,
+.buyer-deal-card__closed {
+  color: var(--color-primary);
+  display: inline-flex;
+  font-weight: 900;
+  margin-top: var(--space-md);
+}
+
+.buyer-deal-card__closed {
+  color: var(--color-success);
+}
+
+.buyer-empty-state {
+  border-style: dashed;
+  padding: var(--space-3xl) var(--space-lg);
+  text-align: center;
+}
+
+.buyer-empty-state__icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+}
+
+.buyer-empty-state p {
+  color: var(--color-mid-gray);
+  margin: var(--space-sm) auto var(--space-lg);
+  max-width: 520px;
+}
+
+.buyer-cta {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: var(--space-4xl) 0;
+}
+
+.buyer-cta__layout {
+  display: grid;
+  gap: var(--space-2xl);
+}
+
+.buyer-cta__layout > div:first-child p:not(.eyebrow) {
+  color: var(--color-mid-gray);
+  font-size: 1.08rem;
+  margin-top: var(--space-sm);
+}
+
+.buyer-form {
+  padding: var(--space-xl);
+}
+
+.buyer-form--compact {
+  max-width: 720px;
+}
+
+.buyer-form__heading {
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.buyer-form__heading p:not(.eyebrow),
+.buyer-form__fine-print {
+  color: var(--color-mid-gray);
+}
+
+.buyer-form__grid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.buyer-form__field label,
+.buyer-form__fieldset legend {
+  color: var(--color-dark-gray);
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 900;
+  margin-bottom: 0.35rem;
+}
+
+.buyer-form__field label span,
+.buyer-form__fieldset legend span {
+  color: var(--color-mid-gray);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.buyer-form input[type='text'],
+.buyer-form input[type='email'],
+.buyer-form input[type='tel'],
+.buyer-form select,
+.buyer-form textarea {
+  background: var(--color-white);
+  border: 1px solid #d0d5dd;
+  border-radius: 14px;
+  color: var(--color-black);
+  display: block;
+  min-height: 48px;
+  padding: 0.85rem 1rem;
+  width: 100%;
+}
+
+.buyer-form textarea {
+  resize: vertical;
+}
+
+.buyer-form input:focus,
+.buyer-form select:focus,
+.buyer-form textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(47 99 174 / 18%);
+  outline: none;
+}
+
+.buyer-form__field--full,
+.buyer-form__fieldset {
+  grid-column: 1 / -1;
+}
+
+.buyer-form__fieldset {
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+  padding: var(--space-md);
+}
+
+.buyer-form__fieldset label,
+.buyer-form__consent {
+  align-items: flex-start;
+  color: var(--color-dark-gray);
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.buyer-form__fieldset input,
+.buyer-form__consent input {
+  accent-color: var(--color-primary);
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.buyer-form__consent {
+  border-top: 1px solid #e4e7ec;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin: var(--space-lg) 0;
+  padding-top: var(--space-lg);
+}
+
+.buyer-form__fine-print {
+  font-size: 0.8rem;
+  margin-top: var(--space-sm);
+  text-align: center;
+}
+
+.buyer-page-hero,
+.buyer-detail__hero {
+  background: linear-gradient(135deg, #1a3a6e 0%, var(--color-primary) 100%);
+  color: var(--color-white);
+  padding: var(--space-3xl) 0;
+  text-align: center;
+}
+
+.buyer-page-hero__content {
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.buyer-page-hero__content p:not(.eyebrow) {
+  color: rgb(255 255 255 / 88%);
+  font-size: 1.1rem;
+  margin-top: var(--space-md);
+}
+
+.buyer-narrow {
+  max-width: 860px;
+}
+
+.buyer-faq-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.buyer-faq-item,
+.buyer-faq-cta {
+  padding: var(--space-xl);
+}
+
+.buyer-faq-item h2 {
+  font-size: 1.18rem;
+  margin-bottom: var(--space-sm);
+}
+
+.buyer-faq-item p,
+.buyer-faq-cta p {
+  color: var(--color-mid-gray);
+}
+
+.buyer-faq-cta {
+  margin-top: var(--space-xl);
+  text-align: center;
+}
+
+.buyer-faq-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+.buyer-detail__hero {
+  text-align: left;
+}
+
+.buyer-detail__back {
+  color: rgb(255 255 255 / 86%);
+  display: inline-flex;
+  font-weight: 800;
+  margin-bottom: var(--space-lg);
+}
+
+.buyer-detail__back:hover {
+  color: var(--color-white);
+}
+
+.buyer-detail__badges,
+.buyer-detail__location,
+.buyer-detail h1,
+.buyer-detail__specs {
+  margin-bottom: var(--space-sm);
+}
+
+.buyer-detail__layout {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2xl);
+}
+
+.buyer-gallery {
+  margin-bottom: var(--space-xl);
+}
+
+.buyer-gallery__hero {
+  border-radius: var(--buyer-card-radius);
+  box-shadow: var(--shadow-md);
+  height: min(58vw, 420px);
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.buyer-gallery__placeholder {
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.buyer-gallery__placeholder p {
+  font-size: 1rem;
+}
+
+.buyer-gallery__thumbs {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--space-sm);
+}
+
+.buyer-gallery__thumbs img {
+  border-radius: 12px;
+  height: 82px;
+}
+
+.buyer-detail-section {
+  border-bottom: 1px solid #e4e7ec;
+  margin-bottom: var(--space-xl);
+  padding-bottom: var(--space-xl);
+}
+
+.buyer-detail-section h2,
+.buyer-map-card h2 {
+  font-size: 1.22rem;
+  margin-bottom: var(--space-sm);
+}
+
+.buyer-detail-section p,
+.buyer-map-card p {
+  color: var(--color-mid-gray);
+}
+
+.buyer-detail-list {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.buyer-detail-list div,
+.buyer-numbers-card__grid div {
+  border-bottom: 1px solid #eef2f7;
+  padding-bottom: var(--space-sm);
+}
+
+.buyer-map-card {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  padding: var(--space-lg);
+}
+
+.buyer-map-card > span {
+  font-size: 2rem;
+}
+
+.buyer-numbers-card {
+  padding: var(--space-xl);
+  position: sticky;
+  top: 100px;
+}
+
+.buyer-numbers-card__label {
+  color: var(--color-mid-gray);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.buyer-numbers-card__price {
+  color: #0f172a;
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 5vw, 2.7rem);
+  font-weight: 900;
+  margin: var(--space-xs) 0 var(--space-lg);
+}
+
+.buyer-numbers-card__grid {
+  margin: 0 0 var(--space-lg);
+}
+
+.buyer-numbers-card__fine-print {
+  color: var(--color-mid-gray);
+  font-size: 0.78rem;
+  font-style: italic;
+  margin-top: var(--space-md);
+}
+
+.buyer-footer {
+  background: var(--color-black);
+  color: rgb(255 255 255 / 74%);
+  padding: var(--space-2xl) 0;
+}
+
+.buyer-footer__inner {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.buyer-footer__top {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.buyer-footer__brand {
+  color: var(--color-white);
+}
+
+.buyer-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md) var(--space-lg);
+  justify-content: center;
+}
+
+.buyer-footer__links a {
+  color: rgb(255 255 255 / 78%);
+  font-weight: 800;
+}
+
+.buyer-footer__links a:hover {
+  color: var(--color-white);
+}
+
+.buyer-footer__disclaimer,
+.buyer-footer__copy {
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .buyer-hero__email-form,
+  .buyer-form__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .buyer-hero__email-form input {
+    min-width: 0;
+  }
+
+  .buyer-deals-grid,
+  .buyer-value-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .buyer-header__nav {
+    display: flex;
+  }
+
+  .buyer-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .buyer-footer__top {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+}
+
+@media (min-width: 1024px) {
+  .buyer-deals-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .buyer-cta__layout,
+  .buyer-detail__layout {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.42fr);
+  }
+
+  .buyer-detail__main {
+    min-width: 0;
+  }
+}
+
+/* Compatibility styles for the slice-5 buyer components. */
+
+.buyer-hero__layout,
+.buyer-join-page__layout,
+.buyer-detail-hero__layout,
+.buyer-detail-grid,
+.buyer-bottom-cta__actions {
+  display: grid;
+  gap: var(--space-xl);
+}
+
+.buyer-hero__copy {
+  margin: 0 auto;
+  max-width: 760px;
+}
+
+.buyer-hero__panel {
+  display: none;
+}
+
+.buyer-hero__panel-card,
+.buyer-info-card,
+.buyer-form-card,
+.buyer-detail-card {
+  background: var(--color-white);
+  border: 1px solid #e4e7ec;
+  border-radius: var(--buyer-card-radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-black);
+  padding: var(--space-xl);
+}
+
+.buyer-hero__panel-card {
+  background: rgb(255 255 255 / 13%);
+  border-color: rgb(255 255 255 / 22%);
+  color: var(--color-white);
+  text-align: left;
+}
+
+.buyer-hero__panel-card h2 {
+  color: var(--color-white);
+  font-size: 1.4rem;
+  margin: var(--space-sm) 0;
+}
+
+.buyer-hero__panel-card p {
+  color: rgb(255 255 255 / 82%);
+}
+
+.buyer-email-capture {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.buyer-email-capture input[type='email'] {
+  background: rgb(255 255 255 / 16%);
+  border: 2px solid rgb(255 255 255 / 32%);
+  border-radius: 14px;
+  color: var(--color-white);
+  min-height: 54px;
+  padding: 0 1rem;
+}
+
+.buyer-email-capture input[type='email']::placeholder {
+  color: rgb(255 255 255 / 72%);
+}
+
+.buyer-email-capture--inline {
+  margin: 0;
+  max-width: none;
+}
+
+.buyer-email-capture--inline input[type='email'] {
+  background: var(--color-white);
+  border-color: #d0d5dd;
+  color: var(--color-black);
+}
+
+.trust-pill {
+  background: rgb(255 255 255 / 13%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  color: var(--color-white);
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 0.45rem 0.9rem;
+}
+
+.section-subtitle {
+  color: var(--color-mid-gray);
+  font-size: 1.05rem;
+  margin: var(--space-sm) auto var(--space-xl);
+  max-width: 720px;
+}
+
+.buyer-steps-grid,
+.buyer-persona-grid {
+  display: grid;
+  gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+}
+
+.buyer-info-card {
+  text-align: center;
+}
+
+.step__number,
+.buyer-info-card__icon {
+  align-items: center;
+  background: rgb(47 99 174 / 9%);
+  border-radius: 999px;
+  color: var(--color-primary);
+  display: inline-flex;
+  font-weight: 900;
+  height: 52px;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+  width: 52px;
+}
+
+.buyer-info-card p,
+.buyer-deal-card__summary,
+.buyer-detail-card p,
+.buyer-join-page__intro p,
+.buyer-page-header p {
+  color: var(--color-mid-gray);
+}
+
+.buyer-deal-card__link-wrap {
+  color: inherit;
+  display: block;
+}
+
+.buyer-deal-card__link-wrap:hover {
+  color: inherit;
+}
+
+.buyer-deal-card__visual,
+.buyer-detail-hero__visual {
+  align-items: center;
+  background: linear-gradient(135deg, #4a7cc9 0%, #2f63ae 55%, #244e8a 100%);
+  color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  justify-content: center;
+  min-height: 220px;
+  position: relative;
+  text-align: center;
+}
+
+.buyer-deal-card__visual span,
+.buyer-detail-hero__visual span {
+  font-size: 3.4rem;
+}
+
+.buyer-deal-card__visual small,
+.buyer-detail-hero__visual p {
+  color: rgb(255 255 255 / 82%);
+  font-weight: 900;
+  margin: 0;
+}
+
+.buyer-deal-card__visual--gold,
+.buyer-detail-hero__visual--gold {
+  background: linear-gradient(135deg, #d5b238 0%, #b8952d 100%);
+  color: #111827;
+}
+
+.buyer-deal-card__visual--green,
+.buyer-detail-hero__visual--green {
+  background: linear-gradient(135deg, #1f7a45 0%, #15803d 55%, #14532d 100%);
+}
+
+.buyer-deal-card__visual--slate,
+.buyer-detail-hero__visual--slate {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%);
+}
+
+.buyer-deal-card__visual--gold small,
+.buyer-detail-hero__visual--gold p {
+  color: rgb(17 24 39 / 72%);
+}
+
+.buyer-deal-card__profit {
+  background: rgb(213 178 56 / 14%);
+  border-radius: 12px;
+  color: #7a5d10;
+  font-weight: 900;
+  margin-top: var(--space-md);
+  padding: 0.75rem;
+}
+
+.buyer-deal-card__cta,
+.buyer-text-link {
+  color: var(--color-primary);
+  display: inline-flex;
+  font-weight: 900;
+  margin-top: var(--space-md);
+}
+
+.buyer-bottom-cta {
+  background: linear-gradient(135deg, #1a3a6e 0%, var(--color-primary) 100%);
+  color: var(--color-white);
+  padding: var(--space-4xl) 0;
+  text-align: center;
+}
+
+.buyer-bottom-cta h2 {
+  color: var(--color-white);
+}
+
+.buyer-bottom-cta p {
+  color: rgb(255 255 255 / 84%);
+  margin: var(--space-sm) auto var(--space-xl);
+  max-width: 650px;
+}
+
+.buyer-join-page,
+.buyer-faq-page {
+  background: var(--color-off-white);
+  padding: var(--space-4xl) 0;
+}
+
+.buyer-join-page__intro {
+  align-self: start;
+  padding-top: var(--space-lg);
+}
+
+.buyer-check-list {
+  display: grid;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0;
+  padding: 0;
+}
+
+.buyer-check-list li {
+  list-style: none;
+  padding-left: 1.75rem;
+  position: relative;
+}
+
+.buyer-check-list li::before {
+  color: var(--color-success);
+  content: '✓';
+  font-weight: 900;
+  left: 0;
+  position: absolute;
+}
+
+.buyer-form-card__header {
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.buyer-form-card__header p:not(.eyebrow),
+.buyer-form-card__fine-print {
+  color: var(--color-mid-gray);
+}
+
+.form-group {
+  margin-bottom: var(--space-md);
+}
+
+.form-group label,
+.buyer-fieldset legend {
+  color: var(--color-dark-gray);
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 900;
+  margin-bottom: 0.35rem;
+}
+
+.form-group--split {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.required {
+  color: #b42318;
+}
+
+.optional {
+  color: var(--color-mid-gray);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.buyer-email-capture--inline input[type='email'] {
+  border: 1px solid #d0d5dd;
+  border-radius: 14px;
+  color: var(--color-black);
+  min-height: 48px;
+  padding: 0.85rem 1rem;
+  width: 100%;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.buyer-fieldset {
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+}
+
+.buyer-checkbox-grid {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.buyer-check-pill,
+.form-checkbox {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.buyer-check-pill,
+.buyer-legal-checkbox {
+  color: var(--color-dark-gray);
+  font-size: 0.9rem;
+}
+
+.buyer-check-pill input,
+.form-checkbox input {
+  accent-color: var(--color-primary);
+  flex: 0 0 auto;
+  margin-top: 0.25rem;
+}
+
+.buyer-legal-checkbox {
+  border-top: 1px solid #e4e7ec;
+  line-height: 1.55;
+  margin: var(--space-lg) 0;
+  padding-top: var(--space-lg);
+}
+
+.btn--large {
+  padding: 1rem 1.5rem;
+}
+
+.btn--full {
+  width: 100%;
+}
+
+.buyer-page-header {
+  margin: 0 auto var(--space-2xl);
+  max-width: 760px;
+  text-align: center;
+}
+
+.buyer-faq-page__container {
+  max-width: 920px;
+}
+
+.buyer-faq-item summary {
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
+.buyer-faq-item[open] summary {
+  color: var(--color-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.buyer-btn--outline {
+  background: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.buyer-btn--outline:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.buyer-detail-hero {
+  background: linear-gradient(135deg, #1a3a6e 0%, var(--color-primary) 100%);
+  color: var(--color-white);
+  padding: var(--space-4xl) 0;
+}
+
+.buyer-detail-hero h1,
+.buyer-detail-hero .buyer-text-link {
+  color: var(--color-white);
+}
+
+.buyer-detail-hero__visual {
+  border-radius: var(--buyer-card-radius);
+  min-height: 300px;
+}
+
+.buyer-detail-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.buyer-detail-hero__location,
+.buyer-detail-hero__address-note,
+.buyer-detail-hero__summary {
+  color: rgb(255 255 255 / 84%);
+}
+
+.buyer-detail-hero__exact-address {
+  background: rgb(255 255 255 / 13%);
+  border-radius: 12px;
+  color: var(--color-white);
+  font-weight: 900;
+  padding: 0.75rem 1rem;
+}
+
+.buyer-detail-metrics,
+.buyer-detail-list {
+  display: grid;
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.buyer-detail-metrics div,
+.buyer-detail-list div {
+  border-bottom: 1px solid #eef2f7;
+  padding-bottom: var(--space-sm);
+}
+
+.buyer-detail-metrics dt,
+.buyer-detail-list dt {
+  color: var(--color-mid-gray);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.buyer-detail-metrics dd,
+.buyer-detail-list dd {
+  color: #0f172a;
+  font-weight: 900;
+  margin: 0;
+}
+
+.buyer-detail-card--warning {
+  border-color: rgb(213 178 56 / 55%);
+  background: #fffaf0;
+}
+
+.buyer-detail-card__note {
+  font-size: 0.82rem;
+  font-style: italic;
+  margin-top: var(--space-lg);
+}
+
+.buyer-detail-interest {
+  max-width: 820px;
+}
+
+@media (min-width: 640px) {
+  .buyer-email-capture,
+  .form-group--split,
+  .buyer-checkbox-grid,
+  .buyer-detail-metrics,
+  .buyer-detail-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .buyer-steps-grid,
+  .buyer-persona-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .buyer-hero__layout,
+  .buyer-join-page__layout,
+  .buyer-detail-hero__layout {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.74fr);
+  }
+
+  .buyer-hero__panel {
+    display: block;
+  }
+
+  .buyer-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .buyer-detail-grid--wide {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.74fr);
+  }
+
+  .buyer-bottom-cta__actions {
+    align-items: center;
+    grid-template-columns: auto minmax(360px, 520px);
+    justify-content: center;
+  }
+}
