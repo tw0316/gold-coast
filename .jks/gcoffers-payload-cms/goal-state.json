@@ -2,10 +2,10 @@
   "version": 1,
   "goalId": "gcoffers-payload-cms-site",
   "ownerSessionTarget": "session:gcoffers-payload-cms-site",
-  "status": "active",
-  "roughPercent": 50,
+  "status": "completed",
+  "roughPercent": 100,
   "createdAt": "2026-06-05T23:45:56Z",
-  "updatedAt": "2026-06-06T02:08:47Z",
+  "updatedAt": "2026-06-06T06:06:45Z",
   "sourceEpic": "/Users/jarvis/LocalRepos/gold-coast/epics/active/gcoffers-payload-cms-whole-site.md",
   "requestedProjectRoot": "/Users/jarvis/LocalRepos/gold-coast",
   "implementationRoot": "/Users/jarvis/LocalRepos/gold-coast-gcoffers-payload-cms",
@@ -34,7 +34,7 @@
       "completed"
     ]
   },
-  "lastReportAt": "2026-06-06T02:02:40Z",
+  "lastReportAt": "2026-06-06T03:03:23Z",
   "lastReportedStatus": "active",
   "lastReportedActiveSlice": null,
   "finalReport": {
@@ -43,7 +43,7 @@
     "messageId": null
   },
   "activeSlice": null,
-  "lastCompletedSlice": "slice-4-seller-site-baseline",
+  "lastCompletedSlice": "slice-8-docs-pr-evidence",
   "queue": [
     {
       "id": "slice-1-preflight-adr",
@@ -105,63 +105,64 @@
     {
       "id": "slice-5-buyer-deals-baseline",
       "title": "Buyer/deals page migration baseline",
-      "status": "next",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-06-06T03:48:20Z",
+      "completedAt": "2026-06-06T04:18:59Z",
       "expectedEvidence": [
         ".jks/gcoffers-payload-cms/slice-5-buyer-deals-baseline-evidence.md",
         "apps/gcoffers-site/src/app/(buyer)"
       ],
-      "notes": "Next. Prior dispatch attempt hit HTTP 429 before code changes; retry as next bounded slice when child capacity is available."
+      "notes": "Owner verified buyer/deals baseline: verify:buyer-deals-site, typecheck, build, verify:seller-site, verify:schema-access, scoped safety scan, and git diff --check passed. Final spec/quality re-review approved after slice-6 cross-slice route concerns were resolved separately."
     },
     {
       "id": "slice-6-s3-first-form-pipeline",
       "title": "S3-first form pipeline",
-      "status": "pending",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-06-06T04:36:50Z",
+      "completedAt": "2026-06-06T04:58:09Z",
       "expectedEvidence": [
         ".jks/gcoffers-payload-cms/slice-6-s3-first-form-pipeline-evidence.md",
         "apps/gcoffers-site/src/app/api",
-        "packages/lead-capture"
+        "apps/gcoffers-site/src/lib/forms",
+        "apps/gcoffers-site/scripts/verify-s3-first-form-pipeline.mjs"
       ],
-      "notes": "Implement seller lead, buyer signup, and deal-interest Next routes/helpers preserving S3-first semantics, GHL best-effort mocks, redacted Slack/email alert mocks, spam/rate/idempotency controls, and no raw PII logs/evidence."
+      "notes": "Owner verified S3-first form pipeline: seller lead, buyer signup, and deal-interest routes/helpers, mocked side effects, abuse controls, idempotency, build, regressions, and safety scan passed. npm install reported 11 moderate vulnerabilities; audit remediation deferred. App-local helpers were used instead of extracting packages/lead-capture because no shared package was needed for this PR baseline."
     },
     {
       "id": "slice-7-aws-infra",
       "title": "AWS infrastructure design/code",
-      "status": "pending",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-06-06T05:15:18Z",
+      "completedAt": "2026-06-06T05:34:27Z",
       "expectedEvidence": [
         ".jks/gcoffers-payload-cms/slice-7-aws-infra-evidence.md",
         "infra/payload-site"
       ],
-      "notes": "Add Terraform for ECS Fargate, ALB, RDS Postgres, S3 media, Secrets Manager references, CloudWatch alarms, CloudFront/Route53 integration with cutover disabled. Validate/fmt only, no apply."
+      "notes": "Owner verified safe Terraform stack under infra/payload-site: fmt, backend-disabled init, validate, git diff --check, static guard checks, and scoped safety scan passed. No plan/apply, DNS, deploy, production AWS mutation, or live alerts performed. Caveat: ecs_desired_count defaults 0 and DATABASE_URI secret/operator step remains for launch."
     },
     {
       "id": "slice-8-docs-pr-evidence",
       "title": "Docs, smoke tests, PR evidence, branch push, and PR creation",
-      "status": "pending",
-      "startedAt": null,
-      "completedAt": null,
+      "status": "completed",
+      "startedAt": "2026-06-06T05:50:00Z",
+      "completedAt": "2026-06-06T06:06:45Z",
       "expectedEvidence": [
         ".jks/gcoffers-payload-cms/slice-8-docs-pr-evidence.md",
         "docs/ops/payload-site-runbook.md",
         "docs/ops/payload-site-pr-evidence.md",
-        "GitHub PR URL"
+        "https://github.com/tw0316/gold-coast/pull/5"
       ],
-      "notes": "Add runbook/local dev/migration/cutover/backout docs, run focused checks, commit, push branch, open PR, record URL."
+      "notes": "Completed. Final docs/runbook/PR evidence added, owner verification passed, branch pushed, and PR opened: https://github.com/tw0316/gold-coast/pull/5"
     }
   ],
   "childReliability": {
-    "spawned": 10,
-    "completed": 9,
+    "spawned": 15,
+    "completed": 14,
     "stale": 0,
     "replaced": 0,
     "failed": 1,
     "lost": 0,
-    "lastIssue": "slice-5 dispatch attempt hit HTTP 429 before implementation; driver should retry slice-5 when child capacity is available."
+    "lastIssue": "Slice-8 worker output verified by owner; PR opened successfully. Launch-time secrets/image/health endpoint caveats remain documented and are not PR blockers."
   },
   "childRuns": [
     {
@@ -399,6 +400,185 @@
         "Re-checked git status; only uncommitted project/evidence directories remain and no product code was changed by this failed attempt."
       ],
       "blocker": "delegate_task returned HTTP 429 usage limit reached before the worker could inspect or edit files."
+    },
+    {
+      "sliceId": "slice-5-buyer-deals-baseline",
+      "title": "Buyer/deals page migration baseline",
+      "status": "completed",
+      "startedAt": "2026-06-06T03:48:20Z",
+      "completedAt": "2026-06-06T04:18:59Z",
+      "durationSeconds": 1671,
+      "apiCalls": 95,
+      "evidence": [
+        ".jks/gcoffers-payload-cms/slice-5-buyer-deals-baseline-evidence.md"
+      ],
+      "changedFiles": [
+        ".jks/gcoffers-payload-cms/slice-5-buyer-deals-baseline-evidence.md",
+        "apps/gcoffers-site/package.json",
+        "apps/gcoffers-site/scripts/verify-buyer-deals-site.mjs",
+        "apps/gcoffers-site/src/app/(frontend)/page.tsx",
+        "apps/gcoffers-site/src/app/(frontend)/styles.css",
+        "apps/gcoffers-site/src/app/(buyer)/layout.tsx",
+        "apps/gcoffers-site/src/app/(buyer)/join/page.tsx",
+        "apps/gcoffers-site/src/app/(buyer)/faq/page.tsx",
+        "apps/gcoffers-site/src/app/(buyer)/deals/[slug]/page.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerHeader.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerFooter.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerEmailCapture.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerHomePage.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerJoinPage.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerSignupForm.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerFaqPage.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerDealCard.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerDealDetailPage.tsx",
+        "apps/gcoffers-site/src/components/buyer/DealInterestForm.tsx",
+        "apps/gcoffers-site/src/fixtures/buyerDeals.ts",
+        "apps/gcoffers-site/src/lib/buyer/content.ts",
+        "apps/gcoffers-site/src/lib/buyer/dealPresentation.ts",
+        "apps/gcoffers-site/src/lib/buyer/fixtures.ts",
+        "apps/gcoffers-site/src/lib/buyer/formContract.ts",
+        "apps/gcoffers-site/src/lib/buyer/formContracts.ts",
+        "apps/gcoffers-site/src/lib/buyer/publicDeals.ts",
+        "apps/gcoffers-site/src/lib/deals/publicBuyerDeals.ts"
+      ],
+      "ownerVerification": [
+        "Read slice-5 evidence directly plus package.json, host-aware root route, buyer routes, public buyer deal helper, fixtures, buyer signup and deal-interest forms, and verifier.",
+        "Ran owner command in apps/gcoffers-site: npm run verify:buyer-deals-site && npm run typecheck && npm run build. Result: all succeeded; Next build listed dynamic /, static /faq, dynamic /join, and SSG /deals/[slug] for public-visible fixture slugs.",
+        "Ran owner command in apps/gcoffers-site: npm run verify:seller-site && npm run verify:schema-access. Result: both succeeded after host-aware root changes.",
+        "Ran scoped safety scan over changed/untracked slice files plus git diff --check. Result: SAFETY_SCAN_OK and no whitespace errors.",
+        "Verified worktree remains on feat/gcoffers-payload-cms-site. No commit, push, deploy, Terraform apply, DNS change, cron mutation, or live external alert was performed."
+      ],
+      "blocker": null
+    },
+    {
+      "sliceId": "slice-6-s3-first-form-pipeline",
+      "title": "S3-first form pipeline",
+      "status": "completed",
+      "startedAt": "2026-06-06T04:36:50Z",
+      "completedAt": "2026-06-06T04:58:09Z",
+      "durationSeconds": 1279,
+      "apiCalls": 77,
+      "evidence": [
+        ".jks/gcoffers-payload-cms/slice-6-s3-first-form-pipeline-evidence.md"
+      ],
+      "changedFiles": [
+        ".jks/gcoffers-payload-cms/slice-6-s3-first-form-pipeline-evidence.md",
+        "apps/gcoffers-site/package.json",
+        "apps/gcoffers-site/package-lock.json",
+        "apps/gcoffers-site/scripts/verify-s3-first-form-pipeline.mjs",
+        "apps/gcoffers-site/src/app/api/seller-leads/route.ts",
+        "apps/gcoffers-site/src/app/api/buyer-signups/route.ts",
+        "apps/gcoffers-site/src/app/api/deal-interest/route.ts",
+        "apps/gcoffers-site/src/lib/forms/s3FirstFormPipeline.ts",
+        "apps/gcoffers-site/src/lib/forms/routeHandlers.ts",
+        "apps/gcoffers-site/src/lib/seller/formContract.ts",
+        "apps/gcoffers-site/src/lib/buyer/formContract.ts",
+        "apps/gcoffers-site/src/components/seller/SellerLeadForm.tsx",
+        "apps/gcoffers-site/src/components/buyer/BuyerSignupForm.tsx",
+        "apps/gcoffers-site/src/components/buyer/DealInterestForm.tsx"
+      ],
+      "ownerVerification": [
+        "Read slice-6 evidence directly plus route handlers, route files, S3-first pipeline, verifier, package script, form contracts, and seller/buyer/deal-interest form components.",
+        "Ran owner command in apps/gcoffers-site: npm run verify:s3-first-form-pipeline && npm run typecheck && npm run build && npm run verify:buyer-deals-site && npm run verify:seller-site && git diff --check. Result: all succeeded; build listed /api/seller-leads, /api/buyer-signups, and /api/deal-interest as dynamic routes.",
+        "Verification confirmed S3 write before side effects, side effects skipped on S3 failure, hash-based S3 keys, buyer-list/deals-website and interested-{dealSlug} tags, redacted Slack summary, rate limiting, idempotency, honeypot wiring, and non-prechecked consent.",
+        "Ran focused safety scan over slice-6 text/evidence files. Result: SAFETY_SCAN_OK with no raw email, phone-like value, Slack webhook, AWS key, GitHub token, or private key marker found.",
+        "Verified worktree remains on feat/gcoffers-payload-cms-site. No commit, push, deploy, Terraform apply, DNS change, cron mutation, production AWS mutation, or live external alert was performed."
+      ],
+      "blocker": null,
+      "caveats": [
+        "npm install reported 11 moderate severity vulnerabilities; no audit fix was run because it is broader dependency remediation."
+      ]
+    },
+    {
+      "sliceId": "slice-5-buyer-deals-baseline",
+      "label": "jks-gcoffers-slice-5-final-quality-rereview",
+      "status": "completed",
+      "startedAt": null,
+      "completedAt": "2026-06-06T04:58:21Z",
+      "expectedEvidence": [],
+      "notes": "Final quality re-review APPROVED. Reviewer treated slice-6 API route handlers as a separate verified slice; no slice-5 critical, important, or minor issues remained."
+    },
+    {
+      "sliceId": "slice-7-aws-infra",
+      "title": "AWS infrastructure design/code",
+      "status": "completed",
+      "startedAt": "2026-06-06T05:15:18Z",
+      "completedAt": "2026-06-06T05:34:27Z",
+      "durationSeconds": 952,
+      "apiCalls": 35,
+      "evidence": [
+        ".jks/gcoffers-payload-cms/slice-7-aws-infra-evidence.md"
+      ],
+      "changedFiles": [
+        ".jks/gcoffers-payload-cms/slice-7-aws-infra-evidence.md",
+        "infra/payload-site/README.md",
+        "infra/payload-site/alarms.tf",
+        "infra/payload-site/alb.tf",
+        "infra/payload-site/cloudfront.tf",
+        "infra/payload-site/ecs.tf",
+        "infra/payload-site/iam.tf",
+        "infra/payload-site/locals.tf",
+        "infra/payload-site/network.tf",
+        "infra/payload-site/outputs.tf",
+        "infra/payload-site/rds.tf",
+        "infra/payload-site/route53.tf",
+        "infra/payload-site/s3.tf",
+        "infra/payload-site/security-groups.tf",
+        "infra/payload-site/terraform.tfvars.example",
+        "infra/payload-site/variables.tf",
+        "infra/payload-site/versions.tf"
+      ],
+      "ownerVerification": [
+        "Read slice-7 evidence plus variables.tf, cloudfront.tf, route53.tf, s3.tf, ecs.tf, rds.tf, network.tf, locals.tf, iam.tf, alarms.tf, alb.tf, and README directly.",
+        "Ran owner command in infra/payload-site: terraform fmt -check -recursive && terraform init -backend=false -input=false && terraform validate && rm -rf .terraform .terraform.lock.hcl. Result: succeeded; configuration valid.",
+        "Ran owner command: git diff --check -- infra/payload-site .jks/gcoffers-payload-cms/slice-7-aws-infra-evidence.md. Result: succeeded with no whitespace errors.",
+        "Ran owner static guard verification: cutover/live-alert defaults false, no hosted zone creation, Route53 records gated, CloudFront Host forwarding and no-cache path coverage, private media S3 controls, encrypted/private RDS, ecs_desired_count default 0, no Terraform apply, and scoped secret/PII scan. Result: OWNER_STATIC_VERIFY_OK.",
+        "Verified worktree remains on feat/gcoffers-payload-cms-site. No commit, push, deploy, Terraform apply/plan, DNS change, cron mutation, production AWS mutation, or live external alert was performed."
+      ],
+      "blocker": null,
+      "caveats": [
+        "Terraform plan was not run because safe state/credentials/live AWS reads were not established; backend-disabled init and validate passed.",
+        "ecs_desired_count defaults to 0 until an immutable image and required Secrets Manager values exist.",
+        "Current app expects DATABASE_URI; launch needs a populated database_uri_secret_arn or app-side derivation from RDS secret metadata."
+      ]
+    },
+    {
+      "sliceId": "slice-8-docs-pr-evidence",
+      "title": "Docs, smoke tests, PR evidence, branch push, and PR creation",
+      "status": "completed",
+      "startedAt": "2026-06-06T05:50:00Z",
+      "completedAt": "2026-06-06T06:06:45Z",
+      "durationSeconds": 688,
+      "apiCalls": 45,
+      "evidence": [
+        ".jks/gcoffers-payload-cms/slice-8-docs-pr-evidence.md",
+        "docs/ops/payload-site-runbook.md",
+        "docs/ops/payload-site-pr-evidence.md",
+        "https://github.com/tw0316/gold-coast/pull/5"
+      ],
+      "changedFiles": [
+        ".jks/gcoffers-payload-cms/slice-8-docs-pr-evidence.md",
+        "docs/ops/payload-site-runbook.md",
+        "docs/ops/payload-site-pr-evidence.md",
+        ".jks/gcoffers-payload-cms/goal-state.json"
+      ],
+      "ownerVerification": [
+        "Read slice-8 evidence, runbook, and PR evidence directly after worker completion.",
+        "Ran app verification in apps/gcoffers-site: verify:scaffold, verify:schema-access, verify:seller-site, verify:buyer-deals-site, verify:s3-first-form-pipeline, typecheck, and build. Result: all passed.",
+        "Ran infra verification in infra/payload-site: terraform fmt -check -recursive, terraform init -backend=false -input=false, terraform validate, and cleanup of .terraform/.terraform.lock.hcl. Result: passed.",
+        "Ran scoped safety scan over 58 changed/untracked text files plus git diff --check. Result: SAFETY_SCAN_OK and no whitespace errors after evidence cleanup.",
+        "Committed verified output at 0f668db49713895ae539d219eb8243adc3424c96, pushed feat/gcoffers-payload-cms-site, and opened PR https://github.com/tw0316/gold-coast/pull/5.",
+        "No merge, deploy, Terraform plan/apply, DNS change, production AWS mutation, cron mutation, or live GHL/Slack/email/SMS alert was performed."
+      ],
+      "blocker": null,
+      "caveats": [
+        "Terraform plan was not run because safe live AWS credentials/state were not authorized for this PR evidence run.",
+        "ecs_desired_count/default autoscaling remain at 0 until an immutable image and required Secrets Manager values exist.",
+        "Production runtime still needs approved DATABASE_URI/PAYLOAD_SECRET and live alert/GHL secrets before launch.",
+        "Health endpoints are scaffold-level and should be hardened/verified against live DB/content freshness before launch.",
+        "Earlier npm audit reported moderate dependency vulnerabilities; remediation remains deferred."
+      ],
+      "pullRequest": "https://github.com/tw0316/gold-coast/pull/5"
     }
   ],
   "lastVerifiedEvidence": [
@@ -419,6 +599,30 @@
       "type": "commands",
       "result": "passed",
       "details": "verify:seller-site, verify:scaffold, verify:schema-access, typecheck, build passed"
+    },
+    {
+      "slice": "slice-5-buyer-deals-baseline",
+      "type": "commands",
+      "result": "passed",
+      "details": "verify:buyer-deals-site, typecheck, build, verify:seller-site, verify:schema-access, scoped safety scan, git diff --check, and final spec/quality re-review passed"
+    },
+    {
+      "slice": "slice-6-s3-first-form-pipeline",
+      "type": "commands",
+      "result": "passed",
+      "details": "verify:s3-first-form-pipeline, typecheck, build, verify:buyer-deals-site, verify:seller-site, git diff --check, and scoped safety scan passed; no live side effects performed"
+    },
+    {
+      "slice": "slice-7-aws-infra",
+      "type": "commands",
+      "result": "passed",
+      "details": "terraform fmt -check -recursive, terraform init -backend=false -input=false, terraform validate, git diff --check, static guard verification, and scoped safety scan passed; no plan/apply or live AWS mutation performed"
+    },
+    {
+      "slice": "slice-8-docs-pr-evidence",
+      "type": "commands-pr",
+      "result": "passed",
+      "details": "Final app verification, Terraform validate, safety scan, git diff --check, local commit, branch push, and PR creation passed. PR: https://github.com/tw0316/gold-coast/pull/5"
     }
   ],
   "blockers": [],
@@ -448,5 +652,15 @@
       "thread": "1780702987.289439"
     }
   ],
-  "nextAction": "Retry slice-5-buyer-deals-baseline: buyer/deals routes, cards/detail pages, safe media references, deal interest CTA contract, and focused verifier."
+  "nextAction": "Goal completed locally. PR is open at https://github.com/tw0316/gold-coast/pull/5. Do not merge/deploy/apply Terraform/change DNS/send live alerts without explicit approval. Owner can disable JKS crons after receiving final report.",
+  "pullRequest": {
+    "url": "https://github.com/tw0316/gold-coast/pull/5",
+    "number": 5,
+    "repository": "tw0316/gold-coast",
+    "baseBranch": "feat/data-lake-monorepo-slice-1",
+    "headBranch": "feat/gcoffers-payload-cms-site",
+    "openedAt": "2026-06-06T06:06:45Z",
+    "latestVerifiedCommit": "0f668db49713895ae539d219eb8243adc3424c96",
+    "merged": false
+  }
 }
