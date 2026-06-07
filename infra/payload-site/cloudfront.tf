@@ -84,9 +84,9 @@ resource "aws_cloudfront_cache_policy" "no_cache" {
   max_ttl     = 0
 
   parameters_in_cache_key_and_forwarded_to_origin {
-    enable_accept_encoding_brotli = true
-    enable_accept_encoding_gzip   = true
-
+    # CloudFront rejects Accept-Encoding normalization on cache policies with
+    # all TTLs set to zero. Compression is still enabled on the behavior; this
+    # policy only disables object caching for admin/API/form/private routes.
     cookies_config {
       cookie_behavior = "none"
     }

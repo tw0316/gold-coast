@@ -20,11 +20,13 @@ const read = (relativePath) => readFileSync(join(root, relativePath), 'utf8')
 
 const requiredFiles = [
   'src/app/(frontend)/page.tsx',
+  'src/app/(frontend)/deals/page.tsx',
   'src/app/(buyer)/layout.tsx',
   'src/app/(buyer)/join/page.tsx',
   'src/app/(buyer)/faq/page.tsx',
   'src/app/(buyer)/deals/[slug]/page.tsx',
   'src/components/buyer/BuyerHomePage.tsx',
+  'src/components/buyer/BuyerDealsIndexPage.tsx',
   'src/components/buyer/BuyerDealCard.tsx',
   'src/components/buyer/BuyerDealDetailPage.tsx',
   'src/components/buyer/BuyerEmailCapture.tsx',
@@ -215,6 +217,7 @@ for (const marker of [
 }
 
 const signupForm = read('src/components/buyer/BuyerSignupForm.tsx')
+const frontendDealsIndex = read('src/components/buyer/BuyerDealsIndexPage.tsx')
 const interestForm = read('src/components/buyer/DealInterestForm.tsx')
 assert(signupForm.includes("from '@/lib/buyer/formContract'"), 'buyer signup form imports canonical form contract module')
 assert(!signupForm.includes('prefilledEmail'), 'buyer signup form does not prefill email from URL data')
@@ -233,6 +236,26 @@ for (const checkbox of ['serviceConsent', 'marketingConsent']) {
 assert(signupForm.includes('name="contract"'), 'buyer signup form sends explicit contract marker')
 assert(signupForm.includes('future route must write to S3 first') || signupForm.includes('future route must write to S3'), 'buyer signup copy documents future S3-first persistence')
 assert(!/success|thank you|submitted/i.test(signupForm), 'buyer signup form does not claim fake persistence success')
+
+assert(frontendDealsIndex.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
+assert(frontendDealsIndex.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
+assert(frontendDealsIndex.includes('method="post"'), 'frontend deals signup uses POST')
+assert(frontendDealsIndex.includes('data-s3-first-contract="buyer-signup"'), 'frontend deals signup declares S3-first contract')
+assert(frontendDealsIndex.includes('name="contract"'), 'frontend deals signup sends explicit contract marker')
+const frontendDealsEmailTag = frontendDealsIndex.match(/<input[^>]+id="buyer-email"[^>]*>/s)?.[0] ?? ''
+const frontendDealsFullNameTag = frontendDealsIndex.match(/<input[^>]+id="buyer-full-name"[^>]*>/s)?.[0] ?? ''
+const frontendDealsPhoneTag = frontendDealsIndex.match(/<input[^>]+id="buyer-phone"[^>]*>/s)?.[0] ?? ''
+const frontendDealsBuyerTypeTag = frontendDealsIndex.match(/<select[^>]+id="buyer-type"[^>]*>/s)?.[0] ?? ''
+assert(frontendDealsEmailTag.includes('name="email"') && frontendDealsEmailTag.includes('required'), 'frontend deals signup requires email')
+assert(frontendDealsFullNameTag.includes('name="fullName"') && !/\brequired\b/.test(frontendDealsFullNameTag), 'frontend deals signup keeps full name optional')
+assert(frontendDealsPhoneTag.includes('name="phone"') && !/\brequired\b/.test(frontendDealsPhoneTag), 'frontend deals signup keeps phone optional')
+assert(frontendDealsBuyerTypeTag.includes('name="buyerType"') && !/\brequired\b/.test(frontendDealsBuyerTypeTag), 'frontend deals signup keeps buyer type optional')
+for (const checkbox of ['serviceConsent', 'marketingConsent']) {
+  const pattern = new RegExp(`<input[^>]+name="${checkbox}"[^>]*>`, 's')
+  const tag = frontendDealsIndex.match(pattern)?.[0] ?? ''
+  assert(tag.includes('type="checkbox"'), `frontend deals ${checkbox} is an explicit checkbox`)
+  assert(!/\b(defaultChecked|checked)\b/.test(tag), `frontend deals ${checkbox} checkbox is not prechecked`)
+}
 
 assert(interestForm.includes("from '@/lib/buyer/formContract'"), 'deal interest form imports canonical form contract module')
 assert(interestForm.includes('action={DEAL_INTEREST_POST_TARGET}'), 'deal interest form posts to future local endpoint')

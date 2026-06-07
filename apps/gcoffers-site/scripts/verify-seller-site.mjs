@@ -27,6 +27,7 @@ const requiredFiles = [
   'src/app/(frontend)/get-your-offer/page.tsx',
   'src/components/seller/SellerHomePage.tsx',
   'src/components/seller/SellerLeadForm.tsx',
+  'src/components/seller/SellerHeroAddressBar.tsx',
   'src/components/seller/SellerLegalPage.tsx',
   'src/components/seller/SellerHeader.tsx',
   'src/components/seller/SellerFooter.tsx',
@@ -52,7 +53,7 @@ assert(!exists('src/app/(seller)/page.tsx'), 'no parallel /(seller) root route c
 assert(!rootRoute.includes('Seller site scaffold'), 'seller scaffold copy has been removed from the root route')
 
 const redirectRoute = read('src/app/(frontend)/get-your-offer/page.tsx')
-assert(redirectRoute.includes("redirect('/#seller-lead-form')"), '/get-your-offer redirects to the seller lead CTA')
+assert(redirectRoute.includes("redirect('/#offer')"), '/get-your-offer redirects to the current seller offer CTA')
 assert(redirectRoute.includes('index: false'), '/get-your-offer stays noindex while retired')
 
 const formSource = read('src/components/seller/SellerLeadForm.tsx')
@@ -65,11 +66,15 @@ assert(formSource.includes('data-seller-lead-contract="slice-6-s3-first"'), 'sel
 const inputTags = formSource.match(/<input[\s\S]*?>/g) ?? []
 const findInputByName = (name) => inputTags.find((tag) => tag.includes(`name="${name}"`) || tag.includes(`name='${name}'`))
 
-for (const field of ['fullName', 'address', 'phone', 'email']) {
+for (const field of ['fullName', 'address', 'email']) {
   const tag = findInputByName(field)
   assert(Boolean(tag), `seller lead form includes ${field} input`)
   assert(Boolean(tag?.includes('required')), `${field} input is required in the baseline form contract`)
 }
+
+const phoneTag = findInputByName('phone')
+assert(Boolean(phoneTag), 'seller lead form includes phone input')
+assert(!Boolean(phoneTag?.includes('required')), 'phone input is optional in the seller lead form contract')
 
 for (const field of ['source', 'page', 'referrer', 'userAgent']) {
   const tag = findInputByName(field)
@@ -83,6 +88,7 @@ for (const field of ['serviceConsent', 'marketingConsent']) {
   assert(Boolean(tag?.includes('type="checkbox"')), `${field} is an explicit checkbox`)
   assert(!/\b(defaultChecked|checked)\b/.test(tag ?? ''), `${field} checkbox is not prechecked`)
 }
+assert(!Boolean(findInputByName('serviceConsent')?.includes('required')), 'serviceConsent is optional unless phone is provided')
 
 const sellerContentSources = [
   read('src/fixtures/sellerPages.ts'),
@@ -93,15 +99,14 @@ const sellerContentSources = [
 
 for (const marker of [
   'Gold Coast Home Buyers',
-  'Sell your South Florida house fast.',
-  'Get a fair cash offer in 24 hours.',
-  'How It Works',
-  'Why Sell to Gold Coast Home Buyers?',
-  'Listing the traditional way vs. selling direct',
-  'Common reasons homeowners sell to us',
-  'What Our Sellers Say',
-  'Proudly serving',
-  'Get your no-obligation cash offer today',
+  'Sell your home the easy way.',
+  '4.9 from 400+ South Florida homeowners',
+  'How it works',
+  'Why sellers choose us',
+  'Us vs. listing',
+  '412 South Florida families have moved on with us.',
+  'Questions',
+  'See your no-obligation cash offer.',
   'Privacy Policy',
   'Terms of Service',
   'W & Co LLC',
@@ -124,14 +129,16 @@ for (const marker of [
 }
 
 const cssSource = read('src/app/(frontend)/styles.css')
-for (const marker of ['--color-primary: #2f63ae', '--color-accent: #d5b238', '.hero', '.benefits__grid', '.comparison__cards', '.legal-page']) {
+for (const marker of ['--gchb-gold: #F5C518', '--gchb-navy: #1A3A6B', '.seller-hero', '.address-bar', '.comparison-table', '.offer-section', '.legal-page']) {
   assert(cssSource.includes(marker), `seller CSS brand/layout marker present: ${marker}`)
 }
 
 for (const asset of [
   'public/assets/favicon.ico',
   'public/assets/hero-home.png',
-  'public/assets/logo-goldcoast.png',
+  'public/assets/logo-full-on-dark.svg',
+  'public/assets/logo-full-on-light.svg',
+  'public/assets/fonts/SourceSans3-VariableFont_wght.ttf',
   'public/assets/og-image.jpg',
 ]) {
   const assetPath = join(root, asset)

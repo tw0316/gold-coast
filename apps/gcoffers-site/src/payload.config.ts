@@ -14,6 +14,7 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { SiteSettings } from './collections/SiteSettings'
 import { Users } from './collections/Users'
+import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -91,6 +92,7 @@ export default buildConfig({
     pool: {
       connectionString: databaseURI,
     },
+    prodMigrations: migrations,
   }),
   secret: payloadSecret,
   serverURL,

@@ -108,3 +108,36 @@ All commands were run locally from the implementation worktree. Output summaries
 During the worker evidence run, no commit, push, PR creation, deployment, Terraform plan/apply, DNS change, CloudFront alias change, production AWS mutation, production S3 write, live GHL call, live Slack alert, live email alert, SMS alert, or cron edit was performed.
 
 During owner finalization, the local commits were pushed and the PR above was opened. No merge, deployment, Terraform plan/apply, DNS change, CloudFront alias change, production AWS mutation, production S3 write, live GHL call, live Slack alert, live email alert, SMS alert, or cron edit was performed.
+
+## Follow-up staging remediation evidence, 2026-06-06
+
+After PR #5 was merged and the staging runtime was deployed, browser verification found that `/admin` rendered a Next error page even though earlier HTTP checks returned `200`. The visible issue looked like broken CSS, but asset checks showed CSS/JS chunks returned `200`; ECS logs showed the actual root cause was missing Payload Postgres schema tables, including `users`.
+
+PR #6 now captures the staging evidence and remediation: https://github.com/tw0316/gold-coast/pull/6
+
+- Fix commit: `851dbf1b997c491e66c476d60d94dc1978cab248`.
+- Fix scope: generated initial Payload migrations and wired `prodMigrations` into the Payload Postgres adapter.
+- New staging image: `stage-851dbf1-20260606180226`.
+- Staging runtime URL: `https://d15i9adzz532yk.cloudfront.net`.
+- Browser admin verification now passes:
+  - `/admin?verify=stage-851dbf1-20260606180226` renders the styled Payload first-user setup page.
+  - Page title: `Create first user - Gold Coast Offers CMS`.
+  - DOM check: `hasNextError=false`.
+  - Browser console: no messages and no JavaScript errors.
+- Browser homepage verification passes:
+  - `/` renders the styled seller homepage.
+  - Page title: `Sell Your House Fast in South Florida | Gold Coast Home Buyers`.
+- Form verification passes:
+  - Seller lead POST returned `200`.
+  - `s3Persisted=true`, `s3Mocked=false`.
+  - S3 HEAD verified the temporary test object, then the object was deleted.
+  - GHL side effect remained mocked.
+- CloudWatch check: prior `relation "users" does not exist` error count over the latest 15-minute window was `0`.
+- Guardrails preserved: `enable_dns_cutover=false`, `enable_prod_alias=false`, `enable_live_alerts=false`.
+- No DNS cutover, production alias, production deployment, production Terraform, or live external alert was performed.
+
+Remaining production caveats:
+
+- `staging.gcoffers.com` remains legacy until DNS/alias cutover is approved.
+- Staging DB connection currently uses `sslmode=no-verify`; CA verification needs to be resolved before production cutover.
+- Dependency audit still reports `11 moderate severity vulnerabilities`; remediate before production/cutover.

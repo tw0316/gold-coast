@@ -5,8 +5,9 @@ import './styles.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://gcoffers.com'),
-  title: 'Gold Coast Home Buyers',
-  description: 'Sell your South Florida house fast with a fair cash offer from Gold Coast Home Buyers.',
+  title: 'Gold Coast Home Buyers | Sell Your South Florida House Fast',
+  description:
+    'Get a fast cash offer for your South Florida house. Gold Coast Home Buyers buys homes across Miami-Dade, Broward, and Palm Beach.',
   icons: {
     icon: '/assets/favicon.ico',
   },

@@ -265,6 +265,20 @@ Not allowed in autonomous PR work:
 - production S3/API Gateway/Lambda destructive changes
 - live alert delivery
 
+### DEC-009: GitHub Actions-controlled low-cost staging lifecycle
+
+Decision: keep the fixed staging infrastructure in place but manage staging ECS compute through GitHub Actions. PR and manual staging deploys scale the staging ECS service desired count to `1`; successful production deploys scale the staging ECS service desired count back to `0` after production ECS stability, CloudFront invalidation, and readiness smoke pass.
+
+Consequences:
+
+- Tej does not need to open AWS for routine PR deploys after the one-time GitHub OIDC/vars/secrets setup.
+- Low-cost staging shutdown means ECS desired count `0` only; ALB, RDS, CloudFront, S3, logs, alarms, DNS/certificates, and Terraform state remain intact for the next staging deploy.
+- The deploy workflow builds/pushes immutable ECR image tags and updates ECS task definitions; it does not run Terraform, apply DNS changes, destroy resources, or send live alerts.
+- Staging and production ECS deploy mutations are serialized by the workflow concurrency group so production staging-shutdown cannot race an active staging deploy.
+- Production and staging ECS service variables, and production and staging CloudFront distribution variables, must be distinct. The workflow fails fast if they are accidentally configured to the same target.
+- Manual production deploys are accepted only from the `main` ref.
+- Production deploys require the `production` GitHub environment and production ECS/CloudFront variables, with explicit approval/rules configured in GitHub before use.
+
 ## Actionable next-slice checklist
 
 1. Scaffold `apps/gcoffers-site` as the new Next.js + Payload app using npm and a committed lockfile unless a later slice records a workspace change.

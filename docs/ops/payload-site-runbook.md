@@ -67,7 +67,7 @@ docker compose up -d postgres
 Use matching local-only values in `.env.local`, for example with placeholders rather than committed secrets:
 
 ```bash
-DATABASE_URI=postgres://gcoffers_site_dev:[REDACTED_LOCAL_POSTGRES_PASSWORD]@127.0.0.1:5432/gcoffers_site_dev
+DATABASE_URI=[LOCAL_POSTGRES_CONNECTION_STRING]
 PAYLOAD_SECRET=[REDACTED_LOCAL_PAYLOAD_SECRET]
 NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 PAYLOAD_PUBLIC_SERVER_URL=http://127.0.0.1:3000
@@ -173,6 +173,120 @@ Do not run `terraform plan` unless all of the following are true:
 4. No production DNS, CloudFront aliases, S3/API Gateway/Lambda, Secrets Manager, or other live resources are mutated.
 
 Do not run `terraform apply` before explicit deployment approval.
+
+## GitHub Actions CI/CD lifecycle
+
+The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. The workflow does not run Terraform and does not require Tej to open AWS for each PR deploy after the one-time GitHub setup is complete.
+
+### One-time GitHub setup
+
+Configure these GitHub repository variables and secret before enabling the deploy workflow. Keep non-secret deploy target values at repository scope so both staging and production jobs can compare staging/prod targets and so production can scale staging off. The staging cluster, service, or URL variables must clearly contain `staging`; the production post-deploy scale-down target also requires `staging` in the staging cluster or service name. If environment-scoped variables are used later, duplicate the cross-environment target values intentionally. Store values only in GitHub secrets/variables; do not commit real account IDs, ARNs, registry URLs, hostnames, secret values, DB endpoints, credentials, webhook URLs, or raw PII.
+
+Secret:
+
+- `AWS_DEPLOY_ROLE_ARN` — OIDC-assumable deploy role ARN with the least privilege required for ECR push, ECS task/service update, ECS wait/read, CloudFront invalidation, and the staging scale-down action.
+
+Variables:
+
+- `AWS_REGION`
+- `GCOFFERS_PAYLOAD_ECR_REPOSITORY` — ECR repository name only, not a registry URL.
+- `GCOFFERS_PAYLOAD_STAGING_CLUSTER`
+- `GCOFFERS_PAYLOAD_STAGING_SERVICE`
+- `GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID`
+- `GCOFFERS_PAYLOAD_STAGING_URL`
+- `GCOFFERS_PAYLOAD_PRODUCTION_CLUSTER`
+- `GCOFFERS_PAYLOAD_PRODUCTION_SERVICE`
+- `GCOFFERS_PAYLOAD_PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID`
+- `GCOFFERS_PAYLOAD_PRODUCTION_URL`
+
+Use GitHub environments named `staging` and `production`. Production deploys MUST require explicit GitHub environment approval/rules before this workflow is enabled for production. Production deploys will not work until the production ECS and CloudFront variables above are present.
+
+### Trigger behavior
+
+- Pull requests targeting `main` or `feat/data-lake-monorepo-slice-1` and changing the Payload app, Payload infra, or this workflow deploy to the GitHub `staging` environment.
+- `workflow_dispatch` supports `target=staging` from the selected ref or `target=production` only from `main`.
+- Pushes to `main` deploy to the GitHub `production` environment.
+
+PR staging deploys run the PR branch container in AWS staging. Keep staging secrets and data non-production, and restrict this workflow to trusted repository contributors/branches if that assumption changes.
+
+### What the workflow does
+
+For both staging and production deploys, the workflow serializes ECS deploy mutations through one concurrency group, then:
+
+1. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
+2. Builds `apps/gcoffers-site/Dockerfile`.
+3. Pushes one immutable ECR tag derived from the deploy target, commit SHA, run ID, and run attempt.
+4. Reads the current ECS service task definition, changes only container `app` to the new image, registers a new task definition revision, updates the service to desired count `1`, and waits for ECS service stability.
+5. Creates and waits for a CloudFront invalidation.
+6. Smoke checks `${GCOFFERS_PAYLOAD_<ENV>_URL}/api/health/readiness` and expects JSON with `ok: true`.
+
+After a successful production deploy and production readiness smoke, the workflow scales staging ECS compute off:
+
+```bash
+aws ecs update-service \
+  --cluster "$GCOFFERS_PAYLOAD_STAGING_CLUSTER" \
+  --service "$GCOFFERS_PAYLOAD_STAGING_SERVICE" \
+  --desired-count 0
+aws ecs wait services-stable \
+  --cluster "$GCOFFERS_PAYLOAD_STAGING_CLUSTER" \
+  --services "$GCOFFERS_PAYLOAD_STAGING_SERVICE"
+```
+
+This staging shutdown only sets ECS service desired count to `0`. Shared fixed infrastructure remains in place: ALB, target group, RDS, private media/form S3 buckets, CloudFront, DNS/certificates, logs, alarms, and Terraform state are not destroyed by the deploy workflow.
+
+### Operator commands and expected status
+
+Manual dispatch examples:
+
+```bash
+gh workflow run gcoffers-payload-deploy.yml -f target=staging
+gh workflow run gcoffers-payload-deploy.yml --ref main -f target=production
+gh run list --workflow gcoffers-payload-deploy.yml --limit 5
+gh run watch <run-id>
+```
+
+Staging should be on after a successful PR or manual staging deploy:
+
+```bash
+aws ecs describe-services \
+  --cluster "$GCOFFERS_PAYLOAD_STAGING_CLUSTER" \
+  --services "$GCOFFERS_PAYLOAD_STAGING_SERVICE" \
+  --query 'services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,rollout:deployments[0].rolloutState}' \
+  --output table
+curl -fsS "${GCOFFERS_PAYLOAD_STAGING_URL%/}/api/health/readiness"
+```
+
+Expected staging result: ECS `status` is `ACTIVE`, `desired` is `1`, `running` is `1`, `pending` is `0`, rollout is `COMPLETED`, and readiness returns non-secret JSON with `ok: true`.
+
+Production should be on and staging should be off after a successful production deploy:
+
+```bash
+aws ecs describe-services \
+  --cluster "$GCOFFERS_PAYLOAD_PRODUCTION_CLUSTER" \
+  --services "$GCOFFERS_PAYLOAD_PRODUCTION_SERVICE" \
+  --query 'services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,rollout:deployments[0].rolloutState}' \
+  --output table
+aws ecs describe-services \
+  --cluster "$GCOFFERS_PAYLOAD_STAGING_CLUSTER" \
+  --services "$GCOFFERS_PAYLOAD_STAGING_SERVICE" \
+  --query 'services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount}' \
+  --output table
+curl -fsS "${GCOFFERS_PAYLOAD_PRODUCTION_URL%/}/api/health/readiness"
+```
+
+Expected production result: production ECS `status` is `ACTIVE`, `desired` is `1`, `running` is `1`, `pending` is `0`, rollout is `COMPLETED`, production readiness returns `ok: true`, and staging ECS `desired`/`running` are both `0`.
+
+CloudFront invalidation status, if checking an invalidation ID captured from a workflow run or a manual invalidation, should be `Completed`:
+
+```bash
+aws cloudfront get-invalidation \
+  --distribution-id "$GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID" \
+  --id "$INVALIDATION_ID" \
+  --query 'Invalidation.Status' \
+  --output text
+```
+
+Do not use the workflow as a substitute for production cutover approval, DNS approval, live-alert approval, or Terraform apply approval. It only publishes a new app image to an already-created ECS/CloudFront environment and manages the low-cost staging desired-count lifecycle.
 
 ## Migration and cutover plan
 

@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 }
 
 export default function RetiredGetYourOfferPage() {
-  redirect('/#seller-lead-form')
+  redirect('/#offer')
 }
