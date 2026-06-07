@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import '../(frontend)/styles.css'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://deals.gcoffers.com'),
+  metadataBase: new URL('https://gcoffers.com'),
   title: 'Gold Coast Buyer Deals',
   description: 'Public buyer/deals pages for Gold Coast Home Buyers.',
   icons: {

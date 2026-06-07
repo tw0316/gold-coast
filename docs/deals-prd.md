@@ -1,5 +1,7 @@
 # PRD: deals.gcoffers.com — Investor Deal Portal
 
+> **Archived / superseded:** This March PRD described a standalone buyer subdomain. The live Payload site now exposes buyer/deals content at `gcoffers.com/deals/`; `deals.gcoffers.com` is not a current production target. Treat this document as product-history context, not active implementation guidance.
+
 > **Author:** Jarvis (PM)
 > **Date:** March 13, 2026
 > **Status:** Draft

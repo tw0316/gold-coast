@@ -65,7 +65,7 @@ async function syncToGHL(buyer, apiKey) {
     lastName: lastName,
     email: buyer.email,
     phone: '+1' + buyer.phone,
-    source: 'Deals Website - deals.gcoffers.com',
+    source: 'Deals Website - gcoffers.com/deals',
     tags: ['buyer-list', 'deals-website'],
     customField: {
       buyer_type: buyer.buyerType || '',

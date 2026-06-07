@@ -10,7 +10,7 @@ locals {
 }
 
 # DNS records are cutover-only and default to disabled. This stack never creates
-# a hosted zone, avoiding duplicate ownership with infra/website.
+# a hosted zone, avoiding duplicate ownership with the root legacy static Terraform stack.
 resource "aws_route53_record" "cloudfront_a" {
   for_each = var.enable_dns_cutover ? toset(local.cloudfront_aliases) : toset([])
 

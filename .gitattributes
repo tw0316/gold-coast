@@ -1,0 +1,5 @@
+# Legacy static deploy source is deleted in cleanup PRs. Suppress line-level
+# diffs so historical credentials/resource identifiers in removed files are not
+# re-exposed in pull request views.
+scripts/** -diff
+site/** -diff

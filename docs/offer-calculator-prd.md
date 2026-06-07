@@ -1,5 +1,7 @@
 # Offer Calculator — Product Requirements Document
 
+> **Domain note:** Any historical references to `deals.gcoffers.com` in this PRD are superseded by the live Payload buyer/deals surface at `gcoffers.com/deals/`, unless a future approved change reintroduces a buyer subdomain.
+
 **Product:** Gold Coast Home Buyers — Offer Calculator
 **Version:** MVP (v1.0)
 **Author:** Tej (s0n3w) + Jarvis

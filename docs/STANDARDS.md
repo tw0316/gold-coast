@@ -1,225 +1,121 @@
 # Gold Coast Home Buyers — Development Standards
 
-## Project Overview
-- **Domain:** gcoffers.com
-- **Purpose:** Lead generation website for South Florida real estate wholesaling
-- **Business:** Gold Coast Home Buyers (Tej + Juhi)
-- **Stack:** Static HTML/CSS/JS + AWS (S3, CloudFront, Lambda, API Gateway, Route 53)
+Updated: 2026-06-07
 
----
+## Current production architecture
 
-## Architecture
+Gold Coast Home Buyers now serves `gcoffers.com` and `www.gcoffers.com` from the Next.js + Payload CMS app in `apps/gcoffers-site`.
 
+```text
+User browser
+  -> Route 53
+  -> CloudFront
+  -> ALB
+  -> ECS Fargate running Next.js + Payload
+       -> RDS Postgres for Payload CMS
+       -> private S3 media bucket
+       -> S3-first form submission records
+       -> Secrets Manager runtime secrets
+       -> CloudWatch logs, metrics, alarms
 ```
-User Browser
-    │
-    ├── Static Site (S3 + CloudFront)
-    │     ├── index.html (homepage + Step 1 form)
-    │     ├── /get-your-offer/ (Step 2 form)
-    │     ├── /privacy-policy/
-    │     └── /terms/
-    │
-    └── Form Submission (API Gateway + Lambda)
-          ├── S3 Write (goldcoast-leads bucket, source of truth)
-          └── GoHighLevel API (CRM sync, parallel, non-blocking)
-```
+
+The old static `site/` source and static deploy helpers have been removed from the active tree. Historical static AWS infrastructure under the root legacy `infra/` Terraform files remains only for rollback/decommission audit context until Tej explicitly approves retirement.
+
+## Active surfaces
+
+- Seller site: `https://gcoffers.com/` and `https://www.gcoffers.com/`.
+- Buyer/deals surface: `https://gcoffers.com/deals/`.
+- Payload admin: `/admin`.
+- Health checks: `/api/health/readiness` and `/api/health/public-content`.
+
+`deals.gcoffers.com` is not a live target for the current site.
 
 ## Environments
 
-| Environment | Domain | Access |
-|-------------|--------|--------|
-| Production  | gcoffers.com | Public |
-| Staging     | staging.gcoffers.com | IP-restricted (76.128.41.131 only) |
+- Production: always-on ECS service behind production CloudFront aliases for apex and `www`.
+- Staging: `https://staging.gcoffers.com`, ECS service wakes for PR/manual staging deploys and is scaled back to desired count `0` after successful production deploys.
 
-### Staging Rules
-- Staging CloudFront distribution uses WAF with IP whitelist
-- Only accessible from home network
-- Deploys from `staging` branch
-- Mirror of prod infrastructure (separate S3 buckets, separate Lambda)
+Staging off means ECS app compute is off. It does not destroy staging ALB, RDS, CloudFront, S3, DNS, logs, alarms, or Terraform state.
 
----
+## Branch and PR strategy
 
-## Branch Strategy
-
-```
-main        → deploys to production (gcoffers.com)
-staging     → deploys to staging (staging.gcoffers.com)
-feat/*      → feature branches, PR into staging first
-fix/*       → bug fixes, can PR directly into main for hotfixes
+```text
+feature/fix/chore branch
+  -> PR into main
+  -> PR Check validates app + Payload Terraform
+  -> optional PR staging deploy when staging evidence is needed
+  -> merge to main after review
+  -> production deploy workflow runs from main
 ```
 
-### Commit Convention
-```
-feat: add testimonials section
-fix: TCPA checkbox validation on mobile
-infra: add WAF IP restriction for staging
-style: adjust hero CTA button spacing
-```
+Do not merge, deploy, apply Terraform, change DNS, or enable live alerts without explicit approval when a task guardrail says so.
 
----
+## App standards
 
-## Code Standards
+- Use `apps/gcoffers-site` for current website changes.
+- Use Next.js App Router patterns already present in the app.
+- Payload schema/access changes must preserve public/private boundaries for drafts, hidden records, exact addresses, media, buyer signups, and deal interest.
+- Public forms must remain S3-first: persist source-of-truth JSON before GHL, Payload mirror, Slack, email, or other side effects.
+- Public success responses must only happen after S3 persistence succeeds.
+- Do not log or commit raw PII, secrets, webhook URLs, exact private addresses, DB URLs, AWS account IDs, ARNs, CloudFront IDs, Route53 zone IDs, or credentials.
+- TCPA/service consent controls must remain unchecked by default and explicit.
 
-### HTML
-- Semantic HTML5 (header, nav, main, section, article, footer)
-- All images have alt text
-- Forms have proper labels and aria attributes
-- TCPA checkbox: `<input type="checkbox" required>` — never pre-checked
+## Local verification
 
-### CSS
-- CSS custom properties (variables) for theming
-- Mobile-first responsive design
-- No CSS frameworks (keep it lightweight)
-- BEM-ish naming: `.hero__title`, `.form__input`, `.benefits__card`
-- Max width: 1200px content area
-- File: `css/styles.css` (single file, no build step needed)
-
-### JavaScript
-- Vanilla JS only (no React, no jQuery, no build tools)
-- Form validation: client-side + server-side
-- Async form submission via fetch()
-- Progressive enhancement: forms work without JS (action fallback)
-- File: `js/main.js` (single file)
-
-### Assets
-- Images: WebP preferred, JPEG fallback
-- Compress all images before commit (target: <100KB each)
-- Favicon: include .ico + .png variants
-- Open Graph meta tags on all pages
-
----
-
-## Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| Lighthouse Performance | 90+ |
-| First Contentful Paint | <1.5s |
-| Largest Contentful Paint | <2.5s |
-| Total page weight | <500KB |
-| Time to Interactive | <2s |
-
----
-
-## Testing
-
-### Pre-Deploy Checklist
-- [ ] All forms submit successfully (test with real data in staging)
-- [ ] TCPA checkbox is unchecked by default and required
-- [ ] Form data arrives in S3 bucket (check goldcoast-leads)
-- [ ] Form data arrives in GoHighLevel CRM
-- [ ] If GHL API fails, S3 still receives the lead
-- [ ] Mobile responsive: test at 375px, 768px, 1024px, 1440px
-- [ ] All links work (no 404s)
-- [ ] Privacy policy and terms pages render correctly
-- [ ] SSL certificate is active (HTTPS only)
-- [ ] No console errors
-- [ ] Lighthouse audit passes targets
-- [ ] Open Graph preview renders correctly (use ogimage.dev or similar)
-
-### Testing Workflow
-1. Build locally → test in browser
-2. Open PR → PR Check validates the static site and Lambda JavaScript syntax
-3. Run the Deploy Staging GitHub Actions workflow with the PR branch/ref
-4. Tej reviews staging from an allowed IP (`staging.gcoffers.com` is WAF-restricted)
-5. Merge PR into `main`
-6. Run the Deploy Production GitHub Actions workflow from `main`
-7. Smoke test prod
-
-### Lambda Testing
-- Test locally with `sam local invoke` or simple Node.js test script
-- Test cases:
-  - Happy path (all fields valid)
-  - Missing required fields (should return 400)
-  - GHL API timeout (lead should still save to S3)
-  - GHL API error (lead should still save to S3)
-  - Duplicate submission (idempotent, don't create duplicate leads)
-
----
-
-## Deployment
-
-### Initial Setup (one-time)
-1. Create AWS resources (S3 buckets, CloudFront, Route 53, Lambda, API Gateway)
-2. Point Namecheap nameservers to Route 53
-3. Request ACM certificate for gcoffers.com + *.gcoffers.com
-4. Configure AWS GitHub Actions OIDC provider and deploy roles
-5. Configure GitHub Actions variables and environments
-
-### Deploy to Staging
-Run the **Deploy Staging** GitHub Actions workflow and provide the branch, tag, or SHA to deploy.
-
-### Deploy to Production
-Run the **Deploy Production** GitHub Actions workflow from `main` after staging approval.
-
-### Local Break-Glass Deploy
-Local deployment is emergency-only and intentionally guarded:
+From `apps/gcoffers-site`:
 
 ```bash
-ALLOW_LOCAL_DEPLOY=1 ./scripts/deploy.sh staging --confirm-local-break-glass
+npm ci
+npm run verify:seller-site
+npm run verify:buyer-deals-site
+npm run verify:s3-first-form-pipeline
+npm run typecheck
+npm run build
 ```
 
-### Deployment Pipeline Should:
-1. Validate environment and required GitHub Actions variables
-2. Validate static site files and Lambda JavaScript syntax
-3. Upload site files to the correct S3 bucket
-4. Apply cache-control metadata
-5. Invalidate CloudFront cache
-6. Run smoke checks
-7. Print deploy summary
+Use local/mock mode for form tests unless Tej explicitly approves a non-production AWS smoke.
 
----
+## Terraform standards
 
-## Secrets Management
-- AWS credentials: stored locally, never in repo
-- GHL API key: stored in AWS Secrets Manager, Lambda reads at runtime
-- No secrets in environment variables visible in AWS Console
-- `.gitignore` includes all credential files
+Active Payload infrastructure lives in `infra/payload-site`.
 
----
+Safe validation only:
 
-## Monitoring (Post-Launch)
-- CloudFront access logs → S3 bucket (for traffic analysis)
-- Lambda CloudWatch logs (for form submission debugging)
-- S3 lead count check (daily, automated)
-- Uptime monitoring: set up after launch (UptimeRobot or similar)
-
----
-
-## File Structure
+```bash
+cd infra/payload-site
+terraform fmt -check -recursive
+terraform init -backend=false -input=false
+terraform validate
+rm -rf .terraform .terraform.lock.hcl
 ```
-goldcoast-website/
-├── docs/
-│   └── STANDARDS.md          # This file
-├── site/
-│   ├── index.html            # Homepage (hero + Step 1 form)
-│   ├── get-your-offer/
-│   │   └── index.html        # Step 2 form
-│   ├── privacy-policy/
-│   │   └── index.html
-│   ├── terms/
-│   │   └── index.html
-│   ├── css/
-│   │   └── styles.css
-│   ├── js/
-│   │   └── main.js
-│   └── assets/
-│       ├── logo.svg
-│       ├── favicon.ico
-│       └── og-image.jpg
-├── lambda/
-│   ├── index.js              # Form handler
-│   ├── package.json
-│   └── test.js               # Local test script
-├── infra/
-│   ├── main.tf               # Terraform (or CDK)
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── staging.tfvars
-├── scripts/
-│   ├── deploy.sh             # Break-glass local deploy wrapper
-│   ├── deploy/               # GitHub Actions deploy helpers
-│   └── setup.sh              # One-time infra setup
-├── .gitignore
-└── README.md
+
+Do not run `terraform apply` without explicit approval. Do not commit `.terraform/`, `.terraform.lock.hcl`, `terraform.tfvars`, `*.tfstate`, or `*.tfstate.backup`.
+
+Default safety flags should stay non-mutating unless an approved operation says otherwise:
+
+```hcl
+enable_dns_cutover = false
+enable_prod_alias  = false
+enable_live_alerts = false
 ```
+
+## Deployment standards
+
+Active workflows:
+
+- `.github/workflows/pr-check.yml` validates the Payload app and Payload Terraform.
+- `.github/workflows/gcoffers-payload-deploy.yml` deploys app images to ECS and invalidates CloudFront.
+
+The deploy workflow intentionally does not run Terraform, change DNS, attach/move CloudFront aliases, create/destroy infrastructure, or enable live external alerts.
+
+## Files that matter now
+
+```text
+apps/gcoffers-site/              # active Next.js + Payload app
+infra/payload-site/              # active Payload AWS Terraform
+docs/ops/payload-site-runbook.md # operational runbook
+docs/deployment-pipeline.md      # GitHub deploy lifecycle
+docs/archive/legacy-static-site-cleanup.md
+```
+
+Historical references and old docs may mention static site paths. Do not treat them as current implementation instructions unless they are explicitly updated for the Payload app.

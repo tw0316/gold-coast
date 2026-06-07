@@ -24,7 +24,11 @@ locals {
     var.buyer_domain,
   ]) : []
 
-  cloudfront_aliases = distinct(concat(local.prod_cloudfront_aliases, var.additional_cloudfront_aliases))
+  staging_cloudfront_aliases = var.enable_staging_alias ? compact([
+    var.staging_domain,
+  ]) : []
+
+  cloudfront_aliases = distinct(concat(local.prod_cloudfront_aliases, local.staging_cloudfront_aliases, var.additional_cloudfront_aliases))
   primary_public_url = length(local.cloudfront_aliases) > 0 ? "https://${local.cloudfront_aliases[0]}" : ""
 
   rds_backup_retention_days = coalesce(var.rds_backup_retention_days, var.environment == "prod" ? 7 : 1)

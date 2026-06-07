@@ -14,18 +14,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate-static-site:
-    name: Validate static site
+  validate-payload-site:
+    name: Validate Payload site
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v4
 
-      - name: Validate website files
-        run: bash scripts/deploy/validate-static-site.sh site
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/gcoffers-site/package-lock.json
 
-      - name: Check Lambda JavaScript syntax
+      - name: Install app dependencies
+        working-directory: apps/gcoffers-site
+        run: npm ci
+
+      - name: Run focused app verification
+        working-directory: apps/gcoffers-site
+        run: |
+          npm run verify:seller-site
+          npm run verify:buyer-deals-site
+          npm run verify:s3-first-form-pipeline
+          npm run typecheck
+          npm run build
+
+      - name: Check retained legacy Lambda syntax
         run: |
           node --check lambda/index.js
           node --check lambda/buyer-signup.js
+
+  validate-payload-terraform:
+    name: Validate Payload Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform fmt
+        working-directory: infra/payload-site
+        run: terraform fmt -check -recursive
+
+      - name: Terraform validate without backend
+        working-directory: infra/payload-site
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate

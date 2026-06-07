@@ -1,5 +1,7 @@
 # A2P Registration — Implementation Tickets
 
+> **Archived:** This ticket set described the pre-Payload static `site/` implementation. It is retained only as compliance/history context after the Payload cutover. Do not use these paths as current implementation instructions; use `apps/gcoffers-site` for live site changes.
+
 > **Context:** A2P (Application-to-Person) SMS registration requires compliance changes to gcoffers.com before the vendor will approve. Three tickets below. All changes are to the existing static site at `/Users/jarvis/Projects/goldcoast-website/site/`.
 >
 > **After A2P approval:** Ticket 3 (Revert) reverses Ticket 1 and restores the original 2-step flow.
