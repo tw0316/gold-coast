@@ -1,0 +1,30 @@
+# Safe defaults for PR validation and first non-production planning.
+# Copy to a local, uncommitted .tfvars file and replace placeholders with real
+# ARNs/image tags only in an approved deployment workflow.
+
+environment        = "staging"
+enable_dns_cutover = false
+enable_prod_alias  = false
+enable_live_alerts = false
+
+# Keep service at zero until an immutable image and required Secrets Manager
+# values are populated. Production should set desired/min count to at least 1.
+ecs_desired_count = 0
+ecs_min_capacity  = 0
+ecs_max_capacity  = 2
+
+# app_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/gcoffers-payload-staging-app:2026-06-06-sha"
+# database_uri_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:gcoffers/payload-site/staging/database-uri-xxxxxx"
+# payload_secret_arn      = "arn:aws:secretsmanager:us-east-1:123456789012:secret:gcoffers/payload-site/staging/payload-secret-xxxxxx"
+# ghl_api_key_secret_arn  = "arn:aws:secretsmanager:us-east-1:123456789012:secret:goldcoast/ghl-api-key-xxxxxx"
+
+# Existing source-of-truth bucket remains referenced, not recreated.
+create_form_submissions_bucket = false
+form_submissions_bucket_name   = "goldcoast-leads"
+form_submissions_prefixes      = ["seller-leads/", "buyer-signups/", "deal-interest/"]
+
+# Cutover-only values; leave commented until Tej explicitly approves launch.
+# enable_prod_alias = true
+# cloudfront_acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+# route53_zone_id = "Zxxxxxxxxxxxxx"
+# enable_dns_cutover = true
