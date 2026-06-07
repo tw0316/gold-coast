@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/favicon.ico">
   <link rel="preload" href="/assets/fonts/SourceSans3-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css?v=designer-feedback">
   <title>Off-Market South Florida Deals | Gold Coast Home Buyers</title>
   <meta name="description" content="Join the Gold Coast buyer list for South Florida off-market real estate deals across Miami-Dade, Broward, and Palm Beach.">
 </head>
@@ -52,18 +52,18 @@
       </div>
       <div class="deal-list">
         <div class="count-bar">
-          <div><strong>0 active deals</strong><span style="color: var(--fg-2); margin-left: 8px;">South Florida</span></div>
+          <div><strong id="deals-count">0 active deals</strong><span id="deals-region" style="color: var(--fg-2); margin-left: 8px;">South Florida</span></div>
           <div class="pill-row" aria-label="Deal filters">
-            <button class="pill" type="button" aria-pressed="true">All</button>
-            <button class="pill" type="button">Miami-Dade</button>
-            <button class="pill" type="button">Broward</button>
-            <button class="pill" type="button">Palm Beach</button>
+            <button class="pill" type="button" aria-pressed="true" data-county-filter="all">All</button>
+            <button class="pill" type="button" aria-pressed="false" data-county-filter="Miami-Dade">Miami-Dade</button>
+            <button class="pill" type="button" aria-pressed="false" data-county-filter="Broward">Broward</button>
+            <button class="pill" type="button" aria-pressed="false" data-county-filter="Palm Beach">Palm Beach</button>
           </div>
         </div>
         <div class="empty-deals">
-          <div class="empty-deals__icon">⌂</div>
+          <div class="empty-deals__icon icon icon--home" aria-hidden="true"></div>
           <h2>No active deals right now</h2>
-          <p class="lede">We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.</p>
+          <p class="lede" id="empty-deals-message">We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.</p>
           <a class="btn" href="#join">Join the buyer list</a>
         </div>
       </div>
@@ -163,38 +163,27 @@
       </div>
     </section>
   </main>
-  <footer class="footer">
-  <div class="container">
-    <div class="footer__grid">
-      <div class="footer__brand">
-        <a class="footer__logo" href="/" aria-label="Gold Coast Home Buyers home"><img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers"></a>
-        <p>South Florida cash home buyers serving Miami-Dade, Broward, and Palm Beach. Fast offers, clean closings, no runaround.</p>
-      </div>
-      <div>
-        <h2>Explore</h2>
-        <nav class="footer__links" aria-label="Footer navigation">
-          <a href="/">Sell</a>
-          <a href="/deals/">Buy</a>
-          <a href="/about/">About</a>
-          <a href="/privacy-policy/">Privacy Policy</a>
-          <a href="/terms/">Terms</a>
+  <footer class="footer footer--handoff">
+    <div class="container">
+      <div class="footer--handoff__grid">
+        <div class="footer__brand">
+          <a class="footer__logo" href="/" aria-label="Gold Coast Home Buyers home"><img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers"></a>
+          <p>South Florida cash home buyers serving Miami-Dade, Broward, and Palm Beach Counties. Fast offers, clean closings, no runaround.</p>
+          <a href="tel:+17869835811">(786) 983-5811</a>
+        </div>
+        <nav class="footer__cols" aria-label="Footer navigation">
+          <div><h2>Sellers</h2><a href="/#offer">Get a Cash Offer</a><a href="/#how-it-works">How It Works</a><a href="/#reviews">Reviews</a><a href="/#faq">FAQ</a></div>
+          <div><h2>Buyers</h2><a href="/deals/">View Active Deals</a><a href="/deals/#join">Join the Buyer List</a></div>
+          <div><h2>Company</h2><a href="/about/#why">Why Gold Coast</a><a href="/about/#service-area">Service Area</a><a href="/about/#contact">Contact</a></div>
+          <div><h2>Legal</h2><a href="/privacy-policy/">Privacy Policy</a><a href="/terms/">Terms of Service</a></div>
         </nav>
       </div>
-      <div>
-        <h2>Contact</h2>
-        <div class="footer__contact">
-          <a href="tel:+17869835811">(786) 983-5811</a>
-          <a href="mailto:deals@gcoffers.com">deals@gcoffers.com</a>
-          <a href="https://instagram.com/gc.homebuyers">@gc.homebuyers</a>
-        </div>
+      <div class="footer__bottom">
+        <span>© 2026 Gold Coast Home Buyers · Gold Coast Offers LLC · Hollywood, FL</span>
+        <span>Serving Miami-Dade, Broward, and Palm Beach Counties</span>
       </div>
     </div>
-    <div class="footer__bottom">
-      <span>W &amp; Co LLC, doing business as Gold Coast Home Buyers</span>
-      <span>&copy; 2026 Gold Coast Home Buyers. All rights reserved.</span>
-    </div>
-  </div>
-</footer>
+  </footer>
   <script src="/js/main.js?v=20260604-redesign" defer></script>
 </body>
 </html>
