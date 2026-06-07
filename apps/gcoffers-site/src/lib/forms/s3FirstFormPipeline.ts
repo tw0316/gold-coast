@@ -437,7 +437,7 @@ export function buildBuyerSignupSubmission(
   const sideEffects = [
     createGhlMockEffect({
       tags: ghlTags,
-      source: 'Deals Website - deals.gcoffers.com',
+      source: 'Deals Website - gcoffers.com/deals',
       smsEligible: smsConsent,
     }),
     createPayloadMirrorMockEffect({ collection: 'buyer-signups' }),

@@ -11,3 +11,12 @@ ghl-api*
 terraform.tfvars
 infra/.build/
 *.zip
+
+# Local agent/runtime evidence and profile files. Keep these out of product PRs.
+.jks/
+.openclaw/
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md

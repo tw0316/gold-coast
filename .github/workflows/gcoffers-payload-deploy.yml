@@ -4,7 +4,6 @@ name: gcoffers Payload deploy
   pull_request:
     branches:
       - main
-      - feat/data-lake-monorepo-slice-1
     paths:
       - apps/gcoffers-site/**
       - infra/payload-site/**

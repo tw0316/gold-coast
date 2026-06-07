@@ -1,8 +1,8 @@
 # Deployment Pipeline
 
-Gold Coast Home Buyers deploys a static HTML/CSS/JS site to S3 + CloudFront.
+Gold Coast Home Buyers now deploys the Payload/Next site from `apps/gcoffers-site` through GitHub Actions.
 
-The normal deploy path is GitHub Actions. Local deploy scripts are not part of the standard release flow.
+The legacy static `site/` deploy path has been removed from the active tree. Historical static infrastructure remains in the root legacy `infra/` Terraform files only for rollback/decommission audit context.
 
 ## Source-of-truth release flow
 
@@ -13,159 +13,75 @@ open PR into main
   ↓
 PR Check passes
   ↓
-Deploy Staging workflow with the PR branch/ref when staging evidence is needed
+Payload staging deploy wakes staging ECS when staging evidence is needed
   ↓
-test staging from an allowed IP
+test staging
   ↓
 merge PR into main
   ↓
-Deploy Production workflow from main after approval
+Payload production deploy updates production ECS, invalidates CloudFront, checks readiness, then scales staging ECS back to zero
 ```
 
 ## Workflows
 
 ### PR Check
 
-Runs on every PR into `main`:
+`.github/workflows/pr-check.yml` validates pull requests with focused app checks, TypeScript, production build, retained Lambda syntax checks, and backend-disabled Payload Terraform validation.
 
-```text
-validate required static site files
-reject .DS_Store and local absolute paths
-verify a lead submission API endpoint is referenced
-check Lambda JavaScript syntax
-```
+### gcoffers Payload deploy
 
-### Deploy Staging
+`.github/workflows/gcoffers-payload-deploy.yml` is the active staging/production deploy workflow.
 
-Manual GitHub Actions workflow.
+Staging deploys run when:
 
-Use this for:
+- a pull request touches `apps/gcoffers-site/**`, `infra/payload-site/**`, or the deploy workflow; or
+- a manual workflow dispatch targets `staging`.
 
-- Previewing a PR branch before merge.
-- Deploying the current `main` bundle to staging after one or more PRs merge.
+Production deploys run when:
 
-Inputs:
+- code is pushed to `main`; or
+- a manual workflow dispatch targets `production` from `main`.
 
-- `ref`: branch name, tag, or commit SHA to deploy.
+Production is protected by the GitHub `production` environment.
 
-Examples:
+## What the deploy does
 
-```text
-fix/homepage-copy
-main
-086969d
-```
+Both staging and production deploys:
 
-Deploy Staging runs:
+- check out the repo
+- validate required GitHub variables
+- authenticate to AWS via OIDC
+- build the `apps/gcoffers-site` Docker image
+- push the image to ECR
+- register a new ECS task definition
+- update the ECS service to desired count `1`
+- wait for service stability
+- invalidate CloudFront
+- check `/api/health/readiness`
 
-```text
-checkout selected ref
-validate static site
-check Lambda JavaScript syntax
-validate required GitHub Actions variables
-configure AWS OIDC credentials
-sync site/ to the staging S3 bucket with cache-control metadata
-invalidate staging CloudFront /*
-run a non-blocking staging smoke check
-```
+Production additionally scales the staging ECS service to desired count `0` after the production deploy succeeds.
 
-Staging is IP-restricted by WAF. GitHub-hosted runners may receive HTTP 403 during the smoke check. That is expected and does not fail the workflow. Final staging review should happen from an allowed IP.
+## What the deploy intentionally does not do
 
-### Deploy Production
+The GitHub deploy workflow does **not**:
 
-Manual GitHub Actions workflow.
+- run Terraform
+- change DNS records
+- attach or move CloudFront aliases
+- create/destroy infrastructure
+- enable live Slack/email/external alerts
 
-Production deploys always check out `main`. If the workflow is run from any branch other than `main`, it fails before deploying.
-
-Use this when staging already looks good and the current `main` commit is approved for production.
-
-Deploy Production runs:
-
-```text
-require workflow ref is main
-checkout main
-validate static site
-check Lambda JavaScript syntax
-validate required GitHub Actions variables
-configure AWS OIDC credentials
-sync site/ to the production S3 bucket with cache-control metadata
-invalidate production CloudFront /*
-require production smoke check to return HTTP 200
-```
+Those are operational changes and require explicit approval.
 
 ## Environments
 
-| Environment | URL | Source allowed |
+| Environment | URL | Source |
 |---|---|---|
-| staging | `https://staging.gcoffers.com` | any selected ref |
-| production | `https://gcoffers.com` | `main` only |
+| staging | `https://staging.gcoffers.com` | PR branch or manual staging dispatch |
+| production | `https://gcoffers.com` / `https://www.gcoffers.com` | `main` only |
 
-## GitHub repository variables
+## Required GitHub configuration
 
-These must be configured in GitHub Actions variables:
+The workflow uses repository variables and GitHub environments for AWS OIDC role ARNs, ECS/ECR/CloudFront resource references, and public URLs. Do not store long-lived AWS access keys in GitHub.
 
-| Variable | Purpose | Current value |
-|---|---|---|
-| `AWS_REGION` | AWS region | `us-east-1` |
-| `AWS_STAGING_DEPLOY_ROLE_ARN` | OIDC role for staging deploys | create during AWS setup |
-| `AWS_PRODUCTION_DEPLOY_ROLE_ARN` | OIDC role for production deploys | create during AWS setup |
-| `STAGING_S3_BUCKET` | staging static website bucket | `gcoffers-site-staging` |
-| `STAGING_CLOUDFRONT_DISTRIBUTION_ID` | staging CloudFront distribution | `E2MA4HGXAENEX6` |
-| `PRODUCTION_S3_BUCKET` | production static website bucket | `gcoffers-site` |
-| `PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID` | production CloudFront distribution | `E2M3ODBLV2EE62` |
-
-The deploy workflows validate required variables before attempting AWS credentials, S3 sync, or CloudFront invalidation, so missing GitHub variables fail early with a readable error.
-
-No long-lived AWS access keys should be stored in GitHub. GitHub Actions should use AWS OIDC and short-lived credentials.
-
-## AWS IAM
-
-Set up two least-privilege deploy roles in the Gold Coast AWS account:
-
-- `GitHubActionsGoldCoastStagingDeploy`
-- `GitHubActionsGoldCoastProductionDeploy`
-
-Each role should only be assumable by `tw0316/gold-coast` GitHub Actions through `token.actions.githubusercontent.com` and should only be able to sync its own S3 bucket and invalidate its own CloudFront distribution.
-
-Trust policy subjects:
-
-- Staging role: `repo:tw0316/gold-coast:environment:staging`.
-- Production role: `repo:tw0316/gold-coast:environment:production`.
-
-Required permissions per role:
-
-- `s3:ListBucket` on that environment's bucket.
-- `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` on that environment's bucket objects.
-- `cloudfront:CreateInvalidation` on that environment's CloudFront distribution.
-
-Production should also be protected by the GitHub `production` environment with required reviewer approval and a deployment branch policy limited to `main`.
-
-## Cache-control policy
-
-The site uses unversioned CSS and JavaScript filenames, so deploys should not use immutable browser caching for those files.
-
-The Actions sync helper applies:
-
-- `public,max-age=0,must-revalidate` to all deployed files by default.
-- `public,max-age=86400` to images and icons under `site/assets/`.
-- CloudFront `/*` invalidation on every deploy.
-
-## Local deploy scripts
-
-The standard pipeline deliberately avoids local deploy commands.
-
-- Use GitHub Actions for staging and production deploys.
-- `scripts/deploy.sh` remains only as a break-glass fallback. It refuses to run unless all of these are true:
-  - `ALLOW_LOCAL_DEPLOY=1`
-  - `staging` or `prod` is provided
-  - `--confirm-local-break-glass` is provided
-  - the git working tree is clean
-  - production deploys are run from `main`
-
-Break-glass example:
-
-```bash
-ALLOW_LOCAL_DEPLOY=1 ./scripts/deploy.sh staging --confirm-local-break-glass
-```
-
-If the site is not on fire, use GitHub Actions.
+The production workflow also validates that production and staging ECS/CloudFront targets are distinct before it can deploy or scale staging down.

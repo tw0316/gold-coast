@@ -1,63 +1,71 @@
 # Gold Coast Home Buyers — gcoffers.com
 
-Lead generation website for Gold Coast Home Buyers, a South Florida real estate wholesaling business.
+Gold Coast Home Buyers production monorepo. The active public website for `gcoffers.com` and `www.gcoffers.com` is the Next.js + Payload CMS app in `apps/gcoffers-site`.
 
-## Stack
+## Current stack
 
-- **Frontend:** Static HTML/CSS/JS (no build step)
-- **Hosting:** AWS S3 + CloudFront
-- **Backend:** AWS Lambda + API Gateway (form submissions)
-- **Data:** S3 (source of truth) + GoHighLevel CRM (parallel sync)
-- **DNS:** AWS Route 53
-- **IaC:** Terraform
+- **App:** Next.js + Payload CMS in `apps/gcoffers-site`
+- **Runtime:** AWS ECS Fargate behind ALB + CloudFront
+- **CMS database:** AWS RDS PostgreSQL
+- **Media:** S3
+- **Lead capture:** S3-first form pipeline, then CRM sync path
+- **DNS:** Route 53 aliases to the Payload CloudFront distribution
+- **IaC:** Terraform in `infra/payload-site`
 
 ## Environments
 
-| Environment | Domain | Access |
-|-------------|--------|--------|
-| Production  | gcoffers.com | Public |
-| Staging     | staging.gcoffers.com | IP-restricted |
+| Environment | Domain | Runtime policy |
+|-------------|--------|----------------|
+| Production | `gcoffers.com`, `www.gcoffers.com` | Always-on ECS service, deployed from `main` |
+| Staging | `staging.gcoffers.com` | ECS service wakes for PR/manual staging deploys, then production deploys scale it back to zero |
 
 ## Deployment
 
-Deployments run through GitHub Actions, not local scripts.
+Deployments run through GitHub Actions.
 
-- **PR Check:** validates static site files and Lambda JavaScript syntax on PRs into `main`.
-- **Deploy Staging:** manual workflow, deploys a selected branch/tag/SHA to `staging.gcoffers.com`.
-- **Deploy Production:** manual workflow, deploys `main` to `gcoffers.com` after approval.
+- **PR check:** `.github/workflows/pr-check.yml` validates pull requests.
+- **Payload deploy:** `.github/workflows/gcoffers-payload-deploy.yml` builds and deploys `apps/gcoffers-site`.
+  - Pull requests and manual staging dispatches deploy staging.
+  - Pushes to `main` and manual production dispatches from `main` deploy production.
+  - Production deploys update ECS to desired count `1`, invalidate CloudFront, check readiness, then scale staging ECS desired count to `0`.
 
-See [docs/deployment-pipeline.md](docs/deployment-pipeline.md) for the release flow, required GitHub variables, and break-glass policy.
-
-## Architecture
-
-```
-User → CloudFront → S3 (static site)
-                  → API Gateway → Lambda → S3 (lead data)
-                                         → GoHighLevel (CRM)
-```
-
-Form submissions hit Lambda via API Gateway. Lambda writes to S3 first (source of truth), then syncs to GoHighLevel CRM in parallel. If GHL fails, the lead is still captured in S3.
+The deploy workflow does **not** apply Terraform, change DNS, or enable live alerts. Those are explicit operational actions and require separate approval.
 
 ## Development
 
-No build step needed. Edit HTML/CSS/JS directly in `site/` and deploy.
+```bash
+cd apps/gcoffers-site
+npm ci
+npm run typecheck
+npm run build
+```
+
+Useful focused checks:
 
 ```bash
-# Preview locally
-cd site && python3 -m http.server 8080
+npm run verify:seller-site
+npm run verify:buyer-deals-site
+npm run verify:s3-first-form-pipeline
 ```
 
 ## Infrastructure
 
-All AWS resources are managed via Terraform in `infra/`.
+Active Payload infrastructure is modeled in `infra/payload-site`.
 
 ```bash
-cd infra
-terraform init
-terraform plan -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
-terraform apply -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
+cd infra/payload-site
+terraform fmt -check
+terraform validate
 ```
 
-## Standards
+Do not commit local Terraform state, `.terraform/`, `terraform.tfvars`, secrets, or local evidence files.
 
-See [docs/STANDARDS.md](docs/STANDARDS.md) for full development standards, testing checklist, and deployment procedures.
+## Legacy static site
+
+The old static `site/` source and static-site local deploy helpers were removed after the Payload cutover. The historical AWS static infrastructure under the root legacy `infra/` Terraform files is intentionally left in the repo until rollback/decommission resources are audited. See `docs/archive/legacy-static-site-cleanup.md`.
+
+## Operations docs
+
+- Payload runbook: `docs/ops/payload-site-runbook.md`
+- Payload ADR: `docs/architecture/gcoffers-payload-cms-adr.md`
+- Legacy static cleanup note: `docs/archive/legacy-static-site-cleanup.md`

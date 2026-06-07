@@ -69,7 +69,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "media" {
   }
 }
 
-# Optional successor source-of-truth bucket. Defaults off because infra/website
+# Optional successor source-of-truth bucket. Defaults off because legacy static stack
 # already owns the legacy goldcoast-leads bucket. Referencing the bucket in IAM
 # is safe; creating it must be an explicit migration decision.
 resource "aws_s3_bucket" "form_submissions" {

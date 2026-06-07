@@ -1,14 +1,14 @@
 # gcoffers Payload site runbook
 
-Status: PR/runbook evidence for the Payload CMS whole-site migration. This document is operational guidance only; it is not a production deployment approval.
+Status: operational runbook for the live Payload CMS whole-site runtime. This document is guidance only; it is not approval to mutate infrastructure.
 
 ## Scope and guardrails
 
-The new app lives at `apps/gcoffers-site` and is intended to serve both `gcoffers.com` seller pages and `deals.gcoffers.com` buyer/deals pages after an explicitly approved cutover.
+The app lives at `apps/gcoffers-site` and serves `gcoffers.com` / `www.gcoffers.com` seller pages plus the buyer/deals surface under `/deals`.
 
-Guardrails that remain in force until the owner explicitly approves launch work:
+Operational guardrails:
 
-- Do not deploy, merge, run `terraform apply`, mutate production AWS resources, change DNS, or attach production CloudFront aliases.
+- Do not run `terraform apply`, mutate production AWS resources, change DNS, or attach/move CloudFront aliases without explicit approval.
 - Do not send live GoHighLevel, Slack, email, or SMS alerts from local/PR verification.
 - Keep production cutover and live-alert flags disabled by default: `enable_dns_cutover=false`, `enable_prod_alias=false`, and `enable_live_alerts=false`.
 - Keep seller lead, buyer signup, and deal-interest submissions S3-first: persist source-of-truth JSON before GHL, Payload mirror, Slack, or email side effects.
@@ -91,12 +91,11 @@ Open or curl:
 - Readiness health: `http://127.0.0.1:3000/api/health/readiness`
 - Public content health: `http://127.0.0.1:3000/api/health/public-content`
 
-Buyer/deals rendering is host-aware. For local smoke testing, send a buyer host header or map a local host to the dev server:
+Buyer/deals rendering is available under `/deals` for local smoke testing:
 
 ```bash
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
+curl -fsS http://127.0.0.1:3000/deals/
+curl -fsS http://127.0.0.1:3000/deals/sample-deal/
 ```
 
 ### Verification scripts
@@ -125,7 +124,7 @@ Expected outcomes:
 
 ## AWS deployment design summary
 
-The Terraform stack is in `infra/payload-site` and is intentionally separate from `infra/website`, which owns the legacy static website/API/DNS resources until approved cutover.
+The Terraform stack is in `infra/payload-site` and is intentionally separate from the root legacy static Terraform files under `infra/`, which remain only for rollback/decommission audit context after the Payload cutover.
 
 Target architecture:
 
@@ -149,7 +148,7 @@ Key design points:
 - **S3 media:** private-by-default Payload media bucket with public access block, bucket owner enforced ownership, SSE-S3, versioning, and lifecycle rules. Public media delivery must be app-mediated or signed and must validate parent page/deal visibility.
 - **S3 forms:** form JSON remains source-of-truth. The stack references existing `goldcoast-leads` by default and grants only approved prefixes: `seller-leads/`, `buyer-signups/`, and `deal-interest/`. Creating a successor bucket is an explicit migration decision.
 - **Secrets Manager:** ECS receives secret values by ARN only. Do not put secret values in Terraform variables, docs, logs, or evidence. Live alert secrets are injected only when `enable_live_alerts=true`.
-- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host` for seller vs buyer rendering, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
+- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host`, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
 - **CloudWatch:** ECS app logs, non-PII log metric filter for form S3 persistence failures, and alarms for form persistence failure, ALB/app 5xx, unhealthy targets, high latency, ECS CPU/memory, and RDS CPU/free storage. Alarm actions are disabled unless `enable_live_alerts=true`.
 
 ## Terraform verification and safe plan caveat
@@ -203,7 +202,7 @@ Use GitHub environments named `staging` and `production`. Production deploys MUS
 
 ### Trigger behavior
 
-- Pull requests targeting `main` or `feat/data-lake-monorepo-slice-1` and changing the Payload app, Payload infra, or this workflow deploy to the GitHub `staging` environment.
+- Pull requests targeting `main` and changing the Payload app, Payload infra, or this workflow deploy to the GitHub `staging` environment.
 - `workflow_dispatch` supports `target=staging` from the selected ref or `target=production` only from `main`.
 - Pushes to `main` deploy to the GitHub `production` environment.
 
@@ -345,7 +344,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 
 ### Phase 4 — Cutover execution
 
-- Confirm legacy `infra/website` static site/API remains intact for rollback.
+- Confirm the root legacy static Terraform files under `infra/` remain intact for rollback/decommission audit context until retirement is separately approved.
 - Confirm RDS backup retention, final snapshot policy, and media bucket versioning are production-safe.
 - Confirm ECS service has healthy tasks behind ALB.
 - Attach production CloudFront aliases only after ACM certificate readiness is verified.
@@ -358,7 +357,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 ### Before production cutover
 
 - No public DNS or production CloudFront alias changes should exist.
-- Leave legacy `apps/website`, `apps/deals`, existing static S3/CloudFront, and API Gateway/Lambda intact.
+- Leave legacy static resources and the root legacy Terraform files under `infra/` intact for rollback/decommission audit context.
 - If staging fails, reduce the new ECS service desired count to `0` or destroy only approved non-production resources.
 - Keep RDS snapshots and S3 media/form evidence until the owner approves cleanup.
 
@@ -366,7 +365,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 
 If the new app causes customer-impacting issues:
 
-1. Repoint Route 53 aliases and/or CloudFront aliases back to the existing static distribution/API Gateway path owned by `infra/website`.
+1. Repoint Route 53 aliases and/or CloudFront aliases back to the existing static distribution/API Gateway path described by the root legacy Terraform files under `infra/`.
 2. Invalidate CloudFront caches as needed for seller and buyer paths.
 3. Reduce the new ECS service desired count to `0` or remove the target group from traffic after traffic is safely off the new app.
 4. Preserve RDS snapshots, app logs, form submission S3 objects, and private media buckets for investigation.
@@ -411,9 +410,8 @@ curl -fsS http://127.0.0.1:3000/
 curl -fsS http://127.0.0.1:3000/privacy-policy/
 curl -fsS http://127.0.0.1:3000/terms/
 curl -fsSI http://127.0.0.1:3000/get-your-offer/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
+curl -fsS http://127.0.0.1:3000/deals/
+curl -fsS http://127.0.0.1:3000/deals/sample-deal/
 ```
 
 Expected outcomes:
@@ -421,7 +419,7 @@ Expected outcomes:
 - Health endpoints return JSON with `ok: true` and no secrets.
 - Seller home, privacy, and terms return HTML.
 - `/get-your-offer` redirects to the seller lead CTA and stays noindex.
-- Buyer host renders the buyer landing, join, FAQ, and public deal routes.
+- Buyer/deals pages render under `/deals` with public fixture content where applicable.
 
 ### Local form route smoke
 
