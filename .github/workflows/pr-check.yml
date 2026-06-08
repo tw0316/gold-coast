@@ -43,10 +43,18 @@ jobs:
           npm run typecheck
           npm run build
 
-      - name: Check retained legacy Lambda syntax
+      - name: Check Lambda syntax
         run: |
-          node --check lambda/index.js
-          node --check lambda/buyer-signup.js
+          found_lambda_js=0
+
+          while IFS= read -r -d '' lambda_js_file; do
+            found_lambda_js=1
+            node --check "$lambda_js_file"
+          done < <(git ls-files -z 'lambda/*.js')
+
+          if [ "$found_lambda_js" -eq 0 ]; then
+            echo "No tracked lambda/*.js files found; skipping syntax check."
+          fi
 
   validate-payload-terraform:
     name: Validate Payload Terraform

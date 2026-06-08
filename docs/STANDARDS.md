@@ -33,7 +33,7 @@ The old static `site/` source and static deploy helpers have been removed from t
 ## Environments
 
 - Production: always-on ECS service behind production CloudFront aliases for apex and `www`.
-- Staging: `https://staging.gcoffers.com`, ECS service wakes for PR/manual staging deploys and is scaled back to desired count `0` after successful production deploys.
+- Staging: `https://staging.gcoffers.com`, ECS service wakes for explicit manual staging deploys and is scaled back to desired count `0` after successful production deploys.
 
 Staging off means ECS app compute is off. It does not destroy staging ALB, RDS, CloudFront, S3, DNS, logs, alarms, or Terraform state.
 
@@ -43,7 +43,7 @@ Staging off means ECS app compute is off. It does not destroy staging ALB, RDS, 
 feature/fix/chore branch
   -> PR into main
   -> PR Check validates app + Payload Terraform
-  -> optional PR staging deploy when staging evidence is needed
+  -> optional manual staging deploy when staging evidence is needed
   -> merge to main after review
   -> production deploy workflow runs from main
 ```
