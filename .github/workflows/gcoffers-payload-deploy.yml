@@ -42,7 +42,7 @@ jobs:
       name: staging
       url: ${{ vars.GCOFFERS_PAYLOAD_STAGING_URL }}
     outputs:
-      image_digest: ${{ steps.build.outputs.digest }}
+      image_digest: ${{ steps.imageref.outputs.image_digest }}
       image_ref: ${{ steps.imageref.outputs.image_ref }}
     env:
       DEPLOY_ENV: staging
@@ -139,35 +139,55 @@ jobs:
           echo "image_tag_uri=${image_tag_uri}" >> "$GITHUB_OUTPUT"
           echo "source_sha=${source_sha}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build and push immutable image
         id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: apps/gcoffers-site
-          file: apps/gcoffers-site/Dockerfile
-          push: true
-          provenance: false
-          sbom: false
-          tags: ${{ steps.ecr.outputs.image_tag_uri }}
+        shell: bash
+        env:
+          IMAGE_TAG_URI: ${{ steps.ecr.outputs.image_tag_uri }}
+        run: |
+          set -euo pipefail
+
+          # Classic docker build/push (docker driver). This path does not issue
+          # the manifest HEAD pre-check that buildx's registry exporter does, so
+          # it does not require ecr:BatchGetImage — matching the deploy role's
+          # existing permissions (push-only). See deploy role gcoffers-payload-github-deploy.
+          docker build \
+            --file "${APP_DIR}/Dockerfile" \
+            --tag "${IMAGE_TAG_URI}" \
+            "${APP_DIR}"
+
+          docker push "${IMAGE_TAG_URI}"
 
       - name: Resolve digest-pinned image reference
         id: imageref
         shell: bash
         env:
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_TAG_URI: ${{ steps.ecr.outputs.image_tag_uri }}
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           set -euo pipefail
 
-          if [[ -z "${IMAGE_DIGEST:-}" || "${IMAGE_DIGEST}" != sha256:* ]]; then
-            echo "::error::build-push-action did not return a valid sha256 image digest (got '${IMAGE_DIGEST:-}')."
+          # Read the authoritative registry digest from the local image's
+          # RepoDigests (populated by the push above). Structured query — no
+          # stdout scraping, no extra ECR API calls.
+          repo_digest="$(docker image inspect "${IMAGE_TAG_URI}" \
+            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+            | grep "^${ECR_REGISTRY}/${ECR_REPOSITORY}@sha256:" \
+            | head -n1)"
+
+          if [[ -z "${repo_digest}" ]]; then
+            echo "::error::Could not resolve a registry digest (RepoDigests) for ${IMAGE_TAG_URI} after push."
             exit 1
           fi
 
-          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}@${IMAGE_DIGEST}"
+          image_digest="${repo_digest##*@}"
+          if [[ "${image_digest}" != sha256:* ]]; then
+            echo "::error::Resolved image digest is not a sha256 reference (got '${image_digest}')."
+            exit 1
+          fi
+
+          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}@${image_digest}"
+          echo "image_digest=${image_digest}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
           echo "Built and pushed digest-pinned image ${image_ref}"
 
