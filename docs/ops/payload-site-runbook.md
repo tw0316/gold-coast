@@ -175,7 +175,7 @@ Do not run `terraform apply` before explicit deployment approval.
 
 ## GitHub Actions CI/CD lifecycle
 
-The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. The workflow does not run Terraform and does not require Tej to open AWS for each PR deploy after the one-time GitHub setup is complete.
+The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. The workflow does not run Terraform and does not require Tej to open AWS for each explicit staging deploy after the one-time GitHub setup is complete.
 
 ### One-time GitHub setup
 
@@ -198,15 +198,16 @@ Variables:
 - `GCOFFERS_PAYLOAD_PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID`
 - `GCOFFERS_PAYLOAD_PRODUCTION_URL`
 
-Use GitHub environments named `staging` and `production`. Production deploys MUST require explicit GitHub environment approval/rules before this workflow is enabled for production. Production deploys will not work until the production ECS and CloudFront variables above are present.
+Use GitHub environments named `staging` and `production`. Staging and production deploys MUST require explicit GitHub environment approval/rules before this workflow is enabled. Production deploys will not work until the production ECS and CloudFront variables above are present.
 
 ### Trigger behavior
 
-- Pull requests targeting `main` and changing the Payload app, Payload infra, or this workflow deploy to the GitHub `staging` environment.
-- `workflow_dispatch` supports `target=staging` from the selected ref or `target=production` only from `main`.
+- Pull requests targeting `main` run CI in `.github/workflows/pr-check.yml`; PR pushes do not deploy to shared staging.
+- `workflow_dispatch` supports `target=staging` only when run from `main`; use the optional `deploy_ref` input to choose the PR branch/ref/SHA to deploy.
+- `workflow_dispatch` supports `target=production` only from `main`.
 - Pushes to `main` deploy to the GitHub `production` environment.
 
-PR staging deploys run the PR branch container in AWS staging. Keep staging secrets and data non-production, and restrict this workflow to trusted repository contributors/branches if that assumption changes.
+Manual staging deploys can run PR branch containers in AWS staging when `deploy_ref` points at that PR source. Keep staging secrets and data non-production, require the GitHub `staging` environment approval, and run the deploy workflow itself from `main`; manual dispatches from any other ref fail before AWS authentication.
 
 ### What the workflow does
 
@@ -215,9 +216,10 @@ For both staging and production deploys, the workflow serializes ECS deploy muta
 1. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
 2. Builds `apps/gcoffers-site/Dockerfile`.
 3. Pushes one immutable ECR tag derived from the deploy target, commit SHA, run ID, and run attempt.
-4. Reads the current ECS service task definition, changes only container `app` to the new image, registers a new task definition revision, updates the service to desired count `1`, and waits for ECS service stability.
+4. Reads the current ECS service task definition and desired count, changes only container `app` to the new image, registers a new task definition revision, updates the service without overriding desired count, and waits for ECS service stability. If staging was scaled to `0`, the workflow temporarily raises staging desired count to `1` so readiness can be smoke checked.
 5. Creates and waits for a CloudFront invalidation.
 6. Smoke checks `${GCOFFERS_PAYLOAD_<ENV>_URL}/api/health/readiness` and expects JSON with `ok: true`.
+7. Rolls the ECS service back to the captured prior task definition and desired count if deploy stability or readiness fails after ECS state capture.
 
 After a successful production deploy and production readiness smoke, the workflow scales staging ECS compute off:
 
@@ -238,13 +240,13 @@ This staging shutdown only sets ECS service desired count to `0`. Shared fixed i
 Manual dispatch examples:
 
 ```bash
-gh workflow run gcoffers-payload-deploy.yml -f target=staging
+gh workflow run gcoffers-payload-deploy.yml --ref main -f target=staging -f deploy_ref=<branch-or-sha>
 gh workflow run gcoffers-payload-deploy.yml --ref main -f target=production
 gh run list --workflow gcoffers-payload-deploy.yml --limit 5
 gh run watch <run-id>
 ```
 
-Staging should be on after a successful PR or manual staging deploy:
+Staging should be on after a successful manual staging deploy:
 
 ```bash
 aws ecs describe-services \
