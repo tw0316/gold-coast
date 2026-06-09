@@ -175,7 +175,7 @@ Do not run `terraform apply` before explicit deployment approval.
 
 ## GitHub Actions CI/CD lifecycle
 
-The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. The workflow does not run Terraform and does not require Tej to open AWS for each explicit staging deploy after the one-time GitHub setup is complete.
+The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. It is a `workflow_dispatch`-only single-run promotion gate: merging to `main` deploys nothing to AWS, and a release is one manual dispatch that builds the image once, deploys it to staging, pauses at the production approval, then promotes the same image to production. The workflow does not run Terraform.
 
 ### One-time GitHub setup
 
@@ -188,7 +188,7 @@ Secret:
 Variables:
 
 - `AWS_REGION`
-- `GCOFFERS_PAYLOAD_ECR_REPOSITORY` — ECR repository name only, not a registry URL.
+- `GCOFFERS_PAYLOAD_ECR_REPOSITORY` — ECR repository name only (not a registry URL), shared by the staging and production deploys so production can pull the exact image staging built (currently `gcoffers-payload-staging-app`).
 - `GCOFFERS_PAYLOAD_STAGING_CLUSTER`
 - `GCOFFERS_PAYLOAD_STAGING_SERVICE`
 - `GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID`
@@ -198,30 +198,51 @@ Variables:
 - `GCOFFERS_PAYLOAD_PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID`
 - `GCOFFERS_PAYLOAD_PRODUCTION_URL`
 
-Use GitHub environments named `staging` and `production`. Staging and production deploys MUST require explicit GitHub environment approval/rules before this workflow is enabled. Production deploys will not work until the production ECS and CloudFront variables above are present.
+Use GitHub environments named `staging` and `production`. The `production` environment MUST require Tej's approval and be restricted to protected branches; that approval pause is the staging test window. The `staging` environment no longer has a reviewer (removed 2026-06-09) — the dispatch-from-`main` requirement and the production approval are the gates. Production deploys will not work until the production ECS and CloudFront variables above are present.
 
 ### Trigger behavior
 
-- Pull requests targeting `main` run CI in `.github/workflows/pr-check.yml`; PR pushes do not deploy to shared staging.
-- `workflow_dispatch` supports `target=staging` only when run from `main`; use the optional `deploy_ref` input to choose the PR branch/ref/SHA to deploy.
-- `workflow_dispatch` supports `target=production` only from `main`.
-- Pushes to `main` deploy to the GitHub `production` environment.
+- The deploy workflow is `workflow_dispatch` only. It has no `push` trigger and no `pull_request` trigger, so merging to `main` deploys nothing to AWS.
+- Pull requests targeting `main` run CI in `.github/workflows/pr-check.yml`; they never deploy to shared staging.
+- A **release** is one manual dispatch of `gcoffers Payload deploy` from `main` with no `deploy_ref`. The single run deploys staging, pauses at the production approval, then promotes the same image to production.
+- The dispatch MUST be run from `main`; a dispatch from any other ref fails in `validate-dispatch-source` before AWS authentication.
+- The optional `deploy_ref` input is the ad-hoc staging escape hatch: set it to a branch/ref/SHA to deploy that ref to staging only. The `promote-production` job is skipped for any run with a non-empty `deploy_ref`, so branch code can never reach production.
 
-Manual staging deploys can run PR branch containers in AWS staging when `deploy_ref` points at that PR source. Keep staging secrets and data non-production, require the GitHub `staging` environment approval, and run the deploy workflow itself from `main`; manual dispatches from any other ref fail before AWS authentication.
+### Gates
+
+- Dispatch must be from `main` (`validate-dispatch-source`).
+- The `production` GitHub environment requires Tej's approval; the run pauses there until approved.
+- Production is restricted to protected branches.
+- The `staging` environment has no reviewer (removed 2026-06-09); the dispatch and the production approval are the gates.
+
+### One release in flight at a time
+
+Do NOT dispatch a second release while one is awaiting production approval. Both jobs share the concurrency group `gcoffers-payload-ecs-deploy` (`cancel-in-progress: false`), so ECS mutations can never interleave or clobber each other — safety is preserved. However, GitHub keeps only one pending entry per concurrency group, so a newer queued run can silently cancel an older pending production promotion. The older release is cancelled (a loss of that release), not a corrupted deploy. Run releases one at a time and let each finish (approve or cancel) before starting the next.
 
 ### What the workflow does
 
-For both staging and production deploys, the workflow serializes ECS deploy mutations through one concurrency group, then:
+A release run has two jobs that share the `gcoffers-payload-ecs-deploy` concurrency group so ECS mutations are serialized across runs.
 
-1. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
-2. Builds `apps/gcoffers-site/Dockerfile`.
-3. Pushes one immutable ECR tag derived from the deploy target, commit SHA, run ID, and run attempt.
-4. Reads the current ECS service task definition and desired count, changes only container `app` to the new image, registers a new task definition revision, updates the service without overriding desired count, and waits for ECS service stability. If staging was scaled to `0`, the workflow temporarily raises staging desired count to `1` so readiness can be smoke checked.
+`deploy-staging` (environment `staging`) runs first:
+
+1. Checks out `deploy_ref` when set, otherwise the dispatched `main` commit.
+2. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
+3. Builds `apps/gcoffers-site/Dockerfile` exactly once with Buildx (`provenance: false`, `sbom: false`) and pushes it to the shared ECR repository (`GCOFFERS_PAYLOAD_ECR_REPOSITORY`), capturing the pushed image digest. It exposes the digest-pinned reference (`<registry>/<repo>@sha256:<digest>`) as the job outputs `image_digest` and `image_ref`.
+4. Reads the current staging ECS task definition and desired count, changes only container `app` to the new image, registers a new task definition revision, updates the service without overriding desired count, and waits for stability. If staging was scaled to `0`, it temporarily raises staging desired count to `1` so readiness can be smoke checked.
 5. Creates and waits for a CloudFront invalidation.
-6. Smoke checks `${GCOFFERS_PAYLOAD_<ENV>_URL}/api/health/readiness` and expects JSON with `ok: true`.
-7. Rolls the ECS service back to the captured prior task definition and desired count if deploy stability or readiness fails after ECS state capture.
+6. Smoke checks `${GCOFFERS_PAYLOAD_STAGING_URL}/api/health/readiness` and expects JSON with `ok: true`.
+7. Rolls staging back to the captured prior task definition and desired count if deploy stability or readiness fails after ECS state capture.
 
-After a successful production deploy and production readiness smoke, the workflow scales staging ECS compute off:
+The run then **pauses at the `production` environment approval**. The operator tests staging during this pause. On approval, `promote-production` (environment `production`, gated on `inputs.deploy_ref == ''`) runs:
+
+1. Assumes the deploy role via OIDC. It does **not** rebuild or re-checkout source; it consumes `needs.deploy-staging.outputs.image_ref` directly, so no digest is ever copy-pasted.
+2. Reads the current production ECS task definition and desired count, sets container `app` to the same staging-built `image_ref`, and registers a new production task definition revision.
+3. Asserts the registered production task definition's container image equals the staging-built `image_ref` (string compare via `ecs:DescribeTaskDefinition`); the job fails if they differ. Runtime-digest verification against the running task is intentionally out of scope (the deploy role lacks `ecs:DescribeTasks`).
+4. Updates the production service without overriding desired count and waits for stability.
+5. Creates and waits for a CloudFront invalidation, then smoke checks `${GCOFFERS_PAYLOAD_PRODUCTION_URL}/api/health/readiness` for `ok: true`.
+6. Rolls production back to the captured prior task definition and desired count if stability or readiness fails after ECS state capture.
+
+After a successful production deploy and readiness smoke, the workflow scales staging ECS compute off:
 
 ```bash
 aws ecs update-service \
@@ -237,16 +258,23 @@ This staging shutdown only sets ECS service desired count to `0`. Shared fixed i
 
 ### Operator commands and expected status
 
-Manual dispatch examples:
+Dispatch a release (staging → production approval pause → promote same image):
 
 ```bash
-gh workflow run gcoffers-payload-deploy.yml --ref main -f target=staging -f deploy_ref=<branch-or-sha>
-gh workflow run gcoffers-payload-deploy.yml --ref main -f target=production
+gh workflow run gcoffers-payload-deploy.yml --ref main
 gh run list --workflow gcoffers-payload-deploy.yml --limit 5
 gh run watch <run-id>
 ```
 
-Staging should be on after a successful manual staging deploy:
+After `deploy-staging` succeeds the run pauses at the `production` environment approval. Test staging during the pause, then approve in the GitHub run UI (or `gh`) to let `promote-production` deploy the same image. Approve only one release at a time (see "One release in flight at a time").
+
+Ad-hoc staging test (escape hatch — deploys the ref to staging only, skips production):
+
+```bash
+gh workflow run gcoffers-payload-deploy.yml --ref main -f deploy_ref=<branch-or-sha>
+```
+
+Staging should be on after a successful staging deploy (either a release before approval, or an escape-hatch run):
 
 ```bash
 aws ecs describe-services \
@@ -277,6 +305,8 @@ curl -fsS "${GCOFFERS_PAYLOAD_PRODUCTION_URL%/}/api/health/readiness"
 
 Expected production result: production ECS `status` is `ACTIVE`, `desired` is `1`, `running` is `1`, `pending` is `0`, rollout is `COMPLETED`, production readiness returns `ok: true`, and staging ECS `desired`/`running` are both `0`.
 
+The `desired`/`running` values above assume one task per service. If the owner has set a higher production desired count, expect that count instead — the workflow preserves the existing desired count rather than forcing `1`.
+
 CloudFront invalidation status, if checking an invalidation ID captured from a workflow run or a manual invalidation, should be `Completed`:
 
 ```bash
@@ -288,6 +318,10 @@ aws cloudfront get-invalidation \
 ```
 
 Do not use the workflow as a substitute for production cutover approval, DNS approval, live-alert approval, or Terraform apply approval. It only publishes a new app image to an already-created ECS/CloudFront environment and manages the low-cost staging desired-count lifecycle.
+
+### One-time transition note
+
+The PR that introduced this single-run promotion gate is the last change that merging to `main` deploys automatically (it replaced the old push-to-`main`/PR-staging auto-deploy behavior). After that PR merged, merging to `main` no longer deploys anything to AWS — every release is an explicit `workflow_dispatch` of `gcoffers Payload deploy` from `main`.
 
 ## Migration and cutover plan
 

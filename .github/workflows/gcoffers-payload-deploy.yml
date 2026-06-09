@@ -1,24 +1,10 @@
 name: gcoffers Payload deploy
 
 'on':
-  push:
-    branches:
-      - main
-    paths:
-      - apps/gcoffers-site/**
-      - infra/payload-site/**
-      - .github/workflows/gcoffers-payload-deploy.yml
   workflow_dispatch:
     inputs:
-      target:
-        description: Environment to deploy
-        required: true
-        type: choice
-        options:
-          - staging
-          - production
       deploy_ref:
-        description: Git ref/SHA to deploy to staging. Run the workflow from main; ignored for production.
+        description: Optional git ref/SHA to build and deploy to staging. Run the workflow from main. When set (non-empty), the production promotion is skipped.
         required: false
         type: string
 
@@ -41,12 +27,12 @@ jobs:
       - name: Require workflow dispatch from main
         shell: bash
         run: |
-          echo "::error::Manual deploys must run this workflow from main. For staging, choose target=staging on main and set deploy_ref to the PR branch/ref/SHA."
+          echo "::error::Manual deploys must run this workflow from main. To test a branch on staging, run the workflow from main and set deploy_ref to the branch/ref/SHA (that run skips the production promotion)."
           exit 1
 
   deploy-staging:
     name: Deploy staging
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'staging' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -55,6 +41,9 @@ jobs:
     environment:
       name: staging
       url: ${{ vars.GCOFFERS_PAYLOAD_STAGING_URL }}
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+      image_ref: ${{ steps.imageref.outputs.image_ref }}
     env:
       DEPLOY_ENV: staging
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -130,8 +119,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Build and push immutable image
-        id: image
+      - name: Log in to Amazon ECR
+        id: ecr
         shell: bash
         run: |
           set -euo pipefail
@@ -144,17 +133,43 @@ jobs:
           source_sha="$(git rev-parse --verify HEAD)"
           echo "Deploying source commit ${source_sha}"
           image_tag="${DEPLOY_ENV}-${source_sha:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          local_image="gcoffers-payload:${image_tag}"
-          image_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
+          image_tag_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
 
-          docker build --file "${APP_DIR}/Dockerfile" --tag "$local_image" "$APP_DIR"
-          docker tag "$local_image" "$image_uri"
-          if ! docker push "$image_uri" >/tmp/gcoffers-payload-docker-push.log 2>&1; then
-            echo "::error::Docker push failed for immutable ECR tag."
+          echo "registry=${ecr_registry}" >> "$GITHUB_OUTPUT"
+          echo "image_tag_uri=${image_tag_uri}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${source_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/gcoffers-site
+          file: apps/gcoffers-site/Dockerfile
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.ecr.outputs.image_tag_uri }}
+
+      - name: Resolve digest-pinned image reference
+        id: imageref
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${IMAGE_DIGEST:-}" || "${IMAGE_DIGEST}" != sha256:* ]]; then
+            echo "::error::build-push-action did not return a valid sha256 image digest (got '${IMAGE_DIGEST:-}')."
             exit 1
           fi
 
-          echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
+          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}@${IMAGE_DIGEST}"
+          echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
+          echo "Built and pushed digest-pinned image ${image_ref}"
 
       - name: Capture current ECS service state
         id: service_state
@@ -207,7 +222,7 @@ jobs:
         id: deploy
         shell: bash
         env:
-          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+          IMAGE_URI: ${{ steps.imageref.outputs.image_ref }}
         run: |
           set -euo pipefail
 
@@ -346,11 +361,10 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
 
-  deploy-production:
-    name: Deploy production
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'production' && github.ref == 'refs/heads/main')
+  promote-production:
+    name: Promote to production
+    needs: deploy-staging
+    if: ${{ inputs.deploy_ref == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -371,13 +385,11 @@ jobs:
       STAGING_ECS_SERVICE: ${{ vars.GCOFFERS_PAYLOAD_STAGING_SERVICE }}
       STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
       - name: Validate GitHub configuration
         shell: bash
         env:
           AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          PROMOTED_IMAGE_REF: ${{ needs.deploy-staging.outputs.image_ref }}
         run: |
           set -euo pipefail
 
@@ -401,9 +413,15 @@ jobs:
           check_required STAGING_ECS_CLUSTER "variable GCOFFERS_PAYLOAD_STAGING_CLUSTER"
           check_required STAGING_ECS_SERVICE "variable GCOFFERS_PAYLOAD_STAGING_SERVICE"
           check_required STAGING_CLOUDFRONT_DISTRIBUTION_ID "variable GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID"
+          check_required PROMOTED_IMAGE_REF "deploy-staging job output image_ref"
 
           if [[ "${ECR_REPOSITORY:-}" == *".dkr.ecr."* ]]; then
             echo "::error::GCOFFERS_PAYLOAD_ECR_REPOSITORY must be an ECR repository name, not a registry URL."
+            missing=1
+          fi
+
+          if [[ -n "${PROMOTED_IMAGE_REF:-}" && "${PROMOTED_IMAGE_REF}" != *"@sha256:"* ]]; then
+            echo "::error::Promoted image reference must be digest-pinned (repo@sha256:...), got '${PROMOTED_IMAGE_REF}'."
             missing=1
           fi
 
@@ -434,32 +452,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Build and push immutable image
-        id: image
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
-          ecr_registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login --username AWS --password-stdin "$ecr_registry" >/dev/null
-
-          source_sha="$(git rev-parse --verify HEAD)"
-          echo "Deploying source commit ${source_sha}"
-          image_tag="${DEPLOY_ENV}-${source_sha:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          local_image="gcoffers-payload:${image_tag}"
-          image_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
-
-          docker build --file "${APP_DIR}/Dockerfile" --tag "$local_image" "$APP_DIR"
-          docker tag "$local_image" "$image_uri"
-          if ! docker push "$image_uri" >/tmp/gcoffers-payload-docker-push.log 2>&1; then
-            echo "::error::Docker push failed for immutable ECR tag."
-            exit 1
-          fi
-
-          echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
 
       - name: Capture current ECS service state
         id: service_state
@@ -512,7 +504,7 @@ jobs:
         id: deploy
         shell: bash
         env:
-          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+          IMAGE_URI: ${{ needs.deploy-staging.outputs.image_ref }}
         run: |
           set -euo pipefail
 
@@ -521,6 +513,11 @@ jobs:
 
           if [[ -z "$previous_task_definition_arn" || -z "$previous_desired_count" ]]; then
             echo "::error::Missing captured ECS service state."
+            exit 1
+          fi
+
+          if [[ -z "${IMAGE_URI:-}" || "${IMAGE_URI}" != *"@sha256:"* ]]; then
+            echo "::error::Promoted image reference is missing or not digest-pinned (got '${IMAGE_URI:-}')."
             exit 1
           fi
 
@@ -590,6 +587,55 @@ jobs:
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
+
+      - name: Assert deployed task definition image matches promoted digest
+        shell: bash
+        env:
+          EXPECTED_IMAGE_REF: ${{ needs.deploy-staging.outputs.image_ref }}
+          NEW_TASK_DEFINITION_ARN: ${{ steps.deploy.outputs.new_task_definition_arn }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${EXPECTED_IMAGE_REF:-}" || -z "${NEW_TASK_DEFINITION_ARN:-}" ]]; then
+            echo "::error::Missing expected image reference or registered task definition ARN for assertion."
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "$NEW_TASK_DEFINITION_ARN" \
+            --query 'taskDefinition' \
+            --output json > registered-task-definition.json
+
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+
+          with open("registered-task-definition.json", encoding="utf-8") as task_file:
+              task_definition = json.load(task_file)
+
+          expected = os.environ["EXPECTED_IMAGE_REF"]
+          container_name = os.environ.get("CONTAINER_NAME", "app")
+          images = [
+              container.get("image")
+              for container in task_definition.get("containerDefinitions", [])
+              if container.get("name") == container_name
+          ]
+
+          if not images:
+              print(f"::error::Container {container_name!r} was not found in the registered task definition.", file=sys.stderr)
+              sys.exit(1)
+
+          actual = images[0]
+          if actual != expected:
+              print(
+                  f"::error::Registered production task definition image {actual!r} does not match the promoted staging image {expected!r}.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print(f"Verified production task definition image matches the promoted staging digest: {actual}")
+          PY
 
       - name: Invalidate CloudFront and smoke check readiness
         shell: bash
