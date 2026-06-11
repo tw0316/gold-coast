@@ -3599,29 +3599,6 @@ h3 { color: var(--gchb-navy); font-size: var(--fs-h3); font-weight: var(--fw-bla
   color: var(--gchb-navy);
 }
 .proof-card__icon svg { width: 22px; height: 22px; }
-.move-panel {
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  margin-top: 18px;
-  padding: 34px 36px;
-  background: var(--gchb-navy);
-  color: var(--gchb-cream);
-}
-.move-panel__icon {
-  width: 60px;
-  height: 60px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  background: var(--gchb-gold);
-  color: var(--gchb-navy);
-  font-size: 1.6rem;
-  font-weight: var(--fw-black);
-}
-.move-panel h3 { color: var(--gchb-cream); font-size: 1.55rem; margin: 10px 0 8px; }
-.move-panel p { color: var(--gchb-coastal-blue); max-width: 760px; }
 .reviews-section h2 { max-width: 700px; margin-inline: auto; white-space: pre-line; }
 .review-score { margin-top: 18px; }
 .review-card {
@@ -3851,7 +3828,6 @@ h3 { color: var(--gchb-navy); font-size: var(--fs-h3); font-weight: var(--fw-bla
   .seller-hero .hero__title { font-size: clamp(2.7rem, 13vw, 3.2rem); }
   .seller-hero__photo-wrap { aspect-ratio: 6 / 5; }
   .trust-row { display: grid; }
-  .move-panel { align-items: flex-start; flex-direction: column; padding: 28px 24px; }
   .offer-form { padding: 24px 20px 26px; }
   .offer-nav { flex-direction: column-reverse; }
   .offer-nav .btn { width: 100%; }

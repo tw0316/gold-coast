@@ -3,6 +3,11 @@ import { Fragment, type ReactNode } from 'react'
 import type { SiteSurface } from '@/lib/routing/hosts'
 import { getSellerHomeContent, getSellerHomePageSeed } from '@/lib/seller/content'
 
+import { SellerFooter } from './SellerFooter'
+import { SellerHeader } from './SellerHeader'
+import { SellerHeroAddressBar } from './SellerHeroAddressBar'
+import { SellerLeadForm } from './SellerLeadForm'
+
 const CARD_ICON_GLYPHS: Record<string, ReactNode> = {
   home: (
     <>
@@ -58,11 +63,6 @@ function CardIcon({ name }: { name: string }) {
     </svg>
   )
 }
-
-import { SellerFooter } from './SellerFooter'
-import { SellerHeader } from './SellerHeader'
-import { SellerHeroAddressBar } from './SellerHeroAddressBar'
-import { SellerLeadForm } from './SellerLeadForm'
 
 type SellerHomePageProps = {
   routeSurface: SiteSurface
