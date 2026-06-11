@@ -99,17 +99,17 @@ const sellerContentSources = [
 
 for (const marker of [
   'Gold Coast Home Buyers',
-  'Sell your home the easy way.',
+  'The straightforward way to sell.',
   '4.9 from 400+ South Florida homeowners',
   'How it works',
   'Why sellers choose us',
   'Us vs. listing',
-  '412 South Florida families have moved on with us.',
+  'Neighbors who trusted us',
   'Questions',
   'See your no-obligation cash offer.',
   'Privacy Policy',
   'Terms of Service',
-  'W & Co LLC',
+  'Gold Coast Offers LLC',
 ]) {
   assert(sellerContentSources.includes(marker), `migrated seller content marker present: ${marker}`)
 }
