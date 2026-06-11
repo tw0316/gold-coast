@@ -188,7 +188,6 @@ export const sellerPageSeeds = [
 
 export const sellerHomeContent = {
   hero: {
-    rating: '4.9 from 400+ South Florida homeowners',
     heading: 'The straightforward way to sell.',
     lede:
       'We’re your neighbors. Tell us about your home and we’ll send a fair cash offer.',
