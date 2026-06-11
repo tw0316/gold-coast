@@ -17,7 +17,7 @@ Gold Coast Home Buyers production monorepo. The active public website for `gcoff
 | Environment | Domain | Runtime policy |
 |-------------|--------|----------------|
 | Production | `gcoffers.com`, `www.gcoffers.com` | Always-on ECS service, deployed from `main` |
-| Staging | `staging.gcoffers.com` | ECS service wakes for PR/manual staging deploys, then production deploys scale it back to zero |
+| Staging | `staging.gcoffers.com` | ECS service wakes for explicit manual staging deploys, then production deploys scale it back to zero |
 
 ## Deployment
 
@@ -25,9 +25,9 @@ Deployments run through GitHub Actions.
 
 - **PR check:** `.github/workflows/pr-check.yml` validates pull requests.
 - **Payload deploy:** `.github/workflows/gcoffers-payload-deploy.yml` builds and deploys `apps/gcoffers-site`.
-  - Pull requests and manual staging dispatches deploy staging.
+  - PR pushes run CI only; explicit manual staging dispatches from `main` deploy staging, optionally using `deploy_ref` for PR branch/ref/SHA.
   - Pushes to `main` and manual production dispatches from `main` deploy production.
-  - Production deploys update ECS to desired count `1`, invalidate CloudFront, check readiness, then scale staging ECS desired count to `0`.
+  - Deploys preserve the current ECS desired count, invalidate CloudFront, check readiness, and roll back to the prior task definition if the smoke check fails. Production deploys still scale staging ECS desired count to `0` after production is healthy.
 
 The deploy workflow does **not** apply Terraform, change DNS, or enable live alerts. Those are explicit operational actions and require separate approval.
 
