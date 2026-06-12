@@ -16,6 +16,7 @@ import {
 } from '../deals/visibility'
 import { sanitizeMediaReferenceForPublic } from '../media/publicMedia'
 import { attachPublicDealMedia } from '../media/resolveDealMedia'
+import { normalizeDealSlugInput } from '../deals/slug'
 
 export type PublicSiteSurface = 'seller' | 'buyer' | 'shared'
 
@@ -451,26 +452,56 @@ export const listPublicSoldProofDeals = async (
     }),
   )
 
+const uniqueSlugCandidates = (candidates: string[]) =>
+  candidates.filter((candidate, index, all) => candidate.length > 0 && all.indexOf(candidate) === index)
+
+const legacySlugCandidatesFor = (slug: string, normalizedSlug: string) => {
+  let decodedSlug = slug
+  try {
+    decodedSlug = decodeURIComponent(slug)
+  } catch {
+    decodedSlug = slug
+  }
+
+  const spacedSlug = normalizedSlug.replace(/-/g, ' ')
+  const titleSpacedSlug = spacedSlug.replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+
+  return uniqueSlugCandidates([normalizedSlug, decodedSlug, slug, spacedSlug, titleSpacedSlug])
+}
+
 export const getPublicDealBySlug = async (
   payload: Payload,
   slug: string,
   options: PublicQueryOptions = {},
 ) => {
-  const result = await payload.find({
-    collection: 'deals',
-    depth: clampPublicDepth(options.depth),
-    limit: 1,
-    overrideAccess: false,
-    page: 1,
-    select: publicDealSelect,
-    where: andWhere(publicDealVisibilityWhere, {
-      slug: {
-        equals: slug,
-      },
-    }),
-  })
+  const normalizedSlug = normalizeDealSlugInput(slug)
+  const findByExactSlug = async (candidateSlug: string) =>
+    payload.find({
+      collection: 'deals',
+      depth: clampPublicDepth(options.depth),
+      limit: 1,
+      overrideAccess: false,
+      page: 1,
+      select: publicDealSelect,
+      where: andWhere(publicDealVisibilityWhere, {
+        slug: {
+          equals: candidateSlug,
+        },
+      }),
+    })
 
-  const [doc] = await attachPublicDealMedia(payload, result.docs)
+  let result = await findByExactSlug(normalizedSlug)
+
+  // Legacy production deals were easy to save with title-cased/space-containing slugs.
+  // Resolve a small set of deterministic legacy forms instead of scanning public deals on every 404.
+  for (const candidateSlug of legacySlugCandidatesFor(slug, normalizedSlug)) {
+    if (result.docs.length > 0 || candidateSlug === normalizedSlug) {
+      continue
+    }
+    result = await findByExactSlug(candidateSlug)
+  }
+
+  const [doc] = await attachPublicDealMedia(payload, result.docs.slice(0, 1))
   return sanitizeDealForPublic(doc)
 }
 

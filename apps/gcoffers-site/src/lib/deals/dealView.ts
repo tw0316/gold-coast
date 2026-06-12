@@ -1,5 +1,6 @@
 import type { PublicMediaReference } from '../media/publicMedia'
 import { calculateDealFinancials, estimateCapRate, type DealFinancialSummary } from './financials'
+import { toDealSlug } from './slug'
 import {
   BEST_USE_LABELS,
   FEATURE_TAG_LABELS,
@@ -168,11 +169,12 @@ export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
   const featureTags = asStringArray(deal.featureTags)
   const photos = Array.isArray(deal.photos) ? deal.photos : []
   const coverPhoto = asMediaReference(deal.coverPhoto) ?? photos[0] ?? null
+  const slug = toDealSlug(asString(deal.slug, asString(deal.title)))
 
   return {
-    id: asString(deal.id, asString(deal.slug)),
+    id: asString(deal.id, slug),
     title: asString(deal.title),
-    slug: asString(deal.slug),
+    slug,
     bestUse,
     bestUseLabels: labelsFor(bestUse, BEST_USE_LABELS),
     dealStatus,

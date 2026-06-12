@@ -46,6 +46,7 @@ const transpileTsModule = (relativePath) => {
 
 for (const relativePath of [
   'src/access/roles.ts',
+  'src/lib/deals/slug.ts',
   'src/lib/deals/visibility.ts',
   'src/lib/media/publicMedia.ts',
   'src/lib/media/resolveDealMedia.ts',
@@ -58,6 +59,7 @@ for (const relativePath of [
 
 try {
   const roles = tempRequire(join(tmpRoot, 'src/access/roles.js'))
+  const slugs = tempRequire(join(tmpRoot, 'src/lib/deals/slug.js'))
   const visibility = tempRequire(join(tmpRoot, 'src/lib/deals/visibility.js'))
   const media = tempRequire(join(tmpRoot, 'src/lib/media/publicMedia.js'))
   const publicQueries = tempRequire(join(tmpRoot, 'src/lib/payload/publicQueries.js'))
@@ -75,7 +77,16 @@ try {
   assert(!roles.isAdmin({ id: 4 }), 'Roleless authenticated users are not promoted to admin-only access')
   assert(!roles.isAdminOrEditor(null), 'Anonymous users do not receive staff content access')
 
+  assert(slugs.toDealSlug('Test Deal') === 'test-deal', 'Deal slugs normalize title-case spaces into URL-safe lowercase paths')
+  assert(slugs.toDealSlug('  123 Main & Rehab  ') === '123-main-and-rehab', 'Deal slugs normalize symbols without leaking raw titles into URLs')
+  assert(slugs.normalizeDealSlugInput('Test%20Deal') === 'test-deal', 'Encoded legacy deal URLs resolve to canonical slug form')
+
   const dealsCollectionSource = readSource('src/collections/Deals.ts')
+  assert(dealsCollectionSource.includes('beforeValidate: [normalizeDealSlugBeforeValidate]'), 'Deals collection normalizes slugs before validation')
+  assert(dealsCollectionSource.includes('originalDoc'), 'Deal slug normalization preserves existing slugs on partial updates')
+  assert(dealsCollectionSource.includes('afterChange: [syncReferencedMediaPublicState, revalidateAfterChange]'), 'Deals collection promotes eligible public-deal media before revalidation')
+  assert(dealsCollectionSource.includes('gcoffers deal media public-state sync failed'), 'Deals collection isolates media sync errors from deal saves')
+  assert(dealsCollectionSource.includes('gallery media is buyer-facing by design'), 'Deals collection documents public gallery media promotion intent')
   assert(dealsCollectionSource.includes('allowCreate: true'), 'Deal market/media admin fields explicitly allow create drawers')
   assert(dealsCollectionSource.includes('allowEdit: true'), 'Deal market relationship explicitly allows editing existing markets')
 
@@ -90,6 +101,23 @@ try {
     'ON CONFLICT ("slug") DO UPDATE',
   ]) {
     assert(staffMigrationSource.includes(marker), `Staff/default markets migration marker present: ${marker}`)
+  }
+
+  const publicSurfaceMigrationSource = readSource('src/migrations/20260612_171059_deal_public_surface_regressions.ts')
+  for (const marker of [
+    'regexp_replace(lower("slug")',
+    '"base_slug" || \'-\' || "id"',
+    'CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END',
+    '"slug_count" > 1 AND "slug_rank" > 1',
+    'public-deal-referenced cover/gallery media',
+    'media flagged as containing private details is never promoted',
+    'public_deal_media AS',
+    '"deals_rels"."path" = \'photos\'',
+    '"access_policy" = \'public_after_reference_check\'',
+    '"media_status" = \'ready\'',
+    '"media"."media_status" NOT IN (\'hidden\', \'archived\')',
+  ]) {
+    assert(publicSurfaceMigrationSource.includes(marker), `Public deal surface migration marker present: ${marker}`)
   }
 
   assert(
