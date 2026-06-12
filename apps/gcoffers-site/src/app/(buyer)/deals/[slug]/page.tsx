@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { BuyerDealDetailPage } from '@/components/buyer/BuyerDealDetailPage'
-import { getBuyerPublicDealBySlug, getBuyerPublicDealSlugs } from '@/lib/deals/publicBuyerDeals'
+import { getBuyerPublicDealBySlug, getBuyerPublicDealSlugs } from '@/lib/buyer/publicDeals'
 
 type DealDetailPageProps = {
   params: Promise<{
@@ -10,15 +10,19 @@ type DealDetailPageProps = {
   }>
 }
 
-export const dynamicParams = false
+// Known public deals are prerendered; newly published deals render on-demand and are
+// cached until the Deals revalidation tag is busted. Non-public slugs still 404 because
+// getBuyerPublicDealBySlug enforces the public visibility query.
+export const dynamicParams = true
 
-export function generateStaticParams() {
-  return getBuyerPublicDealSlugs().map((slug) => ({ slug }))
+export async function generateStaticParams() {
+  const slugs = await getBuyerPublicDealSlugs()
+  return slugs.map((slug) => ({ slug }))
 }
 
 export async function generateMetadata({ params }: DealDetailPageProps): Promise<Metadata> {
   const { slug } = await params
-  const deal = getBuyerPublicDealBySlug(slug)
+  const deal = await getBuyerPublicDealBySlug(slug)
 
   if (!deal) {
     return {
@@ -41,7 +45,7 @@ export async function generateMetadata({ params }: DealDetailPageProps): Promise
 
 export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { slug } = await params
-  const deal = getBuyerPublicDealBySlug(slug)
+  const deal = await getBuyerPublicDealBySlug(slug)
 
   if (!deal) {
     notFound()

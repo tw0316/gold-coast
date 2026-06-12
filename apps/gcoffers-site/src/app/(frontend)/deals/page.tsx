@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
 import { BuyerDealsIndexPage } from '@/components/buyer/BuyerDealsIndexPage'
+import { listBuyerActiveDeals } from '@/lib/buyer/publicDeals'
 
 export const metadata: Metadata = {
   title: 'Off-Market South Florida Deals | Gold Coast Home Buyers',
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function DealsPage() {
-  return <BuyerDealsIndexPage />
+export default async function DealsPage() {
+  const activeDeals = await listBuyerActiveDeals()
+  return <BuyerDealsIndexPage activeDeals={activeDeals} />
 }

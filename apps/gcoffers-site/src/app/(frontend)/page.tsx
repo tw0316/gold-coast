@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { BuyerHomePage } from '@/components/buyer/BuyerHomePage'
 import { SellerHomePage } from '@/components/seller/SellerHomePage'
 import { buyerHomeContent } from '@/lib/buyer/content'
+import { getBuyerHomeDealData } from '@/lib/buyer/publicDeals'
 import { getSurfaceForHost } from '@/lib/routing/hosts'
 import { getSellerHomePageSeed } from '@/lib/seller/content'
 
@@ -51,7 +52,10 @@ export default async function HomePage() {
   const routeSurface = getSurfaceForHost(headerList.get('host'))
 
   if (routeSurface === 'buyer') {
-    return <BuyerHomePage routeSurface={routeSurface} />
+    const { activeDeals, soldProofDeals } = await getBuyerHomeDealData()
+    return (
+      <BuyerHomePage routeSurface={routeSurface} activeDeals={activeDeals} soldDeals={soldProofDeals} />
+    )
   }
 
   return <SellerHomePage routeSurface={routeSurface} />

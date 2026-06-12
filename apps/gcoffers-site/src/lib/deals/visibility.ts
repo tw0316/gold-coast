@@ -43,9 +43,9 @@ export type DealVisibilityInput = {
   area?: string | null
   city?: string | null
   county?: string | null
+  coverPhoto?: MediaVisibilityInput | number | string | null
   dealStatus?: string | null
   exactAddress?: string | null
-  neighborhood?: string | null
   photos?: (MediaVisibilityInput | number | string | null | undefined)[] | null
   showExactAddressPublicly?: boolean | null
   websiteVisibility?: string | null
@@ -53,6 +53,7 @@ export type DealVisibilityInput = {
 }
 
 export type PublicDeal = Record<string, unknown> & {
+  coverPhoto?: PublicMediaReference | null
   exactAddress?: string | null
   photos?: PublicMediaReference[]
 }
@@ -120,11 +121,10 @@ const publicDealAllowedKeys = new Set([
   'id',
   'title',
   'slug',
-  'dealType',
+  'bestUse',
   'dealStatus',
   'market',
   'area',
-  'neighborhood',
   'city',
   'county',
   'zip',
@@ -132,7 +132,9 @@ const publicDealAllowedKeys = new Set([
   'financials',
   'summary',
   'rehabScope',
+  'featureTags',
   'photos',
+  'videoTourUrl',
   'disclaimer',
   'closedAt',
   'publishedAt',
@@ -164,6 +166,11 @@ export const sanitizeDealForPublic = <TDeal extends DealVisibilityInput>(
         .filter((photo): photo is PublicMediaReference => photo !== null)
     : []
 
+  const sanitizedCover = sanitizeMediaReferenceForPublic(deal.coverPhoto, { deal })
+  if (sanitizedCover) {
+    sanitized.coverPhoto = sanitizedCover
+  }
+
   return sanitized
 }
 
@@ -172,7 +179,7 @@ export const getPublicLocationLabel = (deal: DealVisibilityInput): string => {
     return deal.exactAddress
   }
 
-  return [deal.neighborhood ?? deal.area, deal.city, deal.county, deal.zip]
+  return [deal.area, deal.city, deal.county, deal.zip]
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
     .join(', ')
 }

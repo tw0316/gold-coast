@@ -1,6 +1,7 @@
 import config from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 
+import { toBuyerView, type BuyerPublicDeal } from '../deals/dealView'
 import type { PublicDeal } from '../deals/visibility'
 import {
   getPublicDealBySlug,
@@ -10,15 +11,20 @@ import {
 import {
   getBuyerFallbackActiveDeals,
   getBuyerFallbackDealBySlug,
+  getBuyerFallbackDealSlugs,
   getBuyerFallbackSoldProofDeals,
 } from './fixtures'
 
 export type BuyerHomeDealData = {
-  activeDeals: PublicDeal[]
-  soldProofDeals: PublicDeal[]
+  activeDeals: BuyerPublicDeal[]
+  soldProofDeals: BuyerPublicDeal[]
   source: 'payload' | 'fixture-fallback' | 'empty-after-error'
 }
 
+// Freshness model: deal pages read Payload at render time. The buyer home is dynamic
+// (host header), and the /deals index + detail routes are revalidated on demand by the
+// Deals collection afterChange/afterDelete hooks (revalidatePath), so admin edits appear
+// within seconds without a redeploy.
 const canUseBuyerFixtureFallback = (): boolean =>
   process.env.NODE_ENV !== 'production' ||
   process.env.NEXT_PHASE === 'phase-production-build' ||
@@ -33,32 +39,52 @@ const getPublicPayloadClient = async (): Promise<Payload> => {
 
 const withFixtureFallback = <T>(fallback: T): T => (canUseBuyerFixtureFallback() ? fallback : ([] as T))
 
-export const listBuyerActiveDeals = async (): Promise<PublicDeal[]> => {
+export const listBuyerActiveDeals = async (): Promise<BuyerPublicDeal[]> => {
   try {
     const payload = await getPublicPayloadClient()
     const result = await listPublicActiveDeals(payload, { limit: 24 })
-    return result.docs as PublicDeal[]
+    return (result.docs as PublicDeal[]).map(toBuyerView)
   } catch {
-    return withFixtureFallback(getBuyerFallbackActiveDeals())
+    return withFixtureFallback(getBuyerFallbackActiveDeals().map(toBuyerView))
   }
 }
 
-export const listBuyerSoldProofDeals = async (): Promise<PublicDeal[]> => {
+export const listBuyerSoldProofDeals = async (): Promise<BuyerPublicDeal[]> => {
   try {
     const payload = await getPublicPayloadClient()
     const result = await listPublicSoldProofDeals(payload, { limit: 6 })
-    return result.docs as PublicDeal[]
+    return (result.docs as PublicDeal[]).map(toBuyerView)
   } catch {
-    return withFixtureFallback(getBuyerFallbackSoldProofDeals())
+    return withFixtureFallback(getBuyerFallbackSoldProofDeals().map(toBuyerView))
   }
 }
 
-export const getBuyerPublicDealBySlug = async (slug: string): Promise<PublicDeal | null> => {
+export const getBuyerPublicDealBySlug = async (slug: string): Promise<BuyerPublicDeal | null> => {
   try {
     const payload = await getPublicPayloadClient()
-    return (await getPublicDealBySlug(payload, slug)) as PublicDeal | null
+    const deal = (await getPublicDealBySlug(payload, slug)) as PublicDeal | null
+    return deal ? toBuyerView(deal) : null
   } catch {
-    return canUseBuyerFixtureFallback() ? getBuyerFallbackDealBySlug(slug) : null
+    if (!canUseBuyerFixtureFallback()) {
+      return null
+    }
+    const fallback = getBuyerFallbackDealBySlug(slug)
+    return fallback ? toBuyerView(fallback) : null
+  }
+}
+
+export const getBuyerPublicDealSlugs = async (): Promise<string[]> => {
+  try {
+    const payload = await getPublicPayloadClient()
+    const [active, sold] = await Promise.all([
+      listPublicActiveDeals(payload, { limit: 100 }),
+      listPublicSoldProofDeals(payload, { limit: 100 }),
+    ])
+    return [...active.docs, ...sold.docs]
+      .map((deal) => String((deal as PublicDeal).slug ?? ''))
+      .filter((slug) => slug.length > 0)
+  } catch {
+    return canUseBuyerFixtureFallback() ? getBuyerFallbackDealSlugs() : []
   }
 }
 
@@ -71,15 +97,15 @@ export const getBuyerHomeDealData = async (): Promise<BuyerHomeDealData> => {
     ])
 
     return {
-      activeDeals: activeDeals.docs as PublicDeal[],
-      soldProofDeals: soldProofDeals.docs as PublicDeal[],
+      activeDeals: (activeDeals.docs as PublicDeal[]).map(toBuyerView),
+      soldProofDeals: (soldProofDeals.docs as PublicDeal[]).map(toBuyerView),
       source: 'payload',
     }
   } catch {
     if (canUseBuyerFixtureFallback()) {
       return {
-        activeDeals: getBuyerFallbackActiveDeals(),
-        soldProofDeals: getBuyerFallbackSoldProofDeals(),
+        activeDeals: getBuyerFallbackActiveDeals().map(toBuyerView),
+        soldProofDeals: getBuyerFallbackSoldProofDeals().map(toBuyerView),
         source: 'fixture-fallback',
       }
     }

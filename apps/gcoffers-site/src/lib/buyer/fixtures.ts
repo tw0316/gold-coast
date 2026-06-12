@@ -1,5 +1,6 @@
 import {
   isPublicActiveDeal,
+  isPublicDealVisible,
   isPublicSoldProofDeal,
   sanitizeDealForPublic,
   type DealVisibilityInput,
@@ -10,8 +11,11 @@ export type BuyerDealFixture = DealVisibilityInput & {
   id: string
   title: string
   slug: string
-  dealType: string
+  bestUse?: string[]
+  featureTags?: string[]
   propertyDetails?: {
+    propertyType?: string
+    units?: number
     beds?: number
     baths?: number
     sqft?: number
@@ -25,6 +29,9 @@ export type BuyerDealFixture = DealVisibilityInput & {
     arv?: number
     estimatedRehab?: number
     estimatedClosingCosts?: number
+    marketRent?: number
+    currentRent?: number
+    estCapRate?: number
     potentialProfitOverride?: number
     potentialROIOverride?: number
     closedPrice?: number
@@ -48,27 +55,29 @@ const readyPublicFixtureMedia = (id: string, alt: string) => ({
 export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Central Broward',
+    bestUse: ['fix_and_flip', 'buy_and_hold'],
     city: 'Fort Lauderdale area',
     county: 'Broward County',
     dealStatus: 'available',
-    dealType: 'wholesale',
     disclaimer:
       'Fixture deal for local buyer-page rendering only. Buyers must independently verify all numbers.',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
+    featureTags: ['cosmetic_reno', 'cash_only'],
     financials: {
       arv: 410000,
       askingPrice: 245000,
       estimatedClosingCosts: 9000,
       estimatedRehab: 62000,
+      marketRent: 2800,
     },
     id: 'buyer-public-available',
-    neighborhood: 'Central Broward',
     photos: [readyPublicFixtureMedia('buyer-fixture-available', 'Exterior placeholder for a public available deal')],
     propertyDetails: {
       baths: 2,
       beds: 3,
       construction: 'CBS',
       occupancy: 'vacant',
+      propertyType: 'single_family',
       sqft: 1320,
       yearBuilt: 1978,
     },
@@ -84,10 +93,10 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   },
   {
     area: 'North Miami corridor',
+    bestUse: ['fix_and_flip'],
     city: 'North Miami area',
     county: 'Miami-Dade County',
     dealStatus: 'coming_soon',
-    dealType: 'fix_and_flip',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     financials: {
       arv: 520000,
@@ -101,6 +110,7 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
       baths: 2,
       beds: 4,
       occupancy: 'unknown',
+      propertyType: 'single_family',
       sqft: 1680,
     },
     publishedAt: '2026-01-08T12:00:00.000Z',
@@ -112,16 +122,19 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   },
   {
     area: 'Palm Beach County',
+    bestUse: ['buy_and_hold', 'brrrr'],
     city: 'Palm Beach County',
     county: 'Palm Beach County',
     dealStatus: 'under_contract',
-    dealType: 'rental',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
+    featureTags: ['tenant_occupied'],
     financials: {
       arv: 360000,
       askingPrice: 238000,
+      currentRent: 2100,
       estimatedClosingCosts: 8000,
       estimatedRehab: 52000,
+      marketRent: 2600,
     },
     id: 'buyer-public-under-contract',
     photos: [
@@ -132,9 +145,11 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     ],
     propertyDetails: {
       baths: 2,
-      beds: 3,
+      beds: 4,
       occupancy: 'occupied',
-      sqft: 1180,
+      propertyType: 'duplex',
+      sqft: 1760,
+      units: 2,
     },
     publishedAt: '2026-01-06T12:00:00.000Z',
     showExactAddressPublicly: false,
@@ -145,11 +160,11 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   },
   {
     area: 'Dania Beach area',
+    bestUse: ['fix_and_flip'],
     city: 'Dania Beach area',
     closedAt: '2026-01-02T12:00:00.000Z',
     county: 'Broward County',
     dealStatus: 'sold',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     financials: {
       arv: 395000,
@@ -160,6 +175,7 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     propertyDetails: {
       baths: 2,
       beds: 3,
+      propertyType: 'single_family',
       sqft: 1240,
     },
     showExactAddressPublicly: false,
@@ -170,10 +186,10 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   },
   {
     area: 'Public address area',
+    bestUse: ['land_bank', 'development'],
     city: 'Example City',
     county: 'Example County',
     dealStatus: 'available',
-    dealType: 'land',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     financials: {
       askingPrice: 150000,
@@ -183,6 +199,7 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     id: 'buyer-public-exact-address-enabled',
     propertyDetails: {
       lotSize: '0.25 acre',
+      propertyType: 'land',
     },
     publishedAt: '2026-01-04T12:00:00.000Z',
     showExactAddressPublicly: true,
@@ -195,7 +212,6 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     area: 'Hidden area',
     city: 'Hidden City',
     dealStatus: 'available',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     id: 'buyer-hidden-internal-only',
     showExactAddressPublicly: false,
@@ -206,7 +222,6 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Preview area',
     dealStatus: 'available',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     id: 'buyer-preview-fixture',
     showExactAddressPublicly: false,
@@ -217,7 +232,6 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Archived area',
     dealStatus: 'available',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     id: 'buyer-archived-fixture',
     showExactAddressPublicly: false,
@@ -228,7 +242,6 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Draft area',
     dealStatus: 'draft',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     id: 'buyer-draft-fixture',
     showExactAddressPublicly: false,
@@ -239,7 +252,6 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Cancelled area',
     dealStatus: 'cancelled',
-    dealType: 'wholesale',
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     id: 'buyer-cancelled-fixture',
     showExactAddressPublicly: false,
@@ -270,3 +282,6 @@ export const getBuyerFallbackDealBySlug = (slug: string): PublicDeal | null => {
 
   return deal ? sanitizeDealForPublic(deal) : null
 }
+
+export const getBuyerFallbackDealSlugs = (): string[] =>
+  buyerDealFixtures.filter(isPublicDealVisible).map((deal) => deal.slug)

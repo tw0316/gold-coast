@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 import { buyerHomeContent } from '@/lib/buyer/content'
-import { getBuyerPublicActiveDeals, getBuyerPublicSoldProofDeals } from '@/lib/deals/publicBuyerDeals'
+import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 import type { SiteSurface } from '@/lib/routing/hosts'
 
 import { BuyerDealCard } from './BuyerDealCard'
@@ -11,12 +11,11 @@ import { BuyerHeader } from './BuyerHeader'
 
 type BuyerHomePageProps = {
   routeSurface: SiteSurface
+  activeDeals: BuyerPublicDeal[]
+  soldDeals: BuyerPublicDeal[]
 }
 
-export function BuyerHomePage({ routeSurface }: BuyerHomePageProps) {
-  const activeDeals = getBuyerPublicActiveDeals()
-  const soldDeals = getBuyerPublicSoldProofDeals()
-
+export function BuyerHomePage({ routeSurface, activeDeals, soldDeals }: BuyerHomePageProps) {
   return (
     <div className="buyer-site" data-route-surface={routeSurface} data-buyer-page="home">
       <BuyerHeader />

@@ -14,6 +14,26 @@ export type DealFinancialSummary = {
 const isFiniteNumber = (value: number | null | undefined): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
+export type CapRateInputs = {
+  askingPrice?: number | null
+  estCapRate?: number | null
+  marketRent?: number | null
+}
+
+// Prefer the editor-provided cap rate. Otherwise estimate a gross yield from
+// annualized market rent and asking price. Returns null when inputs are missing.
+export const estimateCapRate = (inputs: CapRateInputs): number | null => {
+  if (isFiniteNumber(inputs.estCapRate)) {
+    return inputs.estCapRate
+  }
+
+  if (isFiniteNumber(inputs.marketRent) && isFiniteNumber(inputs.askingPrice) && inputs.askingPrice > 0) {
+    return Number((((inputs.marketRent * 12) / inputs.askingPrice) * 100).toFixed(1))
+  }
+
+  return null
+}
+
 export const calculateDealFinancials = (inputs: DealFinancialInputs): DealFinancialSummary => {
   const { arv, askingPrice, estimatedClosingCosts, estimatedRehab } = inputs
 
