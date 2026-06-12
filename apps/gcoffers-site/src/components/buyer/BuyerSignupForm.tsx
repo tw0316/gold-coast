@@ -13,7 +13,10 @@ import { useInlineFormSubmit } from '../forms/useInlineFormSubmit'
 const buyerSignupSuccessMessage = "You're on the list. We'll send deals that match your buy box."
 
 export function BuyerSignupForm() {
-  const { isSubmitting, status, submitForm } = useInlineFormSubmit({ successMessage: buyerSignupSuccessMessage })
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({
+    requireServiceConsentForPhone: true,
+    successMessage: buyerSignupSuccessMessage,
+  })
 
   return (
     <form

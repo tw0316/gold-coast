@@ -12,6 +12,7 @@ type InlineFormStatus = {
 
 type InlineFormSubmitOptions = {
   successMessage: string
+  requireServiceConsentForPhone?: boolean
 }
 
 const idleStatus: InlineFormStatus = {
@@ -65,7 +66,35 @@ function getSuccessMessage(payload: unknown, fallback: string): string {
   return fallback
 }
 
-export function useInlineFormSubmit({ successMessage }: InlineFormSubmitOptions) {
+const phoneConsentMessage = 'Check the service SMS consent box or clear the phone number.'
+
+function getPhoneDigits(value: FormDataEntryValue | null): string {
+  return typeof value === 'string' ? value.replace(/\D/g, '') : ''
+}
+
+function findInput(form: HTMLFormElement, name: string): HTMLInputElement | null {
+  const element = form.elements.namedItem(name)
+  return element instanceof HTMLInputElement ? element : null
+}
+
+function validatePhoneConsent(form: HTMLFormElement, formData: FormData): boolean {
+  const phoneDigits = getPhoneDigits(formData.get('phone'))
+  if (phoneDigits.length === 0 || formData.get('serviceConsent') === 'true') {
+    return true
+  }
+
+  const serviceConsentInput = findInput(form, 'serviceConsent')
+  if (serviceConsentInput) {
+    serviceConsentInput.setCustomValidity(phoneConsentMessage)
+    serviceConsentInput.reportValidity()
+    serviceConsentInput.focus()
+    serviceConsentInput.addEventListener('change', () => serviceConsentInput.setCustomValidity(''), { once: true })
+  }
+
+  return false
+}
+
+export function useInlineFormSubmit({ successMessage, requireServiceConsentForPhone = false }: InlineFormSubmitOptions) {
   const [status, setStatus] = useState<InlineFormStatus>(idleStatus)
   const isSubmitting = status.state === 'submitting'
 
@@ -79,8 +108,15 @@ export function useInlineFormSubmit({ successMessage }: InlineFormSubmitOptions)
     const form = event.currentTarget
     const action = form.action
     const method = form.method || 'post'
+    const formData = new FormData(form)
+
+    if (requireServiceConsentForPhone && !validatePhoneConsent(form, formData)) {
+      setStatus({ state: 'error', message: phoneConsentMessage })
+      return false
+    }
+
     const body = new URLSearchParams()
-    for (const [key, value] of new FormData(form).entries()) {
+    for (const [key, value] of formData.entries()) {
       if (typeof value === 'string') {
         body.append(key, value)
       }
@@ -116,13 +152,8 @@ export function useInlineFormSubmit({ successMessage }: InlineFormSubmitOptions)
     }
   }
 
-  function resetStatus() {
-    setStatus(idleStatus)
-  }
-
   return {
     isSubmitting,
-    resetStatus,
     status,
     submitForm,
   }

@@ -18,7 +18,10 @@ type DealInterestFormProps = {
 const dealInterestSuccessMessage = "Got it. We'll follow up with next steps on this deal."
 
 export function DealInterestForm({ deal }: DealInterestFormProps) {
-  const { isSubmitting, status, submitForm } = useInlineFormSubmit({ successMessage: dealInterestSuccessMessage })
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({
+    requireServiceConsentForPhone: true,
+    successMessage: dealInterestSuccessMessage,
+  })
 
   return (
     <form

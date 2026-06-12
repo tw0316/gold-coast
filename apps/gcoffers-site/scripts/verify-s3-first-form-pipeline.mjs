@@ -85,6 +85,9 @@ assert(
   'inline public forms send the content type parsed by the S3-first route handler',
 )
 assert(!inlineFormSubmit.includes('body: new FormData(form)'), 'inline public forms do not send multipart bodies to URLSearchParams parser')
+assert(inlineFormSubmit.includes('requireServiceConsentForPhone'), 'inline public form hook supports client-side phone consent validation')
+assert(inlineFormSubmit.includes('setCustomValidity(phoneConsentMessage)'), 'inline public form hook points phone-consent errors at the service consent field')
+assert(!inlineFormSubmit.includes('resetStatus'), 'inline public form hook does not expose unused status reset API')
 
 const pipelineSource = read('src/lib/forms/s3FirstFormPipeline.ts')
 for (const marker of [
@@ -137,6 +140,14 @@ for (const [label, source, field] of [
   const tag = source.match(new RegExp(`<input[^>]+name="${field}"[^>]*>`, 's'))?.[0] ?? ''
   assert(tag.includes('type="checkbox"'), `${label} is a checkbox`)
   assert(!/\b(defaultChecked|checked)\b/.test(tag), `${label} is not prechecked`)
+}
+
+for (const [label, source] of [
+  ['buyer signup form', signupForm],
+  ['buyer list signup form', listSignupForm],
+  ['deal interest form', interestForm],
+]) {
+  assert(source.includes('requireServiceConsentForPhone: true'), `${label} validates phone consent client-side before submit`)
 }
 
 const pipeline = await importPipelineModule()

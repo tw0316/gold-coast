@@ -16,7 +16,10 @@ const purchaseMethods = ['Cash', 'Hard money', 'Private capital', 'Conventional'
 const buyerSignupSuccessMessage = "You're on the list. We'll send deals that match your buy box."
 
 export function BuyerListSignupForm() {
-  const { isSubmitting, status, submitForm } = useInlineFormSubmit({ successMessage: buyerSignupSuccessMessage })
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({
+    requireServiceConsentForPhone: true,
+    successMessage: buyerSignupSuccessMessage,
+  })
 
   return (
     <form
