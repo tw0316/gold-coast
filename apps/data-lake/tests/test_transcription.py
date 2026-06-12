@@ -21,14 +21,19 @@ from gold_coast_data_lake.jobs.ghl_call_transcription import (
     run_transcription_job,
     sanitize_cloudwatch_log_url,
     select_source_calls_from_athena,
+    successful_transcription_models,
 )
 from gold_coast_data_lake.transcription import (
+    CHUNKED_TRANSCRIPTION_DURATION_SECONDS,
     DEFAULT_FALLBACK_TRANSCRIPTION_MODEL,
     DEFAULT_TRANSCRIPTION_MODEL,
     DownloadedRecording,
     LONG_AUDIO_DURATION_SECONDS,
+    OUTPUT_TOKEN_INCOMPLETE_THRESHOLD,
     TRANSCRIPT_ROW_COLUMNS,
     TranscodedAudio,
+    TranscriptionWindow,
+    build_chunk_windows,
     build_idempotency_key,
     build_idempotency_source,
     build_transcript_artifact,
@@ -36,7 +41,10 @@ from gold_coast_data_lake.transcription import (
     build_transcript_row,
     choose_transcription_plan,
     download_private_s3_recording,
+    resolve_audio_duration,
     sanitize_error_value,
+    transcribe_with_deterministic_strategy,
+    transcription_response_near_output_cap,
     transcribe_with_openai_fallback,
     OpenAITranscriptionProvider,
 )
@@ -219,6 +227,180 @@ class TranscriptionTests(unittest.TestCase):
             self.assertEqual(result.model, DEFAULT_FALLBACK_TRANSCRIPTION_MODEL)
             self.assertEqual(result.content_type, "audio/mpeg")
             self.assertEqual(fake_transcriptions.calls, [DEFAULT_FALLBACK_TRANSCRIPTION_MODEL])
+
+    def test_chunk_windows_use_eight_minutes_with_ten_second_overlap(self) -> None:
+        windows = build_chunk_windows(1190.64)
+
+        self.assertEqual(
+            windows,
+            [
+                TranscriptionWindow(index=0, start_seconds=0.0, end_seconds=480.0),
+                TranscriptionWindow(index=1, start_seconds=470.0, end_seconds=950.0),
+                TranscriptionWindow(index=2, start_seconds=940.0, end_seconds=1190.64),
+            ],
+        )
+
+    def test_output_tokens_at_incomplete_threshold_are_not_success(self) -> None:
+        response = {"text": "partial", "usage": {"output_tokens": OUTPUT_TOKEN_INCOMPLETE_THRESHOLD}}
+
+        self.assertTrue(transcription_response_near_output_cap(response))
+
+    def test_invalid_duration_metadata_is_resolved_by_audio_probe(self) -> None:
+        with mock.patch("gold_coast_data_lake.transcription.probe_audio_duration", return_value=600.0) as probe:
+            resolved = resolve_audio_duration(Path("recording.wav"), float("inf"))
+
+        self.assertEqual(resolved, 600.0)
+        probe.assert_called_once_with(Path("recording.wav"))
+
+    def test_invalid_duration_metadata_uses_resolved_duration_for_short_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "recording.wav"
+            audio_path.write_bytes(b"audio")
+            fake_transcriptions = FakeTranscriptions()
+            provider = OpenAITranscriptionProvider(
+                client=SimpleNamespace(audio=SimpleNamespace(transcriptions=fake_transcriptions))
+            )
+
+            with mock.patch("gold_coast_data_lake.transcription.probe_audio_duration", return_value=60.0):
+                result = transcribe_with_deterministic_strategy(
+                    provider=provider,
+                    audio_path=audio_path,
+                    duration_seconds=float("inf"),
+                )
+
+            self.assertEqual(result.model, DEFAULT_TRANSCRIPTION_MODEL)
+            self.assertEqual(fake_transcriptions.calls, [DEFAULT_TRANSCRIPTION_MODEL])
+
+    def test_deterministic_strategy_chunks_long_audio_and_records_chunk_usage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            audio_path = tmp_path / "recording.wav"
+            audio_path.write_bytes(b"audio")
+            extracted_windows: list[TranscriptionWindow] = []
+
+            def fake_extract(path: Path, window: TranscriptionWindow, *, output_dir: Path | None = None):
+                extracted_windows.append(window)
+                chunk_path = tmp_path / f"chunk-{window.index}.wav"
+                chunk_path.write_bytes(f"chunk {window.index}".encode("utf-8"))
+                return TranscodedAudio(path=chunk_path, content_type="audio/x-wav", bitrate_kbps=128)
+
+            class WindowAwareTranscriptions(FakeTranscriptions):
+                def create(self, *, file, model: str, response_format: str):
+                    self.calls.append(model)
+                    self.assert_file_like(file)
+                    name = file[0] if isinstance(file, tuple) else Path(file.name).name
+                    chunk_index = int(Path(name).stem.split("-")[-1])
+                    return {
+                        "text": "first shared tail" if chunk_index == 0 else "shared tail second",
+                        "segments": [{"start": 1.0, "end": 2.0, "text": f"segment {chunk_index}"}],
+                        "language": "en",
+                        "usage": {"input_tokens": 100 + chunk_index, "output_tokens": 250 + chunk_index},
+                    }
+
+            fake_transcriptions = WindowAwareTranscriptions()
+            provider = OpenAITranscriptionProvider(
+                client=SimpleNamespace(audio=SimpleNamespace(transcriptions=fake_transcriptions))
+            )
+
+            result = transcribe_with_deterministic_strategy(
+                provider=provider,
+                audio_path=audio_path,
+                duration_seconds=CHUNKED_TRANSCRIPTION_DURATION_SECONDS + 30,
+                chunk_extractor=fake_extract,
+            )
+
+            self.assertEqual(result.model, DEFAULT_TRANSCRIPTION_MODEL)
+            self.assertEqual(len(extracted_windows), 2)
+            self.assertEqual(fake_transcriptions.calls, [DEFAULT_TRANSCRIPTION_MODEL, DEFAULT_TRANSCRIPTION_MODEL])
+            self.assertEqual(result.response["text"], "first shared tail\nsecond")
+            self.assertEqual(result.response["segments"][0]["start"], 1.0)
+            self.assertEqual(result.response["segments"][1]["start"], 471.0)
+            self.assertEqual(result.response["usage"]["transcription_strategy"], "chunked_v1")
+            self.assertEqual(result.response["usage"]["chunk_count_expected"], 2)
+            self.assertEqual(result.response["usage"]["chunk_count_completed"], 2)
+            self.assertEqual(result.response["usage"]["max_chunk_output_tokens"], 251)
+            self.assertEqual(result.response["usage"]["models_used"], [DEFAULT_TRANSCRIPTION_MODEL])
+
+    def test_deterministic_strategy_retries_near_cap_chunk_as_four_minute_subchunks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            audio_path = tmp_path / "recording.wav"
+            audio_path.write_bytes(b"audio")
+            extracted_windows: list[TranscriptionWindow] = []
+
+            def fake_extract(path: Path, window: TranscriptionWindow, *, output_dir: Path | None = None):
+                extracted_windows.append(window)
+                chunk_path = tmp_path / f"chunk-{window.index}.wav"
+                chunk_path.write_bytes(f"chunk {window.index}".encode("utf-8"))
+                return TranscodedAudio(path=chunk_path, content_type="audio/x-wav", bitrate_kbps=128)
+
+            class NearCapFirstChunkTranscriptions(FakeTranscriptions):
+                def create(self, *, file, model: str, response_format: str):
+                    self.calls.append(model)
+                    self.assert_file_like(file)
+                    name = file[0] if isinstance(file, tuple) else Path(file.name).name
+                    chunk_index = int(Path(name).stem.split("-")[-1])
+                    output_tokens = OUTPUT_TOKEN_INCOMPLETE_THRESHOLD if chunk_index == 0 else 300
+                    return {
+                        "text": f"transcript chunk {chunk_index}",
+                        "language": "en",
+                        "usage": {"output_tokens": output_tokens},
+                    }
+
+            fake_transcriptions = NearCapFirstChunkTranscriptions()
+            provider = OpenAITranscriptionProvider(
+                client=SimpleNamespace(audio=SimpleNamespace(transcriptions=fake_transcriptions))
+            )
+
+            result = transcribe_with_deterministic_strategy(
+                provider=provider,
+                audio_path=audio_path,
+                duration_seconds=CHUNKED_TRANSCRIPTION_DURATION_SECONDS + 30,
+                chunk_extractor=fake_extract,
+            )
+
+            metadata = result.response["usage"]["chunks"]
+            merged_chunk_indexes = [chunk["chunk_index"] for chunk in metadata]
+
+            self.assertGreater(len(extracted_windows), 2)
+            self.assertNotIn(0, merged_chunk_indexes)
+            self.assertTrue(any(index >= 1000 for index in merged_chunk_indexes))
+            self.assertEqual(result.response["usage"]["max_chunk_output_tokens"], 300)
+
+    def test_deterministic_strategy_reports_fallback_model_when_chunks_use_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            audio_path = tmp_path / "recording.wav"
+            audio_path.write_bytes(b"audio")
+
+            def fake_extract(path: Path, window: TranscriptionWindow, *, output_dir: Path | None = None):
+                chunk_path = tmp_path / f"chunk-{window.index}.wav"
+                chunk_path.write_bytes(f"chunk {window.index}".encode("utf-8"))
+                return TranscodedAudio(path=chunk_path, content_type="audio/x-wav", bitrate_kbps=128)
+
+            fake_transcriptions = FakeTranscriptions(fail_models={DEFAULT_TRANSCRIPTION_MODEL})
+            provider = OpenAITranscriptionProvider(
+                client=SimpleNamespace(audio=SimpleNamespace(transcriptions=fake_transcriptions))
+            )
+
+            result = transcribe_with_deterministic_strategy(
+                provider=provider,
+                audio_path=audio_path,
+                duration_seconds=CHUNKED_TRANSCRIPTION_DURATION_SECONDS + 30,
+                chunk_extractor=fake_extract,
+            )
+
+            self.assertEqual(result.model, DEFAULT_FALLBACK_TRANSCRIPTION_MODEL)
+            self.assertEqual(
+                fake_transcriptions.calls,
+                [
+                    DEFAULT_TRANSCRIPTION_MODEL,
+                    DEFAULT_FALLBACK_TRANSCRIPTION_MODEL,
+                    DEFAULT_TRANSCRIPTION_MODEL,
+                    DEFAULT_FALLBACK_TRANSCRIPTION_MODEL,
+                ],
+            )
+            self.assertEqual(result.response["usage"]["models_used"], [DEFAULT_FALLBACK_TRANSCRIPTION_MODEL])
 
     def test_sanitized_errors_redact_credentials_urls_s3_uri_contact_values_and_payloads(self) -> None:
         s3_uri = "".join(("s3", "://", "secret-bucket", "/", "path.wav"))
@@ -447,6 +629,17 @@ class TranscriptionTests(unittest.TestCase):
         self.assertIn("coalesce(r.object_key, c.recording_object_key)", sql)
         self.assertIn("nullif(trim(coalesce(r.sha256, c.recording_sha256)), '') IS NULL", sql)
         self.assertIn("AND t.call_message_id IS NULL", sql)
+        self.assertIn("'gpt-4o-transcribe+whisper-1'", sql)
+        self.assertIn("'whisper-1+gpt-4o-transcribe'", sql)
+        self.assertEqual(
+            successful_transcription_models(args),
+            (
+                DEFAULT_TRANSCRIPTION_MODEL,
+                DEFAULT_FALLBACK_TRANSCRIPTION_MODEL,
+                f"{DEFAULT_TRANSCRIPTION_MODEL}+{DEFAULT_FALLBACK_TRANSCRIPTION_MODEL}",
+                f"{DEFAULT_FALLBACK_TRANSCRIPTION_MODEL}+{DEFAULT_TRANSCRIPTION_MODEL}",
+            ),
+        )
         self.assertNotIn("sha256)), '') IS NOT NULL", sql)
 
     def test_athena_source_selection_uses_fake_client_and_returns_one_row(self) -> None:

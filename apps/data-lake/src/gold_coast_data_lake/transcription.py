@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -19,6 +20,11 @@ DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-transcribe"
 DEFAULT_FALLBACK_TRANSCRIPTION_MODEL = "whisper-1"
 DEFAULT_ARTIFACT_SCHEMA_VERSION = "v1"
 LONG_AUDIO_DURATION_SECONDS = 1380
+CHUNKED_TRANSCRIPTION_DURATION_SECONDS = 9 * 60
+TRANSCRIPTION_CHUNK_SECONDS = 8 * 60
+TRANSCRIPTION_CHUNK_OVERLAP_SECONDS = 10
+TRANSCRIPTION_RETRY_CHUNK_SECONDS = 4 * 60
+OUTPUT_TOKEN_INCOMPLETE_THRESHOLD = 1900
 TRANSCRIPT_ARTIFACT_PREFIX = "ai-artifacts/ghl/transcripts"
 
 TRANSCRIPT_ROW_COLUMNS = (
@@ -125,6 +131,17 @@ class TranscriptionPlan:
     use_fallback: bool
     needs_transcode: bool
     reason: str
+
+
+@dataclass(frozen=True)
+class TranscriptionWindow:
+    index: int
+    start_seconds: float
+    end_seconds: float
+
+    @property
+    def duration_seconds(self) -> float:
+        return max(0.0, self.end_seconds - self.start_seconds)
 
 
 @dataclass(frozen=True)
@@ -467,6 +484,384 @@ def transcribe_with_openai_fallback(
         audio_path=path,
         content_type=content_type,
     )
+
+
+def transcribe_with_deterministic_strategy(
+    *,
+    provider: OpenAITranscriptionProvider,
+    audio_path: str | Path,
+    duration_seconds: float | int | None = None,
+    content_type: str | None = None,
+    primary_model: str = DEFAULT_TRANSCRIPTION_MODEL,
+    fallback_model: str = DEFAULT_FALLBACK_TRANSCRIPTION_MODEL,
+    chunked_cutoff_seconds: int = CHUNKED_TRANSCRIPTION_DURATION_SECONDS,
+    chunk_extractor: Callable[..., TranscodedAudio] | None = None,
+    transcode_helper: Callable[..., TranscodedAudio] | None = None,
+) -> ProviderTranscription:
+    duration = resolve_audio_duration(audio_path, duration_seconds)
+    if duration <= chunked_cutoff_seconds:
+        return transcribe_with_openai_fallback(
+            provider=provider,
+            audio_path=audio_path,
+            duration_seconds=duration,
+            content_type=content_type,
+            primary_model=primary_model,
+            fallback_model=fallback_model,
+            transcode_helper=transcode_helper,
+        )
+
+    if chunk_extractor is None:
+        chunk_extractor = extract_audio_window
+
+    path = Path(audio_path)
+    windows = build_chunk_windows(duration)
+    if not windows:
+        raise RuntimeError("deterministic transcription produced no chunk windows")
+    attempts: list[ProviderAttempt] = []
+    chunk_texts: list[str] = []
+    chunk_segments: list[Any] = []
+    chunk_metadata: list[dict[str, Any]] = []
+    languages: list[str] = []
+    models_used: list[str] = []
+    max_output_tokens = 0
+
+    with tempfile.TemporaryDirectory(prefix="ghl-transcription-chunks-") as tmp:
+        output_dir = Path(tmp)
+        for window in windows:
+            chunk_results = transcribe_window_with_retry(
+                provider=provider,
+                source_audio_path=path,
+                window=window,
+                primary_model=primary_model,
+                fallback_model=fallback_model,
+                chunk_extractor=chunk_extractor,
+                output_dir=output_dir,
+                attempts=attempts,
+            )
+            for chunk_window, chunk_result in chunk_results:
+                normalized = normalize_transcription_response(chunk_result.response)
+                text = normalized.get("text")
+                if isinstance(text, str) and text.strip():
+                    chunk_texts.append(text.strip())
+                segments = normalized.get("segments")
+                if isinstance(segments, list):
+                    chunk_segments.extend(offset_transcript_segments(segments, chunk_window.start_seconds))
+                language = normalized.get("language")
+                if isinstance(language, str) and language and language not in languages:
+                    languages.append(language)
+                if chunk_result.model not in models_used:
+                    models_used.append(chunk_result.model)
+                output_tokens = output_tokens_from_response(chunk_result.response) or 0
+                max_output_tokens = max(max_output_tokens, output_tokens)
+                chunk_metadata.append(
+                    {
+                        "chunk_index": chunk_window.index,
+                        "start_seconds": chunk_window.start_seconds,
+                        "end_seconds": chunk_window.end_seconds,
+                        "model": chunk_result.model,
+                        "output_tokens": output_tokens,
+                        "status": "succeeded",
+                    }
+                )
+
+    aggregate_model = aggregate_transcription_model(models_used, default_model=primary_model)
+    response = {
+        "text": merge_transcript_texts(chunk_texts),
+        "segments": chunk_segments or None,
+        "language": languages[0] if languages else None,
+        "usage": {
+            "transcription_strategy": "chunked_v1",
+            "chunk_count_expected": len(windows),
+            "chunk_count_completed": len(chunk_metadata),
+            "max_chunk_output_tokens": max_output_tokens,
+            "coverage_start_seconds": windows[0].start_seconds if windows else 0.0,
+            "coverage_end_seconds": windows[-1].end_seconds if windows else 0.0,
+            "overlap_seconds": TRANSCRIPTION_CHUNK_OVERLAP_SECONDS,
+            "models_used": models_used,
+            "chunks": chunk_metadata,
+        },
+    }
+    return ProviderTranscription(
+        provider=DEFAULT_PROVIDER,
+        model=aggregate_model,
+        response=response,
+        attempts=tuple(attempts),
+        audio_path=path,
+        content_type=content_type,
+    )
+
+
+def transcribe_window_with_retry(
+    *,
+    provider: OpenAITranscriptionProvider,
+    source_audio_path: Path,
+    window: TranscriptionWindow,
+    primary_model: str,
+    fallback_model: str,
+    chunk_extractor: Callable[..., TranscodedAudio],
+    output_dir: Path,
+    attempts: list[ProviderAttempt],
+) -> list[tuple[TranscriptionWindow, ProviderTranscription]]:
+    first_result = transcribe_single_window(
+        provider=provider,
+        source_audio_path=source_audio_path,
+        window=window,
+        primary_model=primary_model,
+        fallback_model=fallback_model,
+        chunk_extractor=chunk_extractor,
+        output_dir=output_dir,
+    )
+    attempts.extend(first_result.attempts)
+    if not transcription_response_near_output_cap(first_result.response):
+        return [(window, first_result)]
+
+    retry_windows = build_chunk_windows(
+        window.duration_seconds,
+        window_seconds=TRANSCRIPTION_RETRY_CHUNK_SECONDS,
+        overlap_seconds=TRANSCRIPTION_CHUNK_OVERLAP_SECONDS,
+        start_seconds=window.start_seconds,
+        index_offset=(window.index + 1) * 1000,
+    )
+    retry_results: list[tuple[TranscriptionWindow, ProviderTranscription]] = []
+    for retry_window in retry_windows:
+        retry_result = transcribe_single_window(
+            provider=provider,
+            source_audio_path=source_audio_path,
+            window=retry_window,
+            primary_model=primary_model,
+            fallback_model=fallback_model,
+            chunk_extractor=chunk_extractor,
+            output_dir=output_dir,
+        )
+        attempts.extend(retry_result.attempts)
+        if transcription_response_near_output_cap(retry_result.response):
+            output_tokens = output_tokens_from_response(retry_result.response)
+            error = build_error_json(
+                RuntimeError("transcription chunk reached output token threshold"),
+                provider=DEFAULT_PROVIDER,
+                model=retry_result.model,
+                retryable=True,
+            )
+            error["output_tokens"] = output_tokens
+            error["threshold"] = OUTPUT_TOKEN_INCOMPLETE_THRESHOLD
+            attempts.append(ProviderAttempt(retry_result.model, "failed", error))
+            raise TranscriptionProviderError("transcription incomplete after deterministic subchunk retry", attempts)
+        retry_results.append((retry_window, retry_result))
+    return retry_results
+
+
+def transcribe_single_window(
+    *,
+    provider: OpenAITranscriptionProvider,
+    source_audio_path: Path,
+    window: TranscriptionWindow,
+    primary_model: str,
+    fallback_model: str,
+    chunk_extractor: Callable[..., TranscodedAudio],
+    output_dir: Path,
+) -> ProviderTranscription:
+    chunk = chunk_extractor(source_audio_path, window, output_dir=output_dir)
+    return transcribe_with_openai_fallback(
+        provider=provider,
+        audio_path=chunk.path,
+        duration_seconds=window.duration_seconds,
+        content_type=chunk.content_type,
+        primary_model=primary_model,
+        fallback_model=fallback_model,
+    )
+
+
+def build_chunk_windows(
+    duration_seconds: float | int,
+    *,
+    window_seconds: float | int = TRANSCRIPTION_CHUNK_SECONDS,
+    overlap_seconds: float | int = TRANSCRIPTION_CHUNK_OVERLAP_SECONDS,
+    start_seconds: float | int = 0.0,
+    index_offset: int = 0,
+) -> list[TranscriptionWindow]:
+    duration = float(duration_seconds)
+    window_length = float(window_seconds)
+    overlap = float(overlap_seconds)
+    base_start = float(start_seconds)
+    if not math.isfinite(duration) or duration <= 0:
+        return []
+    if not math.isfinite(window_length) or window_length <= 0:
+        raise ValueError("window_seconds must be positive and finite")
+    if not math.isfinite(overlap) or overlap < 0:
+        raise ValueError("overlap_seconds must be non-negative and finite")
+    if window_length <= overlap:
+        raise ValueError("window_seconds must be greater than overlap_seconds")
+
+    windows: list[TranscriptionWindow] = []
+    start = base_start
+    final_end = base_start + duration
+    index = index_offset
+    while start < final_end:
+        end = min(start + window_length, final_end)
+        windows.append(
+            TranscriptionWindow(
+                index=index,
+                start_seconds=round(start, 3),
+                end_seconds=round(end, 3),
+            )
+        )
+        if end >= final_end:
+            break
+        start = end - overlap
+        index += 1
+    return windows
+
+
+def extract_audio_window(
+    audio_path: str | Path,
+    window: TranscriptionWindow,
+    *,
+    output_dir: Path | None = None,
+    runner: Callable[..., Any] = subprocess.run,
+) -> TranscodedAudio:
+    input_path = Path(audio_path)
+    directory = output_dir or input_path.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    output = directory / f"{input_path.stem}.chunk-{window.index:03d}.wav"
+    args = [
+        "ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-y",
+        "-ss",
+        f"{window.start_seconds:.3f}",
+        "-i",
+        str(input_path),
+        "-t",
+        f"{window.duration_seconds:.3f}",
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "8000",
+        "-c:a",
+        "pcm_s16le",
+        str(output),
+    ]
+    completed = runner(args, check=False, capture_output=True)
+    if getattr(completed, "returncode", 0) != 0:
+        stderr = sanitize_text(getattr(completed, "stderr", b"").decode("utf-8", errors="replace"))
+        raise RuntimeError(f"ffmpeg chunk extraction failed: {stderr}")
+    return TranscodedAudio(path=output, content_type="audio/x-wav", bitrate_kbps=128)
+
+
+def resolve_audio_duration(audio_path: str | Path, duration_seconds: float | int | None) -> float:
+    if duration_seconds is None:
+        return probe_audio_duration(audio_path)
+    try:
+        duration = float(duration_seconds)
+    except (TypeError, ValueError):
+        return probe_audio_duration(audio_path)
+    if not math.isfinite(duration) or duration <= 0:
+        return probe_audio_duration(audio_path)
+    return duration
+
+
+def probe_audio_duration(
+    audio_path: str | Path,
+    *,
+    runner: Callable[..., Any] = subprocess.run,
+) -> float:
+    args = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(audio_path),
+    ]
+    completed = runner(args, check=False, capture_output=True)
+    if getattr(completed, "returncode", 0) != 0:
+        stderr = sanitize_text(getattr(completed, "stderr", b"").decode("utf-8", errors="replace"))
+        raise RuntimeError(f"ffprobe duration probe failed: {stderr}")
+    raw_duration = getattr(completed, "stdout", b"").decode("utf-8", errors="replace").strip()
+    try:
+        duration = float(raw_duration)
+    except ValueError as exc:
+        raise RuntimeError("ffprobe duration probe returned an invalid duration") from exc
+    if not math.isfinite(duration) or duration <= 0:
+        raise RuntimeError("ffprobe duration probe returned a non-positive duration")
+    return duration
+
+
+def aggregate_transcription_model(models_used: list[str], *, default_model: str) -> str:
+    if not models_used:
+        return default_model
+    if len(models_used) == 1:
+        return models_used[0]
+    return "+".join(models_used)
+
+
+def offset_transcript_segments(segments: list[Any], offset_seconds: float) -> list[Any]:
+    return [offset_transcript_segment(segment, offset_seconds) for segment in segments]
+
+
+def offset_transcript_segment(segment: Any, offset_seconds: float) -> Any:
+    if not isinstance(segment, Mapping):
+        return segment
+    adjusted = dict(segment)
+    for key in ("start", "end", "start_seconds", "end_seconds"):
+        value = adjusted.get(key)
+        if isinstance(value, (int, float)):
+            adjusted[key] = round(float(value) + offset_seconds, 3)
+    words = adjusted.get("words")
+    if isinstance(words, list):
+        adjusted["words"] = [offset_transcript_segment(word, offset_seconds) for word in words]
+    return adjusted
+
+
+def merge_transcript_texts(chunks: list[str]) -> str:
+    merged: list[str] = []
+    for chunk in chunks:
+        text = chunk.strip()
+        if not text:
+            continue
+        if merged:
+            text = trim_repeated_overlap(merged[-1], text)
+        if text:
+            merged.append(text)
+    return "\n".join(merged)
+
+
+def trim_repeated_overlap(previous: str, current: str, *, max_words: int = 80) -> str:
+    previous_words = previous.split()
+    current_words = current.split()
+    max_overlap = min(max_words, len(previous_words), len(current_words))
+    for size in range(max_overlap, 0, -1):
+        if [word.lower() for word in previous_words[-size:]] == [word.lower() for word in current_words[:size]]:
+            return " ".join(current_words[size:])
+    return current
+
+
+def transcription_response_near_output_cap(
+    response: Any,
+    *,
+    threshold: int = OUTPUT_TOKEN_INCOMPLETE_THRESHOLD,
+) -> bool:
+    output_tokens = output_tokens_from_response(response)
+    return output_tokens is not None and output_tokens >= threshold
+
+
+def output_tokens_from_response(response: Any) -> int | None:
+    usage = normalize_transcription_response(response).get("usage")
+    if not isinstance(usage, Mapping):
+        return None
+    for key in ("output_tokens", "completion_tokens"):
+        value = usage.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def transcode_audio_for_whisper(
