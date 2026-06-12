@@ -1,0 +1,187 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest import mock
+
+from gold_coast_data_lake.batch import BatchRunContext
+from gold_coast_data_lake.client import GHLAPIError
+from gold_coast_data_lake.raw_refresh import RawRefreshConfig, run_ghl_raw_refresh
+
+
+class FullRefreshClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict | None]] = []
+
+    def get_json(self, path: str, params: dict | None = None):
+        self.calls.append((path, dict(params or {})))
+        if path == "/contacts/":
+            return {"contacts": [{"id": "contact1"}]}
+        if path == "/opportunities/pipelines":
+            return {"pipelines": [{"id": "pipeline1"}]}
+        if path == "/opportunities/search":
+            return {"opportunities": [{"id": "opp1", "pipelineId": "pipeline1"}]}
+        if path == "/conversations/search":
+            return {"conversations": [{"id": "conv1", "lastMessageDate": 1}], "total": 1}
+        if path == "/conversations/conv1/messages":
+            return {"messages": [{"id": "msg1", "messageType": "TYPE_CALL"}]}
+        if path == "/conversations/messages/msg1":
+            return {"message": {"id": "msg1", "messageType": "TYPE_CALL", "meta": {"call": {"duration": 42}}}}
+        raise AssertionError(f"unexpected path: {path}")
+
+
+class FlakyFullRefreshClient(FullRefreshClient):
+    def get_json(self, path: str, params: dict | None = None):
+        self.calls.append((path, dict(params or {})))
+        if path == "/contacts/":
+            return {"contacts": [{"id": "contact1"}]}
+        if path == "/opportunities/pipelines":
+            return {"pipelines": [{"id": "pipeline1"}]}
+        if path == "/opportunities/search":
+            return {"opportunities": [{"id": "opp1", "pipelineId": "pipeline1"}]}
+        if path == "/conversations/search":
+            return {"conversations": [{"id": "conv1", "lastMessageDate": 1}], "total": 1}
+        if path == "/conversations/conv1/messages":
+            return {
+                "messages": [
+                    {"id": "msg1", "messageType": "TYPE_CALL"},
+                    {"id": "bad-msg", "messageType": "TYPE_CALL"},
+                    {"id": "msg3", "messageType": "TYPE_CALL"},
+                ]
+            }
+        if path == "/conversations/messages/bad-msg":
+            exc = GHLAPIError("GET /conversations/messages/bad-msg failed with HTTP 503: upstream unavailable")
+            setattr(exc, "method", "GET")
+            setattr(exc, "path", path)
+            setattr(exc, "status_code", 503)
+            setattr(exc, "retry_attempts", 4)
+            setattr(exc, "retry_after", None)
+            raise exc
+        if path.startswith("/conversations/messages/"):
+            message_id = path.rsplit("/", 1)[-1]
+            return {"message": {"id": message_id, "messageType": "TYPE_CALL", "meta": {"call": {"duration": 42}}}}
+        raise AssertionError(f"unexpected path: {path}")
+
+
+class RawRefreshTests(unittest.TestCase):
+    def test_full_core_refresh_uses_existing_get_only_extractor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="20260518T230000Z",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 0, tzinfo=timezone.utc),
+            )
+            client = FullRefreshClient()
+            result = run_ghl_raw_refresh(
+                context,
+                RawRefreshConfig(local_only=True),
+                client=client,
+                location_id="loc",
+            )
+
+            self.assertEqual(result["entity_counts"]["contacts"], 1)
+            self.assertEqual(result["entity_counts"]["pipelines"], 1)
+            self.assertEqual(result["entity_counts"]["opportunities"], 1)
+            self.assertEqual(result["entity_counts"]["conversations"], 1)
+            self.assertEqual(result["entity_counts"]["messages"], 1)
+            self.assertEqual(result["entity_counts"]["call_message_details"], 1)
+            self.assertEqual(result["recordings"]["attempted"], 0)
+            self.assertEqual(result["manifest_key"], "manifests/ghl/run=20260518T230000Z.json")
+            manifest_path = Path(result["manifest_path"])
+            self.assertTrue(manifest_path.exists())
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["run_id"], "20260518T230000Z")
+            self.assertTrue(all(call[0].startswith("/") for call in client.calls))
+
+    def test_raw_refresh_promotes_sanitized_call_detail_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="20260518T230000Z",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 0, tzinfo=timezone.utc),
+            )
+            result = run_ghl_raw_refresh(
+                context,
+                RawRefreshConfig(local_only=True),
+                client=FlakyFullRefreshClient(),
+                location_id="loc",
+            )
+
+            self.assertEqual(result["entity_counts"]["call_message_details"], 2)
+            self.assertEqual(result["entity_error_counts"], {"call_message_details": 1})
+            self.assertEqual(result["entity_errors"]["call_message_details"][0]["endpoint"], "/conversations/messages/{messageId}")
+            self.assertEqual(result["entity_errors"]["call_message_details"][0]["status_code"], 503)
+            self.assertNotIn("bad-msg", json.dumps(result["entity_errors"]))
+
+    def test_ghl_config_is_required_without_injected_client(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="run1",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 0, tzinfo=timezone.utc),
+            )
+            with mock.patch.dict("os.environ", {}, clear=True):
+                with self.assertRaises(ValueError):
+                    run_ghl_raw_refresh(context, RawRefreshConfig(env_file=None))
+
+    def test_process_env_can_configure_fargate_secret_injected_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="20260518T231500Z",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 15, tzinfo=timezone.utc),
+            )
+            fake_client = FullRefreshClient()
+            env = {
+                "GHL_API_KEY": "test-key",
+                "GHL_LOCATION_ID": "loc",
+            }
+            with mock.patch.dict("os.environ", env, clear=True):
+                with mock.patch("gold_coast_data_lake.raw_refresh.GHLClient", return_value=fake_client) as client_cls:
+                    result = run_ghl_raw_refresh(context, RawRefreshConfig(local_only=True))
+
+            client_cls.assert_called_once()
+            self.assertEqual(result["entity_counts"]["contacts"], 1)
+            self.assertEqual(result["entity_counts"]["call_message_details"], 1)
+
+    def test_s3_bucket_is_required_for_non_local_raw_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            context = BatchRunContext(
+                run_id="run1",
+                source="ghl",
+                source_environment="production",
+                dry_run=False,
+                status_dir=root / "status",
+                output_dir=root / "extracts",
+                started_at=datetime(2026, 5, 18, 23, 0, tzinfo=timezone.utc),
+            )
+            with self.assertRaises(ValueError):
+                run_ghl_raw_refresh(context, RawRefreshConfig(local_only=False), client=FullRefreshClient(), location_id="loc")
+
+
+if __name__ == "__main__":
+    unittest.main()

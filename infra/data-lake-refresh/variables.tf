@@ -1,0 +1,217 @@
+variable "region" {
+  description = "AWS region for data-lake refresh runtime."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "environment" {
+  description = "Environment name."
+  type        = string
+  default     = "prod"
+}
+
+variable "data_lake_bucket" {
+  description = "Existing source-agnostic Gold Coast data lake bucket."
+  type        = string
+  default     = "gcoffers-data-lake"
+}
+
+variable "data_lake_s3_prefix" {
+  description = "Optional prefix inside the data lake bucket. Leave empty for bucket-root production layout."
+  type        = string
+  default     = ""
+}
+
+variable "glue_database" {
+  description = "Existing Glue database for curated tables."
+  type        = string
+  default     = "gold_coast"
+}
+
+variable "reporting_glue_database" {
+  description = "Glue database for repeated business metric marts."
+  type        = string
+  default     = "gold_coast_reporting"
+}
+
+variable "athena_workgroup" {
+  description = "Existing Athena workgroup."
+  type        = string
+  default     = "gold_coast_data_lake"
+}
+
+variable "vpc_id" {
+  description = "VPC where the Fargate task runs."
+  type        = string
+}
+
+variable "public_subnet_ids" {
+  description = "Public subnet IDs for Fargate with assignPublicIp enabled. No NAT Gateway required."
+  type        = list(string)
+}
+
+variable "ghl_api_key_secret_arn" {
+  description = "Secrets Manager secret ARN containing the GHL API key value."
+  type        = string
+  sensitive   = true
+}
+
+variable "ghl_location_id_secret_arn" {
+  description = "Secrets Manager secret ARN containing the GHL location ID value."
+  type        = string
+  sensitive   = true
+}
+
+variable "slack_webhook_secret_arn" {
+  description = "Secrets Manager secret ARN for the Gold Coast tech-alerts Slack webhook targeting C0B4JTC5VPF. Required when core refresh or transcription alert mode is not off."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "openai_transcription_secret_arn" {
+  description = "Optional Secrets Manager secret ARN containing the OpenAI API key for the call transcription task. Required before enabling the transcription schedule with provider=openai."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "image_tag" {
+  description = "Backwards-compatible default immutable container image tag, normally the git SHA. Prefer refresh_image_tag and transcription_image_tag for service-specific rollouts."
+  type        = string
+  default     = null
+}
+
+variable "refresh_image_tag" {
+  description = "Immutable container image tag for the core GHL refresh task. Defaults to image_tag when null."
+  type        = string
+  default     = null
+}
+
+variable "transcription_image_tag" {
+  description = "Immutable container image tag for the downstream call transcription task. Defaults to image_tag when null."
+  type        = string
+  default     = null
+}
+
+variable "task_cpu" {
+  description = "Fargate task CPU units."
+  type        = number
+  default     = 256
+}
+
+variable "task_memory" {
+  description = "Fargate task memory MiB."
+  type        = number
+  default     = 1024
+}
+
+variable "task_cpu_architecture" {
+  description = "Fargate task CPU architecture. ARM64 matches Apple Silicon local builds and is supported by Fargate."
+  type        = string
+  default     = "ARM64"
+
+  validation {
+    condition     = contains(["ARM64", "X86_64"], var.task_cpu_architecture)
+    error_message = "task_cpu_architecture must be ARM64 or X86_64."
+  }
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention."
+  type        = number
+  default     = 30
+}
+
+variable "schedule_enabled" {
+  description = "Enable the EventBridge schedule. Keep false until manual run evidence passes."
+  type        = bool
+  default     = false
+}
+
+variable "schedule_expression" {
+  description = "EventBridge schedule expression for the refresh after V1.1 cutover."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transcription_schedule_enabled" {
+  description = "Enable the downstream call transcription EventBridge schedule. Keep false until sample/backfill acceptance and explicit approval."
+  type        = bool
+  default     = false
+}
+
+variable "transcription_schedule_expression" {
+  description = "EventBridge schedule expression for downstream call transcription. Ignored operationally while transcription_schedule_enabled=false."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transcription_max_transcriptions_per_run" {
+  description = "Bound on OpenAI transcription attempts per scheduled task run."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.transcription_max_transcriptions_per_run >= 1 && var.transcription_max_transcriptions_per_run <= 100
+    error_message = "transcription_max_transcriptions_per_run must be between 1 and 100."
+  }
+}
+
+variable "transcription_artifact_schema_version" {
+  description = "Transcript artifact schema version passed to the transcription runtime."
+  type        = string
+  default     = "v1"
+}
+
+variable "transcription_provider" {
+  description = "Transcription provider name passed to the runtime."
+  type        = string
+  default     = "openai"
+}
+
+variable "transcription_model" {
+  description = "Primary transcription model passed to the runtime."
+  type        = string
+  default     = "gpt-4o-transcribe"
+}
+
+variable "transcription_fallback_model" {
+  description = "Fallback transcription model passed to the runtime for long/problematic audio."
+  type        = string
+  default     = "whisper-1"
+}
+
+variable "transcription_alert_mode" {
+  description = "Slack alert policy for the call transcription task: off, failure-only, success-and-failure, or launch-window."
+  type        = string
+  default     = "failure-only"
+
+  validation {
+    condition     = contains(["off", "failure-only", "success-and-failure", "launch-window"], var.transcription_alert_mode)
+    error_message = "transcription_alert_mode must be off, failure-only, success-and-failure, or launch-window."
+  }
+}
+
+variable "transcription_success_alert_until" {
+  description = "UTC ISO timestamp required for transcription launch-window success alerts. Leave null for failure-only or off."
+  type        = string
+  default     = null
+}
+
+variable "alert_mode" {
+  description = "Slack alert policy: off, failure-only, success-and-failure, or launch-window."
+  type        = string
+  default     = "failure-only"
+
+  validation {
+    condition     = contains(["off", "failure-only", "success-and-failure", "launch-window"], var.alert_mode)
+    error_message = "alert_mode must be off, failure-only, success-and-failure, or launch-window."
+  }
+}
+
+variable "success_alert_until" {
+  description = "UTC ISO timestamp required for launch-window success alerts. Leave null for failure-only or off."
+  type        = string
+  default     = null
+}

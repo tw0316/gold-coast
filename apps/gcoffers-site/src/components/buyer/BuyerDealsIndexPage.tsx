@@ -21,15 +21,10 @@ export function BuyerDealsIndexPage() {
         <section className="deals-hero">
           <div className="container">
             <span className="eyebrow eyebrow--dark">For our buyer list · Updated weekly</span>
-            <h1 className="h1">
-              Off-market deals,
-              <br />
-              underwritten by us.
-            </h1>
+            <h1 className="h1">Off-market deals, underwritten by us.</h1>
             <p className="lede on-dark">
-              Curated residential opportunities across our markets, directly sourced from motivated sellers. Every deal comes with
-              comparable sales data, rental comps, and a straightforward contract. We underwrite and share each deal directly with
-              you before it hits the market.
+              Curated single-family and small multifamily opportunities in South Florida. We source direct, walk the property, and
+              underwrite the deal before it reaches buyers.
             </p>
           </div>
         </section>
@@ -60,12 +55,7 @@ export function BuyerDealsIndexPage() {
               </div>
             </div>
             <div className="empty-deals">
-              <div className="empty-deals__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  <path d="M9 22V12h6v10" />
-                </svg>
-              </div>
+              <div className="empty-deals__icon">⌂</div>
               <h2>No active deals right now</h2>
               <p className="lede">
                 We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.
@@ -81,10 +71,10 @@ export function BuyerDealsIndexPage() {
               <span className="eyebrow eyebrow--dark">Buyer list</span>
               <h2>Get new deals before they are gone.</h2>
               <p className="lede on-dark">
-                We send deal alerts to investors when inventory matches their box.
+                We send deal alerts to serious cash and hard-money buyers when inventory matches their box.
               </p>
               <ul className="check-list on-dark">
-                <li>Direct-to-seller opportunities.</li>
+                <li>Direct-to-seller South Florida opportunities.</li>
                 <li>Single-family, small multifamily, condos, townhomes, and land.</li>
                 <li>No fake inventory. If nothing is active, we say so.</li>
               </ul>

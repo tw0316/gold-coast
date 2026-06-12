@@ -15,17 +15,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (routeSurface === 'buyer') {
     return {
-      metadataBase: new URL('https://gcoffers.com'),
+      metadataBase: new URL('https://deals.gcoffers.com'),
       title: buyerHomeContent.seo.title,
       description: buyerHomeContent.seo.description,
       alternates: {
-        canonical: 'https://gcoffers.com/deals/',
+        canonical: 'https://deals.gcoffers.com/',
       },
       openGraph: {
         title: buyerHomeContent.seo.title,
         description: buyerHomeContent.seo.description,
         type: 'website',
-        url: 'https://gcoffers.com/deals/',
+        url: 'https://deals.gcoffers.com/',
       },
     }
   }

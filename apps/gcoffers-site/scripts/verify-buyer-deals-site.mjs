@@ -60,16 +60,16 @@ assert(frontendRoot.includes('<BuyerHomePage'), 'buyer host root renders BuyerHo
 assert(frontendRoot.includes('<SellerHomePage'), 'seller host root still renders SellerHomePage')
 const buyerRootMetadata = frontendRoot.match(/if \(routeSurface === 'buyer'\) \{[\s\S]*?return \{([\s\S]*?)\n    \}\n  \}/)?.[1] ?? ''
 assert(
-  buyerRootMetadata.includes("metadataBase: new URL('https://gcoffers.com')"),
-  'buyer root metadata explicitly sets gcoffers.com metadataBase',
+  buyerRootMetadata.includes("metadataBase: new URL('https://deals.gcoffers.com')"),
+  'buyer root metadata explicitly sets deals.gcoffers.com metadataBase',
 )
 assert(
-  buyerRootMetadata.includes("canonical: 'https://gcoffers.com/deals/'"),
-  'buyer root metadata uses gcoffers.com/deals canonical URL',
+  buyerRootMetadata.includes("canonical: 'https://deals.gcoffers.com/'"),
+  'buyer root metadata uses deals.gcoffers.com canonical URL',
 )
 assert(
-  buyerRootMetadata.includes("url: 'https://gcoffers.com/deals/'"),
-  'buyer root OpenGraph URL uses gcoffers.com/deals',
+  buyerRootMetadata.includes("url: 'https://deals.gcoffers.com/'"),
+  'buyer root OpenGraph URL uses deals.gcoffers.com',
 )
 assert(!buyerRootMetadata.includes('/assets/og-image.jpg'), 'buyer root OpenGraph metadata does not inherit seller OG image')
 assert(!exists('src/app/(buyer)/page.tsx'), 'no conflicting buyer route-group root page exists')
@@ -303,9 +303,7 @@ for (const file of sourceFilesToScan) {
   assert(!prohibitedLegacyEndpoint.test(source), `${file} does not contain retired legacy live endpoints`)
   assert(!prohibitedStorageUrl.test(source), `${file} does not contain raw storage/CDN media URLs`)
   if (file.startsWith('src/app/(buyer)') || file.startsWith('src/components/buyer') || file.startsWith('src/fixtures')) {
-    const rawUrlScanSource = source
-      .replaceAll('https://gcoffers.com/deals/', '')
-      .replaceAll('https://gcoffers.com', '')
+    const rawUrlScanSource = source.replaceAll('https://deals.gcoffers.com', '')
     assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs`)
   }
 }

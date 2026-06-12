@@ -1,28 +1,27 @@
-# Gold Coast Offers Payload site
+# Gold Coast Offers site scaffold
 
-Live Next.js + Payload app for `gcoffers.com` and `www.gcoffers.com`.
+App-local Next.js + Payload scaffold for the future whole-site `gcoffers.com` and `deals.gcoffers.com` migration.
 
-This app owns:
+This app is intentionally minimal for slice 2. It provides:
 
-- seller pages at `/`, `/about`, `/privacy-policy`, `/terms`, and related seller routes
-- buyer/deals pages under `/deals`
-- Payload admin at `/admin`
-- public form routes for seller leads, buyer signups, and deal interest
-- health routes for ECS/CloudFront smoke checks
-
-`deals.gcoffers.com` is not a live target for the current production site.
+- Next.js App Router with host-aware seller/buyer surface detection.
+- Payload admin/API route scaffolding under `/admin` and `/api`.
+- Postgres-backed Payload config using the local Docker Compose database.
+- Node 22 / npm lockfile-based dependency management.
+- ECS-style production Dockerfile using Next standalone output.
+- Health route stubs for later ALB/CloudFront integration.
 
 ## Prerequisites
 
 - Node 22 (`.nvmrc` is provided).
 - npm 10+.
-- Docker Desktop or another local Compose-compatible runtime for local Postgres.
+- Docker Desktop or another local Compose-compatible runtime for Postgres.
 
 ## Local setup
 
 ```bash
 cd apps/gcoffers-site
-npm ci
+npm install
 cp .env.example .env.local
 # Replace placeholder values in .env.local as needed. Do not commit real values.
 docker compose up -d postgres
@@ -32,12 +31,13 @@ npm run dev
 
 Open:
 
-- Seller site: <http://localhost:3000>
-- Deals page: <http://localhost:3000/deals>
+- Public scaffold: <http://localhost:3000>
 - Payload admin: <http://localhost:3000/admin>
-- GraphQL playground: <http://localhost:3000/api/graphql-playground> in development only
-- Readiness health: <http://localhost:3000/api/health/readiness>
-- Public-content health: <http://localhost:3000/api/health/public-content>
+- GraphQL playground: <http://localhost:3000/api/graphql-playground> in development only.
+- Readiness health stub: <http://localhost:3000/api/health/readiness>
+- Public-content health stub: <http://localhost:3000/api/health/public-content>
+
+To exercise buyer-domain routing locally, map or proxy a host such as `buyer.localhost` or `deals.localhost` to the same dev server. The helper currently treats `deals.*` and `buyer.localhost` as buyer surfaces.
 
 ## Scripts
 
@@ -47,35 +47,19 @@ Open:
 - `npm run typecheck` - run TypeScript without emitting files.
 - `npm run payload:importmap` - regenerate Payload admin import map.
 - `npm run payload:types` - generate Payload TypeScript types.
-- `npm run verify:scaffold` - focused app scaffold verification.
-- `npm run verify:schema-access` - Payload collection/access safety checks.
-- `npm run verify:seller-site` - seller site contract checks.
-- `npm run verify:buyer-deals-site` - buyer/deals public route and visibility checks.
-- `npm run verify:s3-first-form-pipeline` - public form persistence and side-effect ordering checks.
-
-## Standard local verification
-
-```bash
-npm run verify:seller-site
-npm run verify:buyer-deals-site
-npm run verify:s3-first-form-pipeline
-npm run typecheck
-npm run build
-```
-
-Use mock form persistence locally unless Tej explicitly approves a non-production AWS S3 smoke.
+- `npm run verify:scaffold` - focused file/package scaffold verification.
 
 ## Environment and privacy defaults
 
 Only `.env.example` is committed. Real `.env.local`, staging, and production values must stay out of git and come from local secrets or AWS Secrets Manager.
 
-`DATABASE_URI` and `PAYLOAD_SECRET` are required for production/start/runtime. If either value is missing or still uses a placeholder, production startup fails fast instead of passing unsafe placeholders to Payload/Postgres.
+`DATABASE_URI` and `PAYLOAD_SECRET` are required for production/start/runtime. If either value is missing or still uses a `[REDACTED_*]` placeholder, `npm run start` and production runtimes fail fast instead of passing unsafe placeholders to Payload/Postgres.
 
-For local-only scaffold commands, the Payload config has explicit development/test fallbacks so contributors can build and typecheck before wiring real local secrets. Replace `.env.local` values when running against a real local Postgres instance.
+For local-only scaffold commands (`npm run dev`, `npm run build`, `npm run typecheck`, `npm run payload:importmap`, and `npm run payload:types`), the Payload config has explicit development/test fallbacks so contributors can build and typecheck before wiring real local secrets. Replace `.env.local` values when running against a real local Postgres instance.
 
 The GraphQL playground route is development-only. Outside `NODE_ENV=development`, `/api/graphql-playground` returns `404`; GraphQL API routing remains scaffolded separately at `/api/graphql`.
 
-Private media and form source-of-truth buckets must not use public S3 object URLs. Do not put raw PII, private addresses, secrets, webhook URLs, DB URLs, AWS IDs, ARNs, or credentials in docs, logs, or evidence.
+Private media and form source-of-truth buckets are placeholders only in this slice. Do not assume public S3 object URLs. Later slices must add private media delivery and S3-first form persistence with redacted logging/evidence.
 
 ## Local Postgres
 
@@ -89,4 +73,8 @@ Build a production-style container from this app directory:
 docker build -t gcoffers-site:local .
 ```
 
-The GitHub deploy workflow builds this Dockerfile, pushes an immutable ECR tag, updates the existing ECS service task definition, invalidates CloudFront, and checks readiness. It does not run Terraform, change DNS, attach CloudFront aliases, or enable live alerts.
+The Dockerfile uses `npm ci`, `npm run build`, and Next standalone output. It is suitable as a starting point for ECS/Fargate image builds, but this slice does not deploy or push an image.
+
+## Slice boundary
+
+This scaffold does not implement domain collections, deal visibility predicates, S3-first public forms, GHL/Slack/email side effects, private S3 media delivery, or Terraform. Those are later slices under the accepted ADR.

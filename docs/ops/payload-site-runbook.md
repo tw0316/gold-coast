@@ -1,14 +1,14 @@
 # gcoffers Payload site runbook
 
-Status: operational runbook for the live Payload CMS whole-site runtime. This document is guidance only; it is not approval to mutate infrastructure.
+Status: PR/runbook evidence for the Payload CMS whole-site migration. This document is operational guidance only; it is not a production deployment approval.
 
 ## Scope and guardrails
 
-The app lives at `apps/gcoffers-site` and serves `gcoffers.com` / `www.gcoffers.com` seller pages plus the buyer/deals surface under `/deals`.
+The new app lives at `apps/gcoffers-site` and is intended to serve both `gcoffers.com` seller pages and `deals.gcoffers.com` buyer/deals pages after an explicitly approved cutover.
 
-Operational guardrails:
+Guardrails that remain in force until the owner explicitly approves launch work:
 
-- Do not run `terraform apply`, mutate production AWS resources, change DNS, or attach/move CloudFront aliases without explicit approval.
+- Do not deploy, merge, run `terraform apply`, mutate production AWS resources, change DNS, or attach production CloudFront aliases.
 - Do not send live GoHighLevel, Slack, email, or SMS alerts from local/PR verification.
 - Keep production cutover and live-alert flags disabled by default: `enable_dns_cutover=false`, `enable_prod_alias=false`, and `enable_live_alerts=false`.
 - Keep seller lead, buyer signup, and deal-interest submissions S3-first: persist source-of-truth JSON before GHL, Payload mirror, Slack, or email side effects.
@@ -91,11 +91,12 @@ Open or curl:
 - Readiness health: `http://127.0.0.1:3000/api/health/readiness`
 - Public content health: `http://127.0.0.1:3000/api/health/public-content`
 
-Buyer/deals rendering is available under `/deals` for local smoke testing:
+Buyer/deals rendering is host-aware. For local smoke testing, send a buyer host header or map a local host to the dev server:
 
 ```bash
-curl -fsS http://127.0.0.1:3000/deals/
-curl -fsS http://127.0.0.1:3000/deals/sample-deal/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
 ```
 
 ### Verification scripts
@@ -124,7 +125,7 @@ Expected outcomes:
 
 ## AWS deployment design summary
 
-The Terraform stack is in `infra/payload-site` and is intentionally separate from the root legacy static Terraform files under `infra/`, which remain only for rollback/decommission audit context after the Payload cutover.
+The Terraform stack is in `infra/payload-site` and is intentionally separate from `infra/website`, which owns the legacy static website/API/DNS resources until approved cutover.
 
 Target architecture:
 
@@ -148,7 +149,7 @@ Key design points:
 - **S3 media:** private-by-default Payload media bucket with public access block, bucket owner enforced ownership, SSE-S3, versioning, and lifecycle rules. Public media delivery must be app-mediated or signed and must validate parent page/deal visibility.
 - **S3 forms:** form JSON remains source-of-truth. The stack references existing `goldcoast-leads` by default and grants only approved prefixes: `seller-leads/`, `buyer-signups/`, and `deal-interest/`. Creating a successor bucket is an explicit migration decision.
 - **Secrets Manager:** ECS receives secret values by ARN only. Do not put secret values in Terraform variables, docs, logs, or evidence. Live alert secrets are injected only when `enable_live_alerts=true`.
-- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host`, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
+- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host` for seller vs buyer rendering, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
 - **CloudWatch:** ECS app logs, non-PII log metric filter for form S3 persistence failures, and alarms for form persistence failure, ALB/app 5xx, unhealthy targets, high latency, ECS CPU/memory, and RDS CPU/free storage. Alarm actions are disabled unless `enable_live_alerts=true`.
 
 ## Terraform verification and safe plan caveat
@@ -175,7 +176,7 @@ Do not run `terraform apply` before explicit deployment approval.
 
 ## GitHub Actions CI/CD lifecycle
 
-The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. It is a `workflow_dispatch`-only single-run promotion gate: merging to `main` deploys nothing to AWS, and a release is one manual dispatch that builds the image once, deploys it to staging, pauses at the production approval, then promotes the same image to production. The workflow does not run Terraform.
+The Payload site deploy lifecycle is handled by `.github/workflows/gcoffers-payload-deploy.yml`. The workflow does not run Terraform and does not require Tej to open AWS for each PR deploy after the one-time GitHub setup is complete.
 
 ### One-time GitHub setup
 
@@ -188,7 +189,7 @@ Secret:
 Variables:
 
 - `AWS_REGION`
-- `GCOFFERS_PAYLOAD_ECR_REPOSITORY` — ECR repository name only (not a registry URL), shared by the staging and production deploys so production can pull the exact image staging built (currently `gcoffers-payload-staging-app`).
+- `GCOFFERS_PAYLOAD_ECR_REPOSITORY` — ECR repository name only, not a registry URL.
 - `GCOFFERS_PAYLOAD_STAGING_CLUSTER`
 - `GCOFFERS_PAYLOAD_STAGING_SERVICE`
 - `GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID`
@@ -198,51 +199,28 @@ Variables:
 - `GCOFFERS_PAYLOAD_PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID`
 - `GCOFFERS_PAYLOAD_PRODUCTION_URL`
 
-Use GitHub environments named `staging` and `production`. The `production` environment MUST require Tej's approval and be restricted to protected branches; that approval pause is the staging test window. The `staging` environment no longer has a reviewer (removed 2026-06-09) — the dispatch-from-`main` requirement and the production approval are the gates. Production deploys will not work until the production ECS and CloudFront variables above are present.
+Use GitHub environments named `staging` and `production`. Production deploys MUST require explicit GitHub environment approval/rules before this workflow is enabled for production. Production deploys will not work until the production ECS and CloudFront variables above are present.
 
 ### Trigger behavior
 
-- The deploy workflow is `workflow_dispatch` only. It has no `push` trigger and no `pull_request` trigger, so merging to `main` deploys nothing to AWS.
-- Pull requests targeting `main` run CI in `.github/workflows/pr-check.yml`; they never deploy to shared staging.
-- A **release** is one manual dispatch of `gcoffers Payload deploy` from `main` with no `deploy_ref`. The single run deploys staging, pauses at the production approval, then promotes the same image to production.
-- The dispatch MUST be run from `main`; a dispatch from any other ref fails in `validate-dispatch-source` before AWS authentication.
-- The optional `deploy_ref` input is the ad-hoc staging escape hatch: set it to a branch/ref/SHA to deploy that ref to staging only. The `promote-production` job is skipped for any run with a non-empty `deploy_ref`, so branch code can never reach production.
+- Pull requests targeting `main` or `feat/data-lake-monorepo-slice-1` and changing the Payload app, Payload infra, or this workflow deploy to the GitHub `staging` environment.
+- `workflow_dispatch` supports `target=staging` from the selected ref or `target=production` only from `main`.
+- Pushes to `main` deploy to the GitHub `production` environment.
 
-### Gates
-
-- Dispatch must be from `main` (`validate-dispatch-source`).
-- The `production` GitHub environment requires Tej's approval; the run pauses there until approved.
-- Production is restricted to protected branches.
-- The `staging` environment has no reviewer (removed 2026-06-09); the dispatch and the production approval are the gates.
-
-### One release in flight at a time
-
-Do NOT dispatch a second release while one is awaiting production approval. Both jobs share the concurrency group `gcoffers-payload-ecs-deploy` (`cancel-in-progress: false`), so ECS mutations can never interleave or clobber each other — safety is preserved. However, GitHub keeps only one pending entry per concurrency group, so a newer queued run can silently cancel an older pending production promotion. The older release is cancelled (a loss of that release), not a corrupted deploy. Run releases one at a time and let each finish (approve or cancel) before starting the next.
+PR staging deploys run the PR branch container in AWS staging. Keep staging secrets and data non-production, and restrict this workflow to trusted repository contributors/branches if that assumption changes.
 
 ### What the workflow does
 
-A release run has two jobs that share the `gcoffers-payload-ecs-deploy` concurrency group so ECS mutations are serialized across runs.
+For both staging and production deploys, the workflow serializes ECS deploy mutations through one concurrency group, then:
 
-`deploy-staging` (environment `staging`) runs first:
-
-1. Checks out `deploy_ref` when set, otherwise the dispatched `main` commit.
-2. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
-3. Builds `apps/gcoffers-site/Dockerfile` exactly once with Buildx (`provenance: false`, `sbom: false`) and pushes it to the shared ECR repository (`GCOFFERS_PAYLOAD_ECR_REPOSITORY`), capturing the pushed image digest. It exposes the digest-pinned reference (`<registry>/<repo>@sha256:<digest>`) as the job outputs `image_digest` and `image_ref`.
-4. Reads the current staging ECS task definition and desired count, changes only container `app` to the new image, registers a new task definition revision, updates the service without overriding desired count, and waits for stability. If staging was scaled to `0`, it temporarily raises staging desired count to `1` so readiness can be smoke checked.
+1. Assumes `AWS_DEPLOY_ROLE_ARN` via GitHub OIDC.
+2. Builds `apps/gcoffers-site/Dockerfile`.
+3. Pushes one immutable ECR tag derived from the deploy target, commit SHA, run ID, and run attempt.
+4. Reads the current ECS service task definition, changes only container `app` to the new image, registers a new task definition revision, updates the service to desired count `1`, and waits for ECS service stability.
 5. Creates and waits for a CloudFront invalidation.
-6. Smoke checks `${GCOFFERS_PAYLOAD_STAGING_URL}/api/health/readiness` and expects JSON with `ok: true`.
-7. Rolls staging back to the captured prior task definition and desired count if deploy stability or readiness fails after ECS state capture.
+6. Smoke checks `${GCOFFERS_PAYLOAD_<ENV>_URL}/api/health/readiness` and expects JSON with `ok: true`.
 
-The run then **pauses at the `production` environment approval**. The operator tests staging during this pause. On approval, `promote-production` (environment `production`, gated on `inputs.deploy_ref == ''`) runs:
-
-1. Assumes the deploy role via OIDC. It does **not** rebuild or re-checkout source; it consumes `needs.deploy-staging.outputs.image_ref` directly, so no digest is ever copy-pasted.
-2. Reads the current production ECS task definition and desired count, sets container `app` to the same staging-built `image_ref`, and registers a new production task definition revision.
-3. Asserts the registered production task definition's container image equals the staging-built `image_ref` (string compare via `ecs:DescribeTaskDefinition`); the job fails if they differ. Runtime-digest verification against the running task is intentionally out of scope (the deploy role lacks `ecs:DescribeTasks`).
-4. Updates the production service without overriding desired count and waits for stability.
-5. Creates and waits for a CloudFront invalidation, then smoke checks `${GCOFFERS_PAYLOAD_PRODUCTION_URL}/api/health/readiness` for `ok: true`.
-6. Rolls production back to the captured prior task definition and desired count if stability or readiness fails after ECS state capture.
-
-After a successful production deploy and readiness smoke, the workflow scales staging ECS compute off:
+After a successful production deploy and production readiness smoke, the workflow scales staging ECS compute off:
 
 ```bash
 aws ecs update-service \
@@ -258,23 +236,16 @@ This staging shutdown only sets ECS service desired count to `0`. Shared fixed i
 
 ### Operator commands and expected status
 
-Dispatch a release (staging → production approval pause → promote same image):
+Manual dispatch examples:
 
 ```bash
-gh workflow run gcoffers-payload-deploy.yml --ref main
+gh workflow run gcoffers-payload-deploy.yml -f target=staging
+gh workflow run gcoffers-payload-deploy.yml --ref main -f target=production
 gh run list --workflow gcoffers-payload-deploy.yml --limit 5
 gh run watch <run-id>
 ```
 
-After `deploy-staging` succeeds the run pauses at the `production` environment approval. Test staging during the pause, then approve in the GitHub run UI (or `gh`) to let `promote-production` deploy the same image. Approve only one release at a time (see "One release in flight at a time").
-
-Ad-hoc staging test (escape hatch — deploys the ref to staging only, skips production):
-
-```bash
-gh workflow run gcoffers-payload-deploy.yml --ref main -f deploy_ref=<branch-or-sha>
-```
-
-Staging should be on after a successful staging deploy (either a release before approval, or an escape-hatch run):
+Staging should be on after a successful PR or manual staging deploy:
 
 ```bash
 aws ecs describe-services \
@@ -305,8 +276,6 @@ curl -fsS "${GCOFFERS_PAYLOAD_PRODUCTION_URL%/}/api/health/readiness"
 
 Expected production result: production ECS `status` is `ACTIVE`, `desired` is `1`, `running` is `1`, `pending` is `0`, rollout is `COMPLETED`, production readiness returns `ok: true`, and staging ECS `desired`/`running` are both `0`.
 
-The `desired`/`running` values above assume one task per service. If the owner has set a higher production desired count, expect that count instead — the workflow preserves the existing desired count rather than forcing `1`.
-
 CloudFront invalidation status, if checking an invalidation ID captured from a workflow run or a manual invalidation, should be `Completed`:
 
 ```bash
@@ -318,10 +287,6 @@ aws cloudfront get-invalidation \
 ```
 
 Do not use the workflow as a substitute for production cutover approval, DNS approval, live-alert approval, or Terraform apply approval. It only publishes a new app image to an already-created ECS/CloudFront environment and manages the low-cost staging desired-count lifecycle.
-
-### One-time transition note
-
-The PR that introduced this single-run promotion gate is the last change that merging to `main` deploys automatically (it replaced the old push-to-`main`/PR-staging auto-deploy behavior). After that PR merged, merging to `main` no longer deploys anything to AWS — every release is an explicit `workflow_dispatch` of `gcoffers Payload deploy` from `main`.
 
 ## Migration and cutover plan
 
@@ -380,7 +345,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 
 ### Phase 4 — Cutover execution
 
-- Confirm the root legacy static Terraform files under `infra/` remain intact for rollback/decommission audit context until retirement is separately approved.
+- Confirm legacy `infra/website` static site/API remains intact for rollback.
 - Confirm RDS backup retention, final snapshot policy, and media bucket versioning are production-safe.
 - Confirm ECS service has healthy tasks behind ALB.
 - Attach production CloudFront aliases only after ACM certificate readiness is verified.
@@ -393,7 +358,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 ### Before production cutover
 
 - No public DNS or production CloudFront alias changes should exist.
-- Leave legacy static resources and the root legacy Terraform files under `infra/` intact for rollback/decommission audit context.
+- Leave legacy `apps/website`, `apps/deals`, existing static S3/CloudFront, and API Gateway/Lambda intact.
 - If staging fails, reduce the new ECS service desired count to `0` or destroy only approved non-production resources.
 - Keep RDS snapshots and S3 media/form evidence until the owner approves cleanup.
 
@@ -401,7 +366,7 @@ enable_live_alerts = true # only if live destinations are separately approved
 
 If the new app causes customer-impacting issues:
 
-1. Repoint Route 53 aliases and/or CloudFront aliases back to the existing static distribution/API Gateway path described by the root legacy Terraform files under `infra/`.
+1. Repoint Route 53 aliases and/or CloudFront aliases back to the existing static distribution/API Gateway path owned by `infra/website`.
 2. Invalidate CloudFront caches as needed for seller and buyer paths.
 3. Reduce the new ECS service desired count to `0` or remove the target group from traffic after traffic is safely off the new app.
 4. Preserve RDS snapshots, app logs, form submission S3 objects, and private media buckets for investigation.
@@ -446,8 +411,9 @@ curl -fsS http://127.0.0.1:3000/
 curl -fsS http://127.0.0.1:3000/privacy-policy/
 curl -fsS http://127.0.0.1:3000/terms/
 curl -fsSI http://127.0.0.1:3000/get-your-offer/
-curl -fsS http://127.0.0.1:3000/deals/
-curl -fsS http://127.0.0.1:3000/deals/sample-deal/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
+curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
 ```
 
 Expected outcomes:
@@ -455,7 +421,7 @@ Expected outcomes:
 - Health endpoints return JSON with `ok: true` and no secrets.
 - Seller home, privacy, and terms return HTML.
 - `/get-your-offer` redirects to the seller lead CTA and stays noindex.
-- Buyer/deals pages render under `/deals` with public fixture content where applicable.
+- Buyer host renders the buyer landing, join, FAQ, and public deal routes.
 
 ### Local form route smoke
 

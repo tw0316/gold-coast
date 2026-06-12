@@ -1,10 +1,8 @@
 # ADR: gcoffers.com Whole-Site Payload CMS Migration
 
-Status: accepted for PR architecture design; superseded by production cutover docs for current operations
-Date: 2026-06-05
+Status: accepted for PR architecture design; not a deployment approval  
+Date: 2026-06-05  
 Slice: `slice-1-preflight-adr`
-
-> **Post-cutover note:** This ADR intentionally preserves the preflight inventory of legacy static sources. Current implementation and operations live in `apps/gcoffers-site`, `infra/payload-site`, `docs/ops/payload-site-runbook.md`, and `docs/deployment-pipeline.md`. Do not treat legacy `apps/website`, `apps/deals`, `services/lead-handler`, root legacy `infra/` static Terraform, or `deals.gcoffers.com` references below as current deployment guidance.
 
 ## Scope and sources
 
@@ -16,7 +14,7 @@ Primary sources inventoried:
 - Seller static site: `apps/website`
 - Buyer/deals static prototype: `apps/deals`
 - Current Lambda form handlers: `services/lead-handler`
-- Current website Terraform: root legacy `infra/` static Terraform files
+- Current website Terraform: `infra/website`
 - Buyer PRD: `docs/product/deals-prd.md`
 - Website standards: `docs/ops/website-standards.md`
 - Root/package/workspace config discovery in the repository root
@@ -57,7 +55,7 @@ The current form architecture is API Gateway/Lambda backed and S3-first:
 - Buyer signup frontend (`apps/deals/js/deals.js`) posts to `window.DEALS_API_URL` or `/api/buyer-signup` and, as legacy prototype behavior, displays success even if the fetch fails. Do not copy that behavior into the new app; the new UI must show success only after the route handler confirms S3 persistence succeeded.
 - Buyer signup Lambda (`services/lead-handler/buyer-signup.js`) exists and follows the same S3-first, GHL-best-effort pattern. It currently validates a heavier form than the epic now requires and currently derives the S3 key suffix from phone digits. Future implementation must use a generated ID or email hash so buyer signup works without phone.
 - No current `deal-interest` Lambda handler was found in `services/lead-handler`; the new Next.js app must add deal-interest handling.
-- Current root legacy `infra/main.tf` defines the seller `POST /api/submit-lead` API Gateway route and packages `services/lead-handler/index.js`. No Terraform route for `/api/buyer-signup` was observed in the current website infra during this slice.
+- Current `infra/website/main.tf` defines the seller `POST /api/submit-lead` API Gateway route and packages `services/lead-handler/index.js`. No Terraform route for `/api/buyer-signup` was observed in the current website infra during this slice.
 
 Repo-relative source refs: `apps/deals/js/deals.js` for the legacy buyer success-on-fetch-failure behavior; `services/lead-handler/index.js` and `services/lead-handler/buyer-signup.js` for current S3-first/GHL-best-effort handlers.
 
@@ -71,7 +69,7 @@ S3-first semantics to preserve:
 
 ### Current infrastructure ownership
 
-The root legacy static Terraform files under `infra/` formerly owned the legacy static website and form runtime design:
+`infra/website` currently owns the legacy static website and form runtime design:
 
 - Terraform provider defaults to AWS `us-east-1`.
 - Static site S3 bucket for prod/staging website content.
@@ -83,7 +81,7 @@ The root legacy static Terraform files under `infra/` formerly owned the legacy 
 - Secrets Manager secret resource for the GHL API key value, without exposing the secret value in this ADR.
 - Lambda IAM role/policy, Lambda function packaging from `services/lead-handler`, HTTP API, stage, integration, and seller submit route.
 
-Decision for following infra slices: do not destructively mutate legacy static Terraform/resources for the new app. Add the Payload/Next runtime under a new `infra/payload-site` module/directory unless a later slice documents a narrower, safer extension. Any shared Route 53 hosted zone, ACM certificate, existing CloudFront distribution, S3 bucket, Lambda, API Gateway, or Secrets Manager resource must be referenced/imported via safe Terraform data sources or explicit cutover steps, not recreated blindly.
+Decision for following infra slices: do not destructively mutate `infra/website` for the new app. Add the Payload/Next runtime under a new `infra/payload-site` module/directory unless a later slice documents a narrower, safer extension. Any shared Route 53 hosted zone, ACM certificate, existing CloudFront distribution, S3 bucket, Lambda, API Gateway, or Secrets Manager resource must be referenced/imported via safe Terraform data sources or explicit cutover steps, not recreated blindly.
 
 ### Current package/workspace conventions
 
@@ -102,18 +100,19 @@ Those files indicate npm/package-lock usage for the current Lambda service, but 
 
 Decision: build one new whole-site app for both seller and buyer/deals surfaces using Next.js + Payload CMS.
 
-The app was intended to own after-cutover rendering for:
+The app will own after-cutover rendering for:
 
 - `gcoffers.com` seller pages
-- buyer/deals pages, now live under `gcoffers.com/deals/`
+- `deals.gcoffers.com` buyer/deals pages
 - `/admin` Payload admin
 - CMS-managed seller pages, buyer pages, FAQs, markets/areas, site settings, deals, media, buyer signups, and deal interest records
 
-Post-cutover outcome:
+Consequences for following slices:
 
-- `apps/gcoffers-site` is the active Next.js + Payload app.
-- Legacy static sources were removed from the active tree after cutover.
-- `deals.gcoffers.com` is not a live production target unless a future approved change explicitly adds it.
+- Keep `apps/website` and `apps/deals` as legacy/reference surfaces until cutover.
+- Scaffold the new app separately, expected as `apps/gcoffers-site` unless a later slice records a different path.
+- Seed or CMS-model current legal pages and high-priority marketing content rather than leaving static-only orphan routes.
+- Route host-based rendering must distinguish seller and buyer domains while sharing the same app/runtime.
 
 ### DEC-002: AWS runtime: ECS Fargate + RDS Postgres + private S3 media + CloudFront/Route 53
 
@@ -268,11 +267,11 @@ Not allowed in autonomous PR work:
 
 ### DEC-009: GitHub Actions-controlled low-cost staging lifecycle
 
-Decision: keep the fixed staging infrastructure in place but manage staging ECS compute through GitHub Actions. Explicit manual staging deploys scale the staging ECS service desired count to `1`; successful production deploys scale the staging ECS service desired count back to `0` after production ECS stability, CloudFront invalidation, and readiness smoke pass.
+Decision: keep the fixed staging infrastructure in place but manage staging ECS compute through GitHub Actions. PR and manual staging deploys scale the staging ECS service desired count to `1`; successful production deploys scale the staging ECS service desired count back to `0` after production ECS stability, CloudFront invalidation, and readiness smoke pass.
 
 Consequences:
 
-- Tej does not need to open AWS for explicit staging deploys after the one-time GitHub OIDC/vars/secrets setup.
+- Tej does not need to open AWS for routine PR deploys after the one-time GitHub OIDC/vars/secrets setup.
 - Low-cost staging shutdown means ECS desired count `0` only; ALB, RDS, CloudFront, S3, logs, alarms, DNS/certificates, and Terraform state remain intact for the next staging deploy.
 - The deploy workflow builds/pushes immutable ECR image tags and updates ECS task definitions; it does not run Terraform, apply DNS changes, destroy resources, or send live alerts.
 - Staging and production ECS deploy mutations are serialized by the workflow concurrency group so production staging-shutdown cannot race an active staging deploy.
@@ -283,7 +282,7 @@ Consequences:
 ## Actionable next-slice checklist
 
 1. Scaffold `apps/gcoffers-site` as the new Next.js + Payload app using npm and a committed lockfile unless a later slice records a workspace change.
-2. Preserve legacy source/resource knowledge as references/fallback until cutover; after cutover, keep only documented rollback/decommission audit context.
+2. Preserve legacy `apps/website`, `apps/deals`, `services/lead-handler`, and `infra/website` as references/fallback until cutover.
 3. Add Payload collections and access controls with tests for the exact visibility predicates in DEC-006.
 4. Add Next route handlers for seller lead, buyer signup, and deal-interest with S3-first semantics, abuse controls, client-success-after-S3-confirmation, and GHL tag/note contracts from DEC-003.
 5. Add private media delivery routes/tests proving hidden/draft media cannot be reached through public URLs.

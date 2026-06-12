@@ -7,11 +7,6 @@ enable_dns_cutover = false
 enable_prod_alias  = false
 enable_live_alerts = false
 
-# Staging alias reconciliation. Keep disabled for generic PR plans; enable only
-# in an approved staging tfvars file with a certificate that covers the alias.
-# enable_staging_alias = true
-# staging_domain       = "staging.gcoffers.com"
-
 # Keep service at zero until an immutable image and required Secrets Manager
 # values are populated. Production should set desired/min count to at least 1.
 ecs_desired_count = 0
@@ -30,7 +25,6 @@ form_submissions_prefixes      = ["seller-leads/", "buyer-signups/", "deal-inter
 
 # Cutover-only values; leave commented until Tej explicitly approves launch.
 # enable_prod_alias = true
-# buyer_domain = "" # deals.gcoffers.com is not a live target by default.
 # cloudfront_acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
 # route53_zone_id = "Zxxxxxxxxxxxxx"
 # enable_dns_cutover = true

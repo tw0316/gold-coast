@@ -3,7 +3,7 @@
  *
  * Receives buyer list signup data from API Gateway,
  * writes to S3 (source of truth), then syncs to GoHighLevel CRM.
- * Same architecture as lambda/index.js (seller leads).
+ * Same architecture as services/lead-handler/index.js (seller leads).
  */
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');

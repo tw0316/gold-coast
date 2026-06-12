@@ -16,7 +16,7 @@ variable "environment" {
 }
 
 variable "resource_prefix" {
-  description = "Prefix for new Payload-site resources. This stack does not create or rename resources owned by the root legacy static Terraform stack."
+  description = "Prefix for new Payload-site resources. This stack does not create or rename resources owned by infra/website."
   type        = string
   default     = "gcoffers-payload"
 }
@@ -46,21 +46,9 @@ variable "www_domain" {
 }
 
 variable "buyer_domain" {
-  description = "Optional buyer/deals production alias. Default is empty because deals.gcoffers.com is not a live production target."
+  description = "Buyer/deals production alias. Not attached unless enable_prod_alias=true."
   type        = string
-  default     = ""
-}
-
-variable "staging_domain" {
-  description = "Staging website alias for the Payload runtime. Attach only with enable_staging_alias=true and an approved certificate."
-  type        = string
-  default     = "staging.gcoffers.com"
-}
-
-variable "enable_staging_alias" {
-  description = "Attach the staging_domain alias to CloudFront. Use for staging cutover/reconciliation only; DNS records are still controlled by enable_dns_cutover."
-  type        = bool
-  default     = false
+  default     = "deals.gcoffers.com"
 }
 
 variable "additional_cloudfront_aliases" {
@@ -76,7 +64,7 @@ variable "enable_dns_cutover" {
 }
 
 variable "enable_prod_alias" {
-  description = "Attach production aliases (gcoffers.com and www.gcoffers.com, plus optional buyer_domain when non-empty) to CloudFront. MUST remain false until explicit cutover approval."
+  description = "Attach production aliases (gcoffers.com, www.gcoffers.com, deals.gcoffers.com) to CloudFront. MUST remain false until explicit cutover approval."
   type        = bool
   default     = false
 }

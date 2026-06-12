@@ -1,0 +1,1519 @@
+"""Curated GHL table transforms, Parquet writes, and Glue table registration."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import io
+import json
+from pathlib import Path
+from typing import Any, Iterable
+
+
+DEFAULT_MANIFEST_S3_URI = "s3://gcoffers-data-lake/manifests/ghl/run=20260518T080441Z.json"
+DEFAULT_CURATED_BUCKET = "gcoffers-data-lake"
+DEFAULT_CURATED_PREFIX = "curated/ghl/v1_1"
+DEFAULT_GLUE_DATABASE = "gold_coast"
+DEFAULT_REPORTING_GLUE_DATABASE = "gold_coast_reporting"
+DEFAULT_SNAPSHOT_DATE = "2026-05-18"
+TRANSCRIPT_TABLE_NAME = "call_transcripts"
+
+CORE_TABLE_ORDER = [
+    "contacts_latest",
+    "opportunities_latest",
+    "messages",
+    "calls",
+    "call_recordings",
+    "opportunity_stage_history",
+]
+REPORTING_TABLE_ORDER = [
+    "lead_response",
+    "rep_activity_daily",
+]
+TABLE_ORDER = CORE_TABLE_ORDER + REPORTING_TABLE_ORDER
+DAILY_SNAPSHOT_TABLE_ORDER = [
+    "contacts_latest",
+    "opportunities_latest",
+    "messages",
+    "calls",
+    "call_recordings",
+]
+CALL_TRANSCRIPT_IDEMPOTENCY_FIELDS = (
+    "call_message_id",
+    "recording_sha256",
+    "artifact_schema_version",
+    "provider",
+    "transcription_model",
+)
+CALL_TRANSCRIPT_REQUIRED_IDENTITY_FIELDS = (
+    "call_message_id",
+    "artifact_schema_version",
+    "provider",
+    "transcription_model",
+)
+CALL_TRANSCRIPT_RECENCY_FIELDS = (
+    "last_attempted_at",
+    "transcribed_at",
+    "snapshot_at",
+)
+STAGE_HISTORY_STATE_FILENAME = "opportunity_stage_history.jsonl"
+
+
+@dataclass(frozen=True)
+class ColumnSpec:
+    name: str
+    logical_type: str
+    glue_type: str
+
+
+@dataclass(frozen=True)
+class S3Uri:
+    bucket: str
+    key: str
+
+
+@dataclass(frozen=True)
+class TableData:
+    name: str
+    columns: list[ColumnSpec]
+    rows: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class WrittenTable:
+    name: str
+    database: str
+    row_count: int
+    s3_uri: str | None
+    s3_key: str | None
+    byte_count: int
+    object_count: int
+    local_path: str
+
+
+@dataclass(frozen=True)
+class GlueTableResult:
+    database: str
+    name: str
+    table_location: str
+    action: str
+
+
+RUN_METADATA_COLUMNS = [
+    ColumnSpec("run_id", "string", "string"),
+    ColumnSpec("snapshot_at", "timestamp", "timestamp"),
+]
+
+
+SCHEMAS: dict[str, list[ColumnSpec]] = {
+    "contacts_latest": [
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("location_id", "string", "string"),
+        ColumnSpec("contact_name", "string", "string"),
+        ColumnSpec("first_name", "string", "string"),
+        ColumnSpec("last_name", "string", "string"),
+        ColumnSpec("phone", "string", "string"),
+        ColumnSpec("email", "string", "string"),
+        ColumnSpec("source", "string", "string"),
+        ColumnSpec("assigned_to_user_id", "string", "string"),
+        ColumnSpec("contact_type", "string", "string"),
+        ColumnSpec("city", "string", "string"),
+        ColumnSpec("state", "string", "string"),
+        ColumnSpec("postal_code", "string", "string"),
+        ColumnSpec("country", "string", "string"),
+        ColumnSpec("tags_json", "string", "string"),
+        ColumnSpec("custom_fields_json", "string", "string"),
+        ColumnSpec("attributions_json", "string", "string"),
+        ColumnSpec("date_added", "timestamp", "timestamp"),
+        ColumnSpec("date_updated", "timestamp", "timestamp"),
+        ColumnSpec("raw_json", "string", "string"),
+    ],
+    "opportunities_latest": [
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("location_id", "string", "string"),
+        ColumnSpec("opportunity_name", "string", "string"),
+        ColumnSpec("pipeline_id", "string", "string"),
+        ColumnSpec("pipeline_name", "string", "string"),
+        ColumnSpec("pipeline_stage_id", "string", "string"),
+        ColumnSpec("pipeline_stage_name", "string", "string"),
+        ColumnSpec("pipeline_stage_position", "bigint", "bigint"),
+        ColumnSpec("status", "string", "string"),
+        ColumnSpec("source", "string", "string"),
+        ColumnSpec("assigned_to_user_id", "string", "string"),
+        ColumnSpec("monetary_value", "double", "double"),
+        ColumnSpec("effective_probability", "double", "double"),
+        ColumnSpec("created_at", "timestamp", "timestamp"),
+        ColumnSpec("updated_at", "timestamp", "timestamp"),
+        ColumnSpec("last_stage_change_at", "timestamp", "timestamp"),
+        ColumnSpec("last_status_change_at", "timestamp", "timestamp"),
+        ColumnSpec("contact_name", "string", "string"),
+        ColumnSpec("contact_phone", "string", "string"),
+        ColumnSpec("contact_email", "string", "string"),
+        ColumnSpec("custom_fields_json", "string", "string"),
+        ColumnSpec("attributions_json", "string", "string"),
+        ColumnSpec("raw_json", "string", "string"),
+    ],
+    "opportunity_stage_history": [
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("pipeline_id", "string", "string"),
+        ColumnSpec("previous_pipeline_stage_id", "string", "string"),
+        ColumnSpec("previous_pipeline_stage_name", "string", "string"),
+        ColumnSpec("previous_status", "string", "string"),
+        ColumnSpec("pipeline_stage_id", "string", "string"),
+        ColumnSpec("pipeline_stage_name", "string", "string"),
+        ColumnSpec("status", "string", "string"),
+        ColumnSpec("assigned_to_user_id", "string", "string"),
+        ColumnSpec("observed_at", "timestamp", "timestamp"),
+        ColumnSpec("source_stage_changed_at", "timestamp", "timestamp"),
+        ColumnSpec("source_status_changed_at", "timestamp", "timestamp"),
+        ColumnSpec("stage_status_key", "string", "string"),
+        ColumnSpec("transition_key", "string", "string"),
+    ],
+    "messages": [
+        ColumnSpec("message_id", "string", "string"),
+        ColumnSpec("conversation_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("location_id", "string", "string"),
+        ColumnSpec("message_type", "string", "string"),
+        ColumnSpec("direction", "string", "string"),
+        ColumnSpec("status", "string", "string"),
+        ColumnSpec("body", "string", "string"),
+        ColumnSpec("from_phone", "string", "string"),
+        ColumnSpec("to_phone", "string", "string"),
+        ColumnSpec("content_type", "string", "string"),
+        ColumnSpec("actor_user_id", "string", "string"),
+        ColumnSpec("source", "string", "string"),
+        ColumnSpec("date_added", "timestamp", "timestamp"),
+        ColumnSpec("date_updated", "timestamp", "timestamp"),
+        ColumnSpec("attachments_json", "string", "string"),
+        ColumnSpec("activity_json", "string", "string"),
+        ColumnSpec("meta_json", "string", "string"),
+        ColumnSpec("error_json", "string", "string"),
+        ColumnSpec("raw_json", "string", "string"),
+    ],
+    "calls": [
+        ColumnSpec("call_message_id", "string", "string"),
+        ColumnSpec("conversation_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("location_id", "string", "string"),
+        ColumnSpec("actor_user_id", "string", "string"),
+        ColumnSpec("direction", "string", "string"),
+        ColumnSpec("status", "string", "string"),
+        ColumnSpec("call_status", "string", "string"),
+        ColumnSpec("duration_seconds", "double", "double"),
+        ColumnSpec("from_phone", "string", "string"),
+        ColumnSpec("to_phone", "string", "string"),
+        ColumnSpec("source", "string", "string"),
+        ColumnSpec("alt_id", "string", "string"),
+        ColumnSpec("has_recording", "boolean", "boolean"),
+        ColumnSpec("recording_s3_uri", "string", "string"),
+        ColumnSpec("recording_object_key", "string", "string"),
+        ColumnSpec("recording_content_type", "string", "string"),
+        ColumnSpec("recording_byte_count", "bigint", "bigint"),
+        ColumnSpec("recording_sha256", "string", "string"),
+        ColumnSpec("recording_archival_status", "string", "string"),
+        ColumnSpec("recording_unavailable_reason", "string", "string"),
+        ColumnSpec("date_added", "timestamp", "timestamp"),
+        ColumnSpec("date_updated", "timestamp", "timestamp"),
+        ColumnSpec("raw_json", "string", "string"),
+    ],
+    "call_recordings": [
+        ColumnSpec("message_id", "string", "string"),
+        ColumnSpec("archival_status", "string", "string"),
+        ColumnSpec("s3_uri", "string", "string"),
+        ColumnSpec("object_key", "string", "string"),
+        ColumnSpec("content_type", "string", "string"),
+        ColumnSpec("byte_count", "bigint", "bigint"),
+        ColumnSpec("sha256", "string", "string"),
+        ColumnSpec("unavailable_reason", "string", "string"),
+        ColumnSpec("archived_at", "timestamp", "timestamp"),
+        ColumnSpec("endpoint", "string", "string"),
+    ],
+    "call_transcripts": [
+        ColumnSpec("call_message_id", "string", "string"),
+        ColumnSpec("conversation_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("actor_user_id", "string", "string"),
+        ColumnSpec("direction", "string", "string"),
+        ColumnSpec("call_status", "string", "string"),
+        ColumnSpec("recording_s3_uri", "string", "string"),
+        ColumnSpec("recording_object_key", "string", "string"),
+        ColumnSpec("recording_sha256", "string", "string"),
+        ColumnSpec("recording_content_type", "string", "string"),
+        ColumnSpec("recording_byte_count", "bigint", "bigint"),
+        ColumnSpec("recording_duration_seconds", "double", "double"),
+        ColumnSpec("transcription_status", "string", "string"),
+        ColumnSpec("transcript_text", "string", "string"),
+        ColumnSpec("transcript_segments_json", "string", "string"),
+        ColumnSpec("language", "string", "string"),
+        ColumnSpec("provider", "string", "string"),
+        ColumnSpec("transcription_model", "string", "string"),
+        ColumnSpec("artifact_schema_version", "string", "string"),
+        ColumnSpec("idempotency_key", "string", "string"),
+        ColumnSpec("transcript_object_key", "string", "string"),
+        ColumnSpec("provider_response_object_key", "string", "string"),
+        ColumnSpec("usage_json", "string", "string"),
+        ColumnSpec("error_json", "string", "string"),
+        ColumnSpec("attempt_count", "int", "int"),
+        ColumnSpec("first_attempted_at", "string", "string"),
+        ColumnSpec("last_attempted_at", "string", "string"),
+        ColumnSpec("transcribed_at", "string", "string"),
+        ColumnSpec("source_call_run_id", "string", "string"),
+        ColumnSpec("source_recording_run_id", "string", "string"),
+        ColumnSpec("source_call_snapshot_at", "string", "string"),
+        ColumnSpec("source_recording_snapshot_at", "string", "string"),
+        ColumnSpec("run_id", "string", "string"),
+        ColumnSpec("snapshot_at", "string", "string"),
+    ],
+    "lead_response": [
+        ColumnSpec("opportunity_id", "string", "string"),
+        ColumnSpec("contact_id", "string", "string"),
+        ColumnSpec("assigned_to_user_id", "string", "string"),
+        ColumnSpec("pipeline_stage_name", "string", "string"),
+        ColumnSpec("opportunity_status", "string", "string"),
+        ColumnSpec("lead_created_at", "timestamp", "timestamp"),
+        ColumnSpec("first_outbound_call_at", "timestamp", "timestamp"),
+        ColumnSpec("first_outbound_call_user_id", "string", "string"),
+        ColumnSpec("minutes_to_first_outbound_call", "double", "double"),
+        ColumnSpec("first_completed_call_at", "timestamp", "timestamp"),
+        ColumnSpec("minutes_to_first_completed_call", "double", "double"),
+        ColumnSpec("first_outbound_message_at", "timestamp", "timestamp"),
+        ColumnSpec("first_outbound_message_type", "string", "string"),
+        ColumnSpec("minutes_to_first_outbound_message", "double", "double"),
+        ColumnSpec("first_response_at", "timestamp", "timestamp"),
+        ColumnSpec("minutes_to_first_response", "double", "double"),
+        ColumnSpec("call_count", "bigint", "bigint"),
+        ColumnSpec("completed_call_count", "bigint", "bigint"),
+        ColumnSpec("message_count", "bigint", "bigint"),
+        ColumnSpec("outbound_activity_count", "bigint", "bigint"),
+        ColumnSpec("inbound_activity_count", "bigint", "bigint"),
+        ColumnSpec("has_contact_attempt", "boolean", "boolean"),
+        ColumnSpec("has_completed_call", "boolean", "boolean"),
+    ],
+    "rep_activity_daily": [
+        ColumnSpec("activity_date", "string", "string"),
+        ColumnSpec("actor_user_id", "string", "string"),
+        ColumnSpec("calls_total", "bigint", "bigint"),
+        ColumnSpec("calls_outbound", "bigint", "bigint"),
+        ColumnSpec("calls_inbound", "bigint", "bigint"),
+        ColumnSpec("calls_completed", "bigint", "bigint"),
+        ColumnSpec("call_duration_seconds", "double", "double"),
+        ColumnSpec("messages_total", "bigint", "bigint"),
+        ColumnSpec("messages_outbound", "bigint", "bigint"),
+        ColumnSpec("messages_inbound", "bigint", "bigint"),
+        ColumnSpec("sms_messages", "bigint", "bigint"),
+        ColumnSpec("email_messages", "bigint", "bigint"),
+        ColumnSpec("facebook_messages", "bigint", "bigint"),
+        ColumnSpec("instagram_messages", "bigint", "bigint"),
+        ColumnSpec("unique_contacts_touched", "bigint", "bigint"),
+        ColumnSpec("first_activity_at", "timestamp", "timestamp"),
+        ColumnSpec("last_activity_at", "timestamp", "timestamp"),
+    ],
+}
+
+
+for schema_name, schema in SCHEMAS.items():
+    if schema_name != TRANSCRIPT_TABLE_NAME:
+        schema[:0] = RUN_METADATA_COLUMNS
+
+
+def parse_s3_uri(uri: str) -> S3Uri:
+    if not uri.startswith("s3://"):
+        raise ValueError(f"not an S3 URI: {uri}")
+    rest = uri[len("s3://") :]
+    bucket, sep, key = rest.partition("/")
+    if not bucket or not sep or not key:
+        raise ValueError(f"S3 URI must include bucket and key: {uri}")
+    return S3Uri(bucket=bucket, key=key)
+
+
+def load_json_uri(uri: str) -> Any:
+    if uri.startswith("s3://"):
+        s3_uri = parse_s3_uri(uri)
+        import boto3  # type: ignore
+
+        body = boto3.client("s3").get_object(Bucket=s3_uri.bucket, Key=s3_uri.key)["Body"].read()
+        return json.loads(body.decode("utf-8"))
+    return json.loads(Path(uri).read_text(encoding="utf-8"))
+
+
+def load_jsonl_uri(uri: str) -> list[dict[str, Any]]:
+    if uri.startswith("s3://"):
+        s3_uri = parse_s3_uri(uri)
+        import boto3  # type: ignore
+
+        body = boto3.client("s3").get_object(Bucket=s3_uri.bucket, Key=s3_uri.key)["Body"].read()
+        lines = body.decode("utf-8").splitlines()
+    else:
+        lines = Path(uri).read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+def load_manifest_and_raw(manifest_uri: str) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]]]:
+    manifest = load_json_uri(manifest_uri)
+    raw: dict[str, list[dict[str, Any]]] = {}
+    for entity, payload in manifest.get("files", {}).items():
+        source_uri = payload.get("s3_uri") or payload.get("local_path")
+        if not source_uri:
+            continue
+        raw[entity] = [line.get("record", line) for line in load_jsonl_uri(str(source_uri))]
+    return manifest, raw
+
+
+def build_curated_tables(
+    raw: dict[str, list[dict[str, Any]]],
+    manifest: dict[str, Any],
+    previous_stage_history: Iterable[dict[str, Any]] | None = None,
+) -> dict[str, TableData]:
+    run_id = str(manifest.get("run_id") or "")
+    snapshot_at = manifest_snapshot_at(manifest)
+    stage_lookup = build_stage_lookup(raw.get("pipelines", []))
+    recording_lookup = build_recording_lookup(manifest.get("recordings", []))
+
+    contacts = dedupe_latest(build_contacts(raw.get("contacts", [])), "contact_id", ("date_updated", "date_added"))
+    opportunities = dedupe_latest(
+        build_opportunities(raw.get("opportunities", []), stage_lookup),
+        "opportunity_id",
+        ("updated_at", "created_at"),
+    )
+    messages = dedupe_latest(build_messages(raw.get("messages", [])), "message_id", ("date_updated", "date_added"))
+    calls = dedupe_latest(build_calls(raw.get("call_message_details", []), recording_lookup), "call_message_id", ("date_updated", "date_added"))
+    call_recordings = dedupe_latest(build_call_recordings(manifest.get("recordings", [])), "message_id", ("archived_at",))
+    opportunity_stage_history = build_opportunity_stage_history(
+        opportunities,
+        snapshot_at,
+        run_id,
+        previous_stage_history or [],
+    )
+    lead_response = build_mart_lead_response(opportunities, messages, calls)
+    rep_activity = build_mart_rep_activity_daily(messages, calls)
+
+    rows_by_table = {
+        "contacts_latest": contacts,
+        "opportunities_latest": opportunities,
+        "opportunity_stage_history": opportunity_stage_history,
+        "messages": messages,
+        "calls": calls,
+        "call_recordings": call_recordings,
+        "lead_response": lead_response,
+        "rep_activity_daily": rep_activity,
+    }
+    return {
+        name: TableData(name=name, columns=SCHEMAS[name], rows=with_run_metadata(rows_by_table[name], run_id, snapshot_at))
+        for name in TABLE_ORDER
+    }
+
+
+def manifest_snapshot_at(manifest: dict[str, Any]) -> datetime | None:
+    return parse_timestamp(
+        manifest.get("snapshot_at")
+        or manifest.get("finished_at")
+        or manifest.get("completed_at")
+        or manifest.get("started_at")
+    )
+
+
+def with_run_metadata(rows: Iterable[dict[str, Any]], run_id: str, snapshot_at: datetime | None) -> list[dict[str, Any]]:
+    return [
+        {
+            **row,
+            "run_id": row.get("run_id") or run_id,
+            "snapshot_at": row.get("snapshot_at") or snapshot_at,
+        }
+        for row in rows
+    ]
+
+
+def dedupe_latest(
+    rows: Iterable[dict[str, Any]],
+    key: str,
+    timestamp_fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    winners: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        stable_id = as_str(row.get(key))
+        if not stable_id:
+            continue
+        current = winners.get(stable_id)
+        if current is None or row_recency(row, timestamp_fields) >= row_recency(current, timestamp_fields):
+            winners[stable_id] = row
+    return sorted(winners.values(), key=lambda row: row.get(key) or "")
+
+
+def row_recency(row: dict[str, Any], timestamp_fields: tuple[str, ...]) -> tuple[datetime, str]:
+    timestamps = [row.get(field) for field in timestamp_fields if isinstance(row.get(field), datetime)]
+    newest = max(timestamps) if timestamps else datetime.min
+    return newest, json_blob(row) or ""
+
+
+def build_stage_lookup(pipelines: Iterable[dict[str, Any]]) -> dict[tuple[str | None, str | None], dict[str, Any]]:
+    lookup: dict[tuple[str | None, str | None], dict[str, Any]] = {}
+    for pipeline in pipelines:
+        pipeline_id = as_str(pipeline.get("id"))
+        pipeline_name = as_str(pipeline.get("name"))
+        for stage in pipeline.get("stages") or []:
+            stage_id = as_str(stage.get("id"))
+            value = {
+                "pipeline_id": pipeline_id,
+                "pipeline_name": pipeline_name,
+                "stage_id": stage_id,
+                "stage_name": as_str(stage.get("name")),
+                "stage_position": as_int(stage.get("position")),
+            }
+            lookup[(pipeline_id, stage_id)] = value
+            lookup[(None, stage_id)] = value
+    return lookup
+
+
+def build_recording_lookup(recordings: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {str(item["message_id"]): item for item in recordings if item.get("message_id")}
+
+
+def build_contacts(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for record in records:
+        rows.append(
+            {
+                "contact_id": as_str(record.get("id")),
+                "location_id": as_str(record.get("locationId")),
+                "contact_name": as_str(record.get("contactName")),
+                "first_name": as_str(record.get("firstName") or record.get("firstNameRaw")),
+                "last_name": as_str(record.get("lastName") or record.get("lastNameRaw")),
+                "phone": as_str(record.get("phone")),
+                "email": as_str(record.get("email")),
+                "source": as_str(record.get("source")),
+                "assigned_to_user_id": as_str(record.get("assignedTo")),
+                "contact_type": as_str(record.get("type")),
+                "city": as_str(record.get("city")),
+                "state": as_str(record.get("state")),
+                "postal_code": as_str(record.get("postalCode")),
+                "country": as_str(record.get("country")),
+                "tags_json": json_blob(record.get("tags")),
+                "custom_fields_json": json_blob(record.get("customFields")),
+                "attributions_json": json_blob(record.get("attributions")),
+                "date_added": parse_timestamp(record.get("dateAdded")),
+                "date_updated": parse_timestamp(record.get("dateUpdated")),
+                "raw_json": json_blob(record),
+            }
+        )
+    return sorted(rows, key=lambda row: row.get("date_added") or datetime.min)
+
+
+def build_opportunities(
+    records: Iterable[dict[str, Any]],
+    stage_lookup: dict[tuple[str | None, str | None], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows = []
+    for record in records:
+        pipeline_id = as_str(record.get("pipelineId"))
+        stage_id = as_str(record.get("pipelineStageId") or record.get("pipelineStageUId"))
+        stage = stage_lookup.get((pipeline_id, stage_id)) or stage_lookup.get((None, stage_id)) or {}
+        contact = record.get("contact") if isinstance(record.get("contact"), dict) else {}
+        rows.append(
+            {
+                "opportunity_id": as_str(record.get("id")),
+                "contact_id": as_str(record.get("contactId") or contact.get("id")),
+                "location_id": as_str(record.get("locationId")),
+                "opportunity_name": as_str(record.get("name")),
+                "pipeline_id": pipeline_id,
+                "pipeline_name": as_str(stage.get("pipeline_name")),
+                "pipeline_stage_id": stage_id,
+                "pipeline_stage_name": as_str(stage.get("stage_name")),
+                "pipeline_stage_position": as_int(stage.get("stage_position")),
+                "status": as_str(record.get("status")),
+                "source": as_str(record.get("source")),
+                "assigned_to_user_id": as_str(record.get("assignedTo")),
+                "monetary_value": as_float(record.get("monetaryValue")),
+                "effective_probability": as_float(record.get("effectiveProbability")),
+                "created_at": parse_timestamp(record.get("createdAt")),
+                "updated_at": parse_timestamp(record.get("updatedAt")),
+                "last_stage_change_at": parse_timestamp(record.get("lastStageChangeAt")),
+                "last_status_change_at": parse_timestamp(record.get("lastStatusChangeAt")),
+                "contact_name": as_str(contact.get("name")),
+                "contact_phone": as_str(contact.get("phone")),
+                "contact_email": as_str(contact.get("email")),
+                "custom_fields_json": json_blob(record.get("customFields")),
+                "attributions_json": json_blob(record.get("attributions")),
+                "raw_json": json_blob(record),
+            }
+        )
+    return sorted(rows, key=lambda row: row.get("created_at") or datetime.min)
+
+
+def build_opportunity_stage_history(
+    opportunities: Iterable[dict[str, Any]],
+    snapshot_at: datetime | None,
+    run_id: str,
+    previous_history: Iterable[dict[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    rows = normalize_stage_history_rows(previous_history)
+    latest_by_opportunity: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        opportunity_id = as_str(row.get("opportunity_id"))
+        if not opportunity_id:
+            continue
+        current = latest_by_opportunity.get(opportunity_id)
+        if current is None or row_recency(row, ("observed_at",)) >= row_recency(current, ("observed_at",)):
+            latest_by_opportunity[opportunity_id] = row
+
+    additions = []
+    for opportunity in opportunities:
+        opportunity_id = as_str(opportunity.get("opportunity_id"))
+        if not opportunity_id:
+            continue
+        stage_status_key = "|".join(
+            str(value or "")
+            for value in (
+                opportunity.get("pipeline_id"),
+                opportunity.get("pipeline_stage_id"),
+                opportunity.get("status"),
+            )
+        )
+        previous = latest_by_opportunity.get(opportunity_id)
+        if previous and previous.get("stage_status_key") == stage_status_key:
+            continue
+        observed_at = snapshot_at or datetime.utcnow()
+        transition_key = "|".join((opportunity_id, stage_status_key, observed_at.isoformat()))
+        additions.append(
+            {
+                "opportunity_id": opportunity_id,
+                "contact_id": opportunity.get("contact_id"),
+                "pipeline_id": opportunity.get("pipeline_id"),
+                "previous_pipeline_stage_id": previous.get("pipeline_stage_id") if previous else None,
+                "previous_pipeline_stage_name": previous.get("pipeline_stage_name") if previous else None,
+                "previous_status": previous.get("status") if previous else None,
+                "pipeline_stage_id": opportunity.get("pipeline_stage_id"),
+                "pipeline_stage_name": opportunity.get("pipeline_stage_name"),
+                "status": opportunity.get("status"),
+                "assigned_to_user_id": opportunity.get("assigned_to_user_id"),
+                "observed_at": observed_at,
+                "source_stage_changed_at": opportunity.get("last_stage_change_at"),
+                "source_status_changed_at": opportunity.get("last_status_change_at"),
+                "stage_status_key": stage_status_key,
+                "transition_key": transition_key,
+                "run_id": run_id,
+            }
+        )
+    return sorted(rows + additions, key=lambda row: (row.get("opportunity_id") or "", row.get("observed_at") or datetime.min))
+
+
+def normalize_stage_history_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = []
+    for row in rows:
+        normalized.append(
+            {
+                **row,
+                "observed_at": parse_timestamp(row.get("observed_at")),
+                "snapshot_at": parse_timestamp(row.get("snapshot_at")),
+                "source_stage_changed_at": parse_timestamp(row.get("source_stage_changed_at") or row.get("last_stage_change_at")),
+                "source_status_changed_at": parse_timestamp(row.get("source_status_changed_at") or row.get("last_status_change_at")),
+            }
+        )
+    return normalized
+
+
+def build_messages(records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for record in records:
+        rows.append(
+            {
+                "message_id": as_str(record.get("id") or record.get("messageId")),
+                "conversation_id": as_str(record.get("conversationId")),
+                "contact_id": as_str(record.get("contactId")),
+                "location_id": as_str(record.get("locationId")),
+                "message_type": as_str(record.get("messageType")),
+                "direction": as_str(record.get("direction")),
+                "status": as_str(record.get("status")),
+                "body": as_str(record.get("body")),
+                "from_phone": as_str(record.get("from")),
+                "to_phone": as_str(record.get("to")),
+                "content_type": as_str(record.get("contentType")),
+                "actor_user_id": as_str(record.get("userId")),
+                "source": as_str(record.get("source")),
+                "date_added": parse_timestamp(record.get("dateAdded")),
+                "date_updated": parse_timestamp(record.get("dateUpdated")),
+                "attachments_json": json_blob(record.get("attachments")),
+                "activity_json": json_blob(record.get("activity")),
+                "meta_json": json_blob(record.get("meta")),
+                "error_json": json_blob(record.get("error")),
+                "raw_json": json_blob(record),
+            }
+        )
+    return sorted(rows, key=lambda row: row.get("date_added") or datetime.min)
+
+
+def build_calls(
+    records: Iterable[dict[str, Any]],
+    recording_lookup: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows = []
+    for record in records:
+        message_id = as_str(record.get("id") or record.get("messageId"))
+        recording = recording_lookup.get(message_id or "") or {}
+        meta_call = nested_dict(record, "meta", "call")
+        archival_status = as_str(recording.get("archival_status")) or ("archived" if recording.get("s3_uri") else None)
+        rows.append(
+            {
+                "call_message_id": message_id,
+                "conversation_id": as_str(record.get("conversationId")),
+                "contact_id": as_str(record.get("contactId")),
+                "location_id": as_str(record.get("locationId")),
+                "actor_user_id": as_str(record.get("userId")),
+                "direction": as_str(record.get("direction")),
+                "status": as_str(record.get("status")),
+                "call_status": as_str(meta_call.get("status")),
+                "duration_seconds": as_float(meta_call.get("duration")),
+                "from_phone": as_str(record.get("from")),
+                "to_phone": as_str(record.get("to")),
+                "source": as_str(record.get("source")),
+                "alt_id": as_str(record.get("altId")),
+                "has_recording": bool(recording.get("s3_uri")),
+                "recording_s3_uri": as_str(recording.get("s3_uri")),
+                "recording_object_key": as_str(recording.get("object_key")),
+                "recording_content_type": as_str(recording.get("content_type")),
+                "recording_byte_count": as_int(recording.get("byte_count")),
+                "recording_sha256": as_str(recording.get("sha256")),
+                "recording_archival_status": archival_status,
+                "recording_unavailable_reason": as_str(recording.get("reason")),
+                "date_added": parse_timestamp(record.get("dateAdded")),
+                "date_updated": parse_timestamp(record.get("dateUpdated")),
+                "raw_json": json_blob(record),
+            }
+        )
+    return sorted(rows, key=lambda row: row.get("date_added") or datetime.min)
+
+
+def build_call_recordings(recordings: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for record in recordings:
+        status = as_str(record.get("archival_status")) or ("archived" if record.get("s3_uri") else None)
+        rows.append(
+            {
+                "message_id": as_str(record.get("message_id")),
+                "archival_status": status,
+                "s3_uri": as_str(record.get("s3_uri")),
+                "object_key": as_str(record.get("object_key")),
+                "content_type": as_str(record.get("content_type")),
+                "byte_count": as_int(record.get("byte_count")),
+                "sha256": as_str(record.get("sha256")),
+                "unavailable_reason": as_str(record.get("reason")),
+                "archived_at": parse_timestamp(record.get("archived_at")),
+                "endpoint": as_str(record.get("endpoint")),
+            }
+        )
+    return sorted(rows, key=lambda row: (row.get("message_id") or ""))
+
+
+def build_call_transcripts_table(rows: Iterable[dict[str, Any]]) -> TableData:
+    normalized = normalize_call_transcript_rows(rows)
+    current_rows = dedupe_call_transcript_rows(normalized)
+    return TableData(
+        name=TRANSCRIPT_TABLE_NAME,
+        columns=SCHEMAS[TRANSCRIPT_TABLE_NAME],
+        rows=sorted(current_rows, key=call_transcript_sort_key),
+    )
+
+
+def normalize_call_transcript_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    columns = SCHEMAS[TRANSCRIPT_TABLE_NAME]
+    return [
+        {
+            column.name: normalize_call_transcript_value(row.get(column.name), column.logical_type)
+            for column in columns
+        }
+        for row in rows
+    ]
+
+
+def normalize_call_transcript_value(value: Any, logical_type: str) -> Any:
+    if logical_type == "string":
+        return as_str(value)
+    if logical_type in {"bigint", "int"}:
+        return as_int(value)
+    if logical_type == "double":
+        return as_float(value)
+    if logical_type == "boolean":
+        return bool(value) if value is not None else None
+    return value
+
+
+def dedupe_call_transcript_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    winners: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    passthrough: list[dict[str, Any]] = []
+    for row in rows:
+        if any(not row.get(field) for field in CALL_TRANSCRIPT_REQUIRED_IDENTITY_FIELDS):
+            passthrough.append(row)
+            continue
+        key = call_transcript_idempotency_key(row)
+        current = winners.get(key)
+        if current is None or call_transcript_recency(row) >= call_transcript_recency(current):
+            winners[key] = row
+    return passthrough + list(winners.values())
+
+
+def call_transcript_idempotency_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("call_message_id") or ""),
+        str(row.get("recording_sha256") or ""),
+        str(row.get("artifact_schema_version") or ""),
+        str(row.get("provider") or ""),
+        str(row.get("transcription_model") or ""),
+    )
+
+
+def call_transcript_recency(row: dict[str, Any]) -> tuple[datetime, str, str]:
+    timestamps = [
+        parsed
+        for parsed in (parse_timestamp(row.get(field)) for field in CALL_TRANSCRIPT_RECENCY_FIELDS)
+        if parsed is not None
+    ]
+    newest = max(timestamps) if timestamps else datetime.min
+    return newest, str(row.get("run_id") or ""), json_blob(row) or ""
+
+
+def call_transcript_sort_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("call_message_id") or ""),
+        str(row.get("recording_sha256") or ""),
+        str(row.get("artifact_schema_version") or ""),
+        str(row.get("provider") or ""),
+        str(row.get("transcription_model") or ""),
+    )
+
+
+def build_mart_lead_response(
+    opportunities: list[dict[str, Any]],
+    messages: list[dict[str, Any]],
+    calls: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    messages_by_contact = group_by(messages, "contact_id")
+    calls_by_contact = group_by(calls, "contact_id")
+    rows = []
+    for opportunity in opportunities:
+        contact_id = opportunity.get("contact_id")
+        created_at = opportunity.get("created_at")
+        contact_messages = [
+            item
+            for item in messages_by_contact.get(contact_id, [])
+            if item.get("message_type") != "TYPE_CALL" and on_or_after(item.get("date_added"), created_at)
+        ]
+        contact_calls = [
+            item for item in calls_by_contact.get(contact_id, []) if on_or_after(item.get("date_added"), created_at)
+        ]
+        outbound_messages = [
+            item for item in contact_messages if lower(item.get("direction")) == "outbound" and item.get("date_added")
+        ]
+        outbound_calls = [
+            item for item in contact_calls if lower(item.get("direction")) == "outbound" and item.get("date_added")
+        ]
+        completed_calls = [
+            item
+            for item in contact_calls
+            if lower(item.get("status")) == "completed" or lower(item.get("call_status")) == "completed"
+        ]
+
+        first_outbound_call = first_by_time(outbound_calls)
+        first_completed_call = first_by_time(completed_calls)
+        first_outbound_message = first_by_time(outbound_messages)
+        first_response = first_by_time(
+            [item for item in (first_outbound_call, first_outbound_message) if item is not None]
+        )
+        outbound_activity_count = sum(1 for item in contact_calls + contact_messages if lower(item.get("direction")) == "outbound")
+        inbound_activity_count = sum(1 for item in contact_calls + contact_messages if lower(item.get("direction")) == "inbound")
+
+        rows.append(
+            {
+                "opportunity_id": opportunity.get("opportunity_id"),
+                "contact_id": contact_id,
+                "assigned_to_user_id": opportunity.get("assigned_to_user_id"),
+                "pipeline_stage_name": opportunity.get("pipeline_stage_name"),
+                "opportunity_status": opportunity.get("status"),
+                "lead_created_at": created_at,
+                "first_outbound_call_at": value_at(first_outbound_call, "date_added"),
+                "first_outbound_call_user_id": value_at(first_outbound_call, "actor_user_id"),
+                "minutes_to_first_outbound_call": minutes_between(created_at, value_at(first_outbound_call, "date_added")),
+                "first_completed_call_at": value_at(first_completed_call, "date_added"),
+                "minutes_to_first_completed_call": minutes_between(created_at, value_at(first_completed_call, "date_added")),
+                "first_outbound_message_at": value_at(first_outbound_message, "date_added"),
+                "first_outbound_message_type": value_at(first_outbound_message, "message_type"),
+                "minutes_to_first_outbound_message": minutes_between(created_at, value_at(first_outbound_message, "date_added")),
+                "first_response_at": value_at(first_response, "date_added"),
+                "minutes_to_first_response": minutes_between(created_at, value_at(first_response, "date_added")),
+                "call_count": len(contact_calls),
+                "completed_call_count": len(completed_calls),
+                "message_count": len(contact_messages),
+                "outbound_activity_count": outbound_activity_count,
+                "inbound_activity_count": inbound_activity_count,
+                "has_contact_attempt": bool(outbound_calls or outbound_messages),
+                "has_completed_call": bool(completed_calls),
+            }
+        )
+    return sorted(rows, key=lambda row: row.get("lead_created_at") or datetime.min)
+
+
+def build_mart_rep_activity_daily(
+    messages: list[dict[str, Any]],
+    calls: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    buckets: dict[tuple[str, str], dict[str, Any]] = {}
+
+    for call in calls:
+        event_at = call.get("date_added")
+        activity_date = date_key(event_at)
+        if not activity_date:
+            continue
+        actor = call.get("actor_user_id") or "unknown"
+        bucket = activity_bucket(buckets, activity_date, actor)
+        bucket["calls_total"] += 1
+        bucket["calls_outbound"] += 1 if lower(call.get("direction")) == "outbound" else 0
+        bucket["calls_inbound"] += 1 if lower(call.get("direction")) == "inbound" else 0
+        bucket["calls_completed"] += 1 if lower(call.get("status")) == "completed" or lower(call.get("call_status")) == "completed" else 0
+        bucket["call_duration_seconds"] += call.get("duration_seconds") or 0
+        remember_contact(bucket, call.get("contact_id"))
+        remember_time(bucket, event_at)
+
+    for message in messages:
+        if message.get("message_type") == "TYPE_CALL":
+            continue
+        event_at = message.get("date_added")
+        activity_date = date_key(event_at)
+        if not activity_date:
+            continue
+        actor = message.get("actor_user_id") or "unknown"
+        bucket = activity_bucket(buckets, activity_date, actor)
+        bucket["messages_total"] += 1
+        bucket["messages_outbound"] += 1 if lower(message.get("direction")) == "outbound" else 0
+        bucket["messages_inbound"] += 1 if lower(message.get("direction")) == "inbound" else 0
+        message_type = message.get("message_type")
+        bucket["sms_messages"] += 1 if message_type in {"TYPE_SMS", "TYPE_SMS_REACTION"} else 0
+        bucket["email_messages"] += 1 if message_type == "TYPE_EMAIL" else 0
+        bucket["facebook_messages"] += 1 if message_type == "TYPE_FACEBOOK" else 0
+        bucket["instagram_messages"] += 1 if message_type == "TYPE_INSTAGRAM" else 0
+        remember_contact(bucket, message.get("contact_id"))
+        remember_time(bucket, event_at)
+
+    rows = []
+    for bucket in buckets.values():
+        contacts = bucket.pop("_contacts")
+        rows.append({**bucket, "unique_contacts_touched": len(contacts)})
+    return sorted(rows, key=lambda row: (row["activity_date"], row["actor_user_id"]))
+
+
+def write_curated_tables(
+    tables: dict[str, TableData],
+    *,
+    run_id: str,
+    snapshot_date: str,
+    local_output_dir: str | Path,
+    s3_bucket: str | None = None,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_database: str = DEFAULT_GLUE_DATABASE,
+    reporting_glue_database: str = DEFAULT_REPORTING_GLUE_DATABASE,
+    daily_snapshot_prefix: str = "snapshots/ghl/daily",
+) -> list[WrittenTable]:
+    output_dir = Path(local_output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    s3_client = None
+    if s3_bucket:
+        import boto3  # type: ignore
+
+        s3_client = boto3.client("s3")
+
+    written: list[WrittenTable] = []
+    for table_name in TABLE_ORDER:
+        table = tables[table_name]
+        group = table_group(table_name)
+        local_dir = output_dir / group / table_name
+        local_dir.mkdir(parents=True, exist_ok=True)
+        local_path = local_dir / "part-00000.parquet"
+        write_parquet(table, local_path)
+        byte_count = local_path.stat().st_size
+        key = None
+        uri = None
+        if s3_client and s3_bucket:
+            key = f"{current_table_prefix(s3_prefix, table_name)}/part-00000.parquet"
+            s3_client.upload_file(
+                str(local_path),
+                s3_bucket,
+                key,
+                ExtraArgs={
+                    "ServerSideEncryption": "AES256",
+                    "ContentType": "application/octet-stream",
+                },
+            )
+            uri = f"s3://{s3_bucket}/{key}"
+        written.append(
+            WrittenTable(
+                name=table_name,
+                database=table_database_name(table_name, glue_database, reporting_glue_database),
+                row_count=len(table.rows),
+                s3_uri=uri,
+                s3_key=key,
+                byte_count=byte_count,
+                object_count=1,
+                local_path=str(local_path),
+            )
+        )
+    written.extend(
+        write_daily_audit_snapshots(
+            tables,
+            run_id=run_id,
+            snapshot_date=snapshot_date,
+            local_output_dir=output_dir,
+            s3_client=s3_client,
+            s3_bucket=s3_bucket,
+            daily_snapshot_prefix=daily_snapshot_prefix,
+        )
+    )
+    return written
+
+
+def write_call_transcripts_table(
+    table_or_rows: TableData | Iterable[dict[str, Any]],
+    *,
+    local_output_dir: str | Path,
+    s3_bucket: str | None = None,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_database: str = DEFAULT_GLUE_DATABASE,
+    s3_client: Any | None = None,
+) -> WrittenTable:
+    table = table_or_rows if isinstance(table_or_rows, TableData) else build_call_transcripts_table(table_or_rows)
+    if table.name != TRANSCRIPT_TABLE_NAME:
+        raise ValueError(f"expected {TRANSCRIPT_TABLE_NAME} table, got {table.name}")
+
+    output_dir = Path(local_output_dir)
+    local_dir = output_dir / table_group(TRANSCRIPT_TABLE_NAME) / TRANSCRIPT_TABLE_NAME
+    local_dir.mkdir(parents=True, exist_ok=True)
+    local_path = local_dir / "part-00000.parquet"
+    write_parquet(table, local_path)
+    byte_count = local_path.stat().st_size
+    key = None
+    uri = None
+    if s3_bucket:
+        if s3_client is None:
+            import boto3  # type: ignore
+
+            s3_client = boto3.client("s3")
+        key = f"{current_table_prefix(s3_prefix, TRANSCRIPT_TABLE_NAME)}/part-00000.parquet"
+        s3_client.upload_file(
+            str(local_path),
+            s3_bucket,
+            key,
+            ExtraArgs={
+                "ServerSideEncryption": "AES256",
+                "ContentType": "application/octet-stream",
+            },
+        )
+        uri = f"s3://{s3_bucket}/{key}"
+    return WrittenTable(
+        name=TRANSCRIPT_TABLE_NAME,
+        database=glue_database,
+        row_count=len(table.rows),
+        s3_uri=uri,
+        s3_key=key,
+        byte_count=byte_count,
+        object_count=1,
+        local_path=str(local_path),
+    )
+
+
+def write_daily_audit_snapshots(
+    tables: dict[str, TableData],
+    *,
+    run_id: str,
+    snapshot_date: str,
+    local_output_dir: Path,
+    s3_client: Any | None,
+    s3_bucket: str | None,
+    daily_snapshot_prefix: str,
+) -> list[WrittenTable]:
+    written: list[WrittenTable] = []
+    partition_path = f"snapshot_date={snapshot_date}"
+    for table_name in DAILY_SNAPSHOT_TABLE_ORDER:
+        table = tables[table_name]
+        local_dir = local_output_dir / "_internal_daily_snapshots" / table_name / partition_path
+        local_dir.mkdir(parents=True, exist_ok=True)
+        local_path = local_dir / "part-00000.parquet"
+        write_parquet(table, local_path)
+        byte_count = local_path.stat().st_size
+        key = None
+        uri = None
+        if s3_client and s3_bucket:
+            key = f"{daily_snapshot_prefix.strip('/')}/{table_name}/{partition_path}/part-00000.parquet"
+            s3_client.upload_file(
+                str(local_path),
+                s3_bucket,
+                key,
+                ExtraArgs={
+                    "ServerSideEncryption": "AES256",
+                    "ContentType": "application/octet-stream",
+                },
+            )
+            uri = f"s3://{s3_bucket}/{key}"
+        written.append(
+            WrittenTable(
+                name=f"daily_snapshot_{table_name}",
+                database="internal_s3_only",
+                row_count=len(table.rows),
+                s3_uri=uri,
+                s3_key=key,
+                byte_count=byte_count,
+                object_count=1,
+                local_path=str(local_path),
+            )
+        )
+    return written
+
+
+def write_parquet(table: TableData, path: str | Path) -> None:
+    pa, pq = import_pyarrow()
+    arrays = []
+    for column in table.columns:
+        values = [row.get(column.name) for row in table.rows]
+        arrays.append(pa.array(values, type=arrow_type(pa, column.logical_type)))
+    arrow_table = pa.Table.from_arrays(arrays, names=[column.name for column in table.columns])
+    pq.write_table(arrow_table, path, compression="snappy")
+
+
+def create_or_update_glue_tables(
+    *,
+    database_name: str,
+    reporting_database_name: str,
+    s3_bucket: str,
+    s3_prefix: str,
+) -> list[GlueTableResult]:
+    import boto3  # type: ignore
+    from botocore.exceptions import ClientError  # type: ignore
+
+    glue = boto3.client("glue")
+    results: list[GlueTableResult] = []
+    for table_name in TABLE_ORDER:
+        target_database = table_database_name(table_name, database_name, reporting_database_name)
+        table_location = f"s3://{s3_bucket}/{current_table_prefix(s3_prefix, table_name)}/"
+        table_input = glue_table_input(table_name, table_location)
+        try:
+            existing = glue.get_table(DatabaseName=target_database, Name=table_name)["Table"]
+            if existing.get("PartitionKeys"):
+                glue.delete_table(DatabaseName=target_database, Name=table_name)
+                glue.create_table(DatabaseName=target_database, TableInput=table_input)
+                action = "replaced_partitioned_table"
+            else:
+                glue.update_table(DatabaseName=target_database, TableInput=table_input)
+                action = "updated"
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") != "EntityNotFoundException":
+                raise
+            glue.create_table(DatabaseName=target_database, TableInput=table_input)
+            action = "created"
+        results.append(
+            GlueTableResult(
+                database=target_database,
+                name=table_name,
+                table_location=table_location,
+                action=action,
+            )
+        )
+    return results
+
+
+def create_or_update_call_transcripts_glue_table(
+    *,
+    database_name: str,
+    s3_bucket: str,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_client: Any | None = None,
+) -> GlueTableResult:
+    if glue_client is None:
+        import boto3  # type: ignore
+
+        glue_client = boto3.client("glue")
+
+    table_location = f"s3://{s3_bucket}/{current_table_prefix(s3_prefix, TRANSCRIPT_TABLE_NAME)}/"
+    table_input = glue_table_input(TRANSCRIPT_TABLE_NAME, table_location)
+    try:
+        existing = glue_client.get_table(DatabaseName=database_name, Name=TRANSCRIPT_TABLE_NAME)["Table"]
+        if existing.get("PartitionKeys"):
+            glue_client.delete_table(DatabaseName=database_name, Name=TRANSCRIPT_TABLE_NAME)
+            glue_client.create_table(DatabaseName=database_name, TableInput=table_input)
+            action = "replaced_partitioned_table"
+        else:
+            glue_client.update_table(DatabaseName=database_name, TableInput=table_input)
+            action = "updated"
+    except Exception as exc:  # noqa: BLE001 - boto3 client errors are inspected by response code.
+        if not is_entity_not_found_error(exc):
+            raise
+        glue_client.create_table(DatabaseName=database_name, TableInput=table_input)
+        action = "created"
+
+    return GlueTableResult(
+        database=database_name,
+        name=TRANSCRIPT_TABLE_NAME,
+        table_location=table_location,
+        action=action,
+    )
+
+
+def is_entity_not_found_error(exc: Exception) -> bool:
+    response = getattr(exc, "response", {})
+    return response.get("Error", {}).get("Code") == "EntityNotFoundException"
+
+
+def table_group(table_name: str) -> str:
+    return "reporting" if table_name in REPORTING_TABLE_ORDER else "core"
+
+
+def table_database_name(table_name: str, core_database: str, reporting_database: str) -> str:
+    return reporting_database if table_name in REPORTING_TABLE_ORDER else core_database
+
+
+def current_table_prefix(s3_prefix: str, table_name: str) -> str:
+    return "/".join(part.strip("/") for part in (s3_prefix, table_group(table_name), table_name) if part and part.strip("/"))
+
+
+def glue_table_input(table_name: str, location: str) -> dict[str, Any]:
+    return {
+        "Name": table_name,
+        "Description": f"Gold Coast GHL curated {table_name} table.",
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "EXTERNAL": "TRUE",
+            "classification": "parquet",
+            "parquet.compression": "SNAPPY",
+        },
+        "PartitionKeys": [],
+        "StorageDescriptor": storage_descriptor(table_name, location),
+    }
+
+
+def storage_descriptor(table_name: str, location: str) -> dict[str, Any]:
+    return {
+        "Columns": [{"Name": column.name, "Type": column.glue_type} for column in SCHEMAS[table_name]],
+        "Location": location,
+        "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+        "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+        "Compressed": True,
+        "SerdeInfo": {
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+            "Parameters": {"serialization.format": "1"},
+        },
+    }
+
+
+def table_counts(tables: dict[str, TableData]) -> dict[str, int]:
+    return {name: len(tables[name].rows) for name in TABLE_ORDER}
+
+
+def load_previous_stage_history(
+    *,
+    local_output_dir: str | Path,
+    s3_bucket: str | None,
+    s3_prefix: str,
+) -> list[dict[str, Any]]:
+    key = f"{current_table_prefix(s3_prefix, 'opportunity_stage_history')}/part-00000.parquet"
+    if s3_bucket:
+        try:
+            import boto3  # type: ignore
+            from botocore.exceptions import ClientError  # type: ignore
+
+            response = boto3.client("s3").get_object(Bucket=s3_bucket, Key=key)
+            _, pq = import_pyarrow()
+            return pq.read_table(io.BytesIO(response["Body"].read())).to_pylist()
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code")
+            if code in {"NoSuchKey", "404", "NotFound"}:
+                return []
+            raise
+
+    local_path = Path(local_output_dir) / "core" / "opportunity_stage_history" / "part-00000.parquet"
+    if not local_path.exists():
+        return []
+    _, pq = import_pyarrow()
+    return pq.read_table(local_path).to_pylist()
+
+
+def written_summary(written: Iterable[WrittenTable]) -> list[dict[str, Any]]:
+    return [
+        {
+            "table": item.name,
+            "database": item.database,
+            "row_count": item.row_count,
+            "s3_uri": item.s3_uri,
+            "s3_key": item.s3_key,
+            "object_count": item.object_count,
+            "byte_count": item.byte_count,
+            "local_path": item.local_path,
+        }
+        for item in written
+    ]
+
+
+def glue_summary(results: Iterable[GlueTableResult]) -> list[dict[str, str]]:
+    return [
+        {
+            "database": item.database,
+            "table": item.name,
+            "action": item.action,
+            "table_location": item.table_location,
+        }
+        for item in results
+    ]
+
+
+def import_pyarrow() -> tuple[Any, Any]:
+    try:
+        import pyarrow as pa  # type: ignore
+        import pyarrow.parquet as pq  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("pyarrow is required to write curated Parquet tables") from exc
+    return pa, pq
+
+
+def arrow_type(pa: Any, logical_type: str) -> Any:
+    if logical_type == "string":
+        return pa.string()
+    if logical_type == "bigint":
+        return pa.int64()
+    if logical_type == "int":
+        return pa.int32()
+    if logical_type == "double":
+        return pa.float64()
+    if logical_type == "boolean":
+        return pa.bool_()
+    if logical_type == "timestamp":
+        return pa.timestamp("us")
+    raise ValueError(f"unsupported logical type: {logical_type}")
+
+
+def json_blob(value: Any) -> str | None:
+    if value is None:
+        return None
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, (int, float)):
+        number = float(value)
+        seconds = number / 1000.0 if number > 10_000_000_000 else number
+        dt = datetime.fromtimestamp(seconds, tz=timezone.utc)
+    elif isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        if raw.endswith("Z"):
+            raw = f"{raw[:-1]}+00:00"
+        try:
+            dt = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+    else:
+        return None
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def as_str(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def as_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def as_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def nested_dict(record: dict[str, Any], *keys: str) -> dict[str, Any]:
+    current: Any = record
+    for key in keys:
+        if not isinstance(current, dict):
+            return {}
+        current = current.get(key)
+    return current if isinstance(current, dict) else {}
+
+
+def group_by(rows: Iterable[dict[str, Any]], key: str) -> dict[Any, list[dict[str, Any]]]:
+    grouped: dict[Any, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(row.get(key), []).append(row)
+    return grouped
+
+
+def first_by_time(rows: Iterable[dict[str, Any] | None]) -> dict[str, Any] | None:
+    candidates = [row for row in rows if row and row.get("date_added")]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda row: row["date_added"])
+
+
+def value_at(row: dict[str, Any] | None, key: str) -> Any:
+    return row.get(key) if row else None
+
+
+def on_or_after(event_at: Any, start_at: Any) -> bool:
+    if event_at is None:
+        return False
+    if start_at is None:
+        return True
+    return event_at >= start_at
+
+
+def minutes_between(start_at: Any, end_at: Any) -> float | None:
+    if start_at is None or end_at is None:
+        return None
+    return round((end_at - start_at).total_seconds() / 60.0, 2)
+
+
+def lower(value: Any) -> str:
+    return str(value or "").lower()
+
+
+def date_key(value: Any) -> str | None:
+    if not isinstance(value, datetime):
+        return None
+    return value.date().isoformat()
+
+
+def activity_bucket(
+    buckets: dict[tuple[str, str], dict[str, Any]],
+    activity_date: str,
+    actor: str,
+) -> dict[str, Any]:
+    key = (activity_date, actor)
+    if key not in buckets:
+        buckets[key] = {
+            "activity_date": activity_date,
+            "actor_user_id": actor,
+            "calls_total": 0,
+            "calls_outbound": 0,
+            "calls_inbound": 0,
+            "calls_completed": 0,
+            "call_duration_seconds": 0.0,
+            "messages_total": 0,
+            "messages_outbound": 0,
+            "messages_inbound": 0,
+            "sms_messages": 0,
+            "email_messages": 0,
+            "facebook_messages": 0,
+            "instagram_messages": 0,
+            "first_activity_at": None,
+            "last_activity_at": None,
+            "_contacts": set(),
+        }
+    return buckets[key]
+
+
+def remember_contact(bucket: dict[str, Any], contact_id: Any) -> None:
+    if contact_id:
+        bucket["_contacts"].add(contact_id)
+
+
+def remember_time(bucket: dict[str, Any], event_at: Any) -> None:
+    if event_at is None:
+        return
+    first = bucket.get("first_activity_at")
+    last = bucket.get("last_activity_at")
+    bucket["first_activity_at"] = event_at if first is None or event_at < first else first
+    bucket["last_activity_at"] = event_at if last is None or event_at > last else last
+
+
+def run_curated_build(
+    *,
+    manifest_uri: str = DEFAULT_MANIFEST_S3_URI,
+    snapshot_date: str = DEFAULT_SNAPSHOT_DATE,
+    local_output_dir: str | Path = "data/curated",
+    s3_bucket: str | None = DEFAULT_CURATED_BUCKET,
+    s3_prefix: str = DEFAULT_CURATED_PREFIX,
+    glue_database: str | None = DEFAULT_GLUE_DATABASE,
+    reporting_glue_database: str = DEFAULT_REPORTING_GLUE_DATABASE,
+    daily_snapshot_prefix: str = "snapshots/ghl/daily",
+) -> dict[str, Any]:
+    manifest, raw = load_manifest_and_raw(manifest_uri)
+    run_id = str(manifest.get("run_id") or "unknown-run")
+    snapshot_at = manifest_snapshot_at(manifest)
+    previous_stage_history = load_previous_stage_history(
+        local_output_dir=local_output_dir,
+        s3_bucket=s3_bucket,
+        s3_prefix=s3_prefix,
+    )
+    tables = build_curated_tables(raw, manifest, previous_stage_history=previous_stage_history)
+    written = write_curated_tables(
+        tables,
+        run_id=run_id,
+        snapshot_date=snapshot_date,
+        local_output_dir=local_output_dir,
+        s3_bucket=s3_bucket,
+        s3_prefix=s3_prefix,
+        glue_database=glue_database or DEFAULT_GLUE_DATABASE,
+        reporting_glue_database=reporting_glue_database,
+        daily_snapshot_prefix=daily_snapshot_prefix,
+    )
+    glue_results: list[GlueTableResult] = []
+    if glue_database and s3_bucket:
+        glue_results = create_or_update_glue_tables(
+            database_name=glue_database,
+            reporting_database_name=reporting_glue_database,
+            s3_bucket=s3_bucket,
+            s3_prefix=s3_prefix,
+        )
+    counts = table_counts(tables)
+    written_tables = written_summary(written)
+    return {
+        "manifest_uri": manifest_uri,
+        "run_id": run_id,
+        "snapshot_date": snapshot_date,
+        "snapshot_at": snapshot_at.isoformat() if snapshot_at else None,
+        "publishing_model": "v1_1_current_tables",
+        "core_database": glue_database,
+        "reporting_database": reporting_glue_database,
+        "table_counts": counts,
+        "written": written_tables,
+        "glue": glue_summary(glue_results),
+        "latest_success": latest_success_payload(
+            manifest_uri=manifest_uri,
+            run_id=run_id,
+            snapshot_date=snapshot_date,
+            snapshot_at=snapshot_at,
+            table_counts=counts,
+            written=written_tables,
+        ),
+    }
+
+
+def latest_success_payload(
+    *,
+    manifest_uri: str,
+    run_id: str,
+    snapshot_date: str,
+    snapshot_at: datetime | None,
+    table_counts: dict[str, int],
+    written: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "snapshot_date": snapshot_date,
+        "snapshot_at": snapshot_at.isoformat() if snapshot_at else None,
+        "manifest_uri": manifest_uri,
+        "table_counts": table_counts,
+        "written": written,
+    }

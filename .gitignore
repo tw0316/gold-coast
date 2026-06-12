@@ -10,6 +10,11 @@ ghl-api*
 *.tfstate.backup
 terraform.tfvars
 infra/.build/
+infra/**/.build/
+apps/data-lake/data/
+apps/data-lake/tmp/
+apps/data-lake/.pytest_cache/
+apps/data-lake/.venv/
 *.zip
 
 # Local agent/runtime evidence and profile files. Keep these out of product PRs.

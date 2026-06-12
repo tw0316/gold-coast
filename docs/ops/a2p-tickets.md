@@ -1,8 +1,6 @@
 # A2P Registration — Implementation Tickets
 
-> **Archived:** This ticket set described the pre-Payload static `site/` implementation. It is retained only as compliance/history context after the Payload cutover. Do not use these paths as current implementation instructions; use `apps/gcoffers-site` for live site changes.
-
-> **Context:** A2P (Application-to-Person) SMS registration requires compliance changes to gcoffers.com before the vendor will approve. Three tickets below. All changes are to the existing static site at `/Users/jarvis/Projects/goldcoast-website/site/`.
+> **Context:** A2P (Application-to-Person) SMS registration requires compliance changes to gcoffers.com before the vendor will approve. Three tickets below. All changes are to the existing static site at `apps/website/`.
 >
 > **After A2P approval:** Ticket 3 (Revert) reverses Ticket 1 and restores the original 2-step flow.
 
@@ -29,7 +27,7 @@ A2P vendor requires a single-page opt-in form for registration approval. Once A2
 
 ### Implementation Details
 
-#### `site/index.html` — Hero Form Changes
+#### `apps/website/index.html` — Hero Form Changes
 
 Replace the current `#step1-form` contents with the following fields (keep the `<form>` element and its `id`):
 
@@ -91,7 +89,7 @@ Fields (in order):
 - The bottom CTA button should still scroll to top and focus the first form field
 - Header "Get My Cash Offer" button still scrolls to `#top`
 
-#### `site/js/main.js` — Form Submission Changes
+#### `apps/website/js/main.js` — Form Submission Changes
 
 Replace the `step1Form` submit handler. Instead of storing to sessionStorage and redirecting, it now:
 
@@ -132,7 +130,7 @@ var payload = {
 
 **Keep the Step 2 form JS intact** — don't delete it. It just won't execute because nobody reaches that page.
 
-#### `site/css/styles.css` — Minor Additions
+#### `apps/website/css/styles.css` — Minor Additions
 
 Add styles for the consent checkboxes in the hero form. Reuse the existing `.form-checkbox` styles but scoped within `.hero__form`:
 
@@ -183,7 +181,7 @@ Add loading/success states for the hero form:
 ### What
 Update both legal pages to meet A2P registration requirements. Specific sections are missing or need rewording.
 
-### Privacy Policy (`site/privacy-policy/index.html`)
+### Privacy Policy (`apps/website/privacy-policy/index.html`)
 
 The current page is mostly there but needs these additions/changes:
 
@@ -233,7 +231,7 @@ You can control cookie settings through your browser preferences. Disabling cook
 #### Keep everything else as-is
 The existing sections (Information We Collect, How We Use, TCPA Disclosure, How We Share, Data Storage, Your Rights, Children's Privacy, Changes, Contact) are fine.
 
-### Terms of Service (`site/terms/index.html`)
+### Terms of Service (`apps/website/terms/index.html`)
 
 #### Add new section: "SMS/Text Message Terms" (insert as Section 5, renumber subsequent sections)
 
@@ -305,7 +303,7 @@ The single-page form was a temporary requirement for A2P registration. The multi
 
 ### Implementation Details
 
-#### `site/index.html` — Revert Hero Form
+#### `apps/website/index.html` — Revert Hero Form
 
 Restore the hero form to its original state with only two fields:
 1. Property Address (with Mapbox autocomplete)
@@ -322,7 +320,7 @@ The form should go back to storing address + phone in `sessionStorage` and redir
 
 **Reference:** The original `index.html` hero form is in git history on the `main` branch (commit before `feat/a2p-single-page-form` merged).
 
-#### `site/js/main.js` — Revert Form Handler
+#### `apps/website/js/main.js` — Revert Form Handler
 
 Restore the `step1Form` submit handler to its original behavior:
 1. Validate address (non-empty) and phone (10 digits)
@@ -331,7 +329,7 @@ Restore the `step1Form` submit handler to its original behavior:
 
 Remove the direct-submit-to-Lambda logic from the homepage handler.
 
-#### `site/get-your-offer/index.html` — Update Consent Checkboxes
+#### `apps/website/get-your-offer/index.html` — Update Consent Checkboxes
 
 Keep the Step 2 page but update its TCPA consent to use the two-checkbox pattern from Ticket 1:
 - Service consent (required) — same wording as Ticket 1
@@ -339,7 +337,7 @@ Keep the Step 2 page but update its TCPA consent to use the two-checkbox pattern
 
 Replace the current single TCPA checkbox with these two.
 
-#### `lambda/index.js` — Keep Lambda Changes
+#### `services/lead-handler/index.js` — Keep Lambda Changes
 
 The Lambda changes from Ticket 1 (accepting `serviceConsent` + `marketingConsent`) stay. No revert needed on the backend.
 
@@ -356,7 +354,7 @@ The Lambda changes from Ticket 1 (accepting `serviceConsent` + `marketingConsent
 
 ## Lambda Backend Note (applies to Tickets 1 and 3)
 
-**File:** `lambda/index.js`
+**File:** `services/lead-handler/index.js`
 
 Update the `validateLead` function and handler to accept the new consent fields:
 
@@ -393,10 +391,10 @@ This Lambda change is **permanent** — it supports both the A2P single-page for
 
 | File | Ticket 1 | Ticket 2 | Ticket 3 |
 |------|----------|----------|----------|
-| `site/index.html` | ✏️ Hero form → single page | — | ✏️ Revert hero form |
-| `site/js/main.js` | ✏️ Direct submit handler | — | ✏️ Revert to sessionStorage + redirect |
-| `site/css/styles.css` | ✏️ Add hero form checkbox styles | — | — (keep styles) |
-| `site/privacy-policy/index.html` | — | ✏️ Add SMS, mobile info, cookies sections | — |
-| `site/terms/index.html` | — | ✏️ Add SMS terms section | — |
-| `site/get-your-offer/index.html` | — (untouched) | — | ✏️ Update consent checkboxes |
-| `lambda/index.js` | ✏️ Accept new consent fields | — | — (keep changes) |
+| `apps/website/index.html` | ✏️ Hero form → single page | — | ✏️ Revert hero form |
+| `apps/website/js/main.js` | ✏️ Direct submit handler | — | ✏️ Revert to sessionStorage + redirect |
+| `apps/website/css/styles.css` | ✏️ Add hero form checkbox styles | — | — (keep styles) |
+| `apps/website/privacy-policy/index.html` | — | ✏️ Add SMS, mobile info, cookies sections | — |
+| `apps/website/terms/index.html` | — | ✏️ Add SMS terms section | — |
+| `apps/website/get-your-offer/index.html` | — (untouched) | — | ✏️ Update consent checkboxes |
+| `services/lead-handler/index.js` | ✏️ Accept new consent fields | — | — (keep changes) |

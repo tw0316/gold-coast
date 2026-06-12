@@ -1,8 +1,8 @@
 # gcoffers Payload CMS AWS infrastructure
 
-Terraform for the live `gcoffers.com` Next.js + Payload runtime on AWS.
+Terraform for the new whole-site `gcoffers.com` / `deals.gcoffers.com` Next.js + Payload runtime on AWS.
 
-This directory is intentionally separate from the root legacy static Terraform files under `infra/`. The historical static website/API/DNS stack stays in the root legacy files only for rollback/decommission audit context until Tej approves retirement. This stack does not create a Route 53 hosted zone and defaults all DNS cutover, CloudFront alias attachment, and live-alert controls to off.
+This directory is intentionally separate from `infra/website`, which owns the current static website/API/DNS resources. This stack **does not create a Route 53 hosted zone** and defaults all production cutover and live-alert controls to off.
 
 ## What this stack defines
 
@@ -11,33 +11,11 @@ This directory is intentionally separate from the root legacy static Terraform f
 - Internet-facing ALB and target group with health checks at `/api/health/readiness`.
 - RDS Postgres for Payload CMS data/auth with RDS-managed master password in Secrets Manager.
 - Private S3 Payload media bucket with public access blocked, SSE, versioning, and lifecycle controls.
-- Referenced form-submission source-of-truth bucket/prefixes, defaulting to the existing form record bucket without recreating it.
+- Referenced form-submission source-of-truth bucket/prefixes, defaulting to existing `goldcoast-leads` without recreating it.
 - Secrets Manager ARN injection points for `DATABASE_URI`, `PAYLOAD_SECRET`, `GHL_API_KEY`, Slack webhook, and internal alert config.
 - CloudWatch log group, metric filter, and alarms for form persistence failures, ALB 5xx/latency/unhealthy targets, ECS CPU/memory, and RDS CPU/storage.
-- CloudFront distribution in front of the ALB.
+- CloudFront distribution in front of the ALB with safe default aliases/DNS disabled.
 - Optional Route 53 A/AAAA cutover records, gated behind `enable_dns_cutover=true`.
-
-## Domains and aliases
-
-Current live production targets:
-
-- `gcoffers.com`
-- `www.gcoffers.com`
-
-Current staging target:
-
-- `staging.gcoffers.com`
-
-`deals.gcoffers.com` is not a live target. `buyer_domain` defaults to an empty string so Terraform does not model or attach that alias by default.
-
-The staging alias can be represented with:
-
-```hcl
-staging_domain       = "staging.gcoffers.com"
-enable_staging_alias = true
-```
-
-Keep `enable_staging_alias=false` in generic examples and PR validation. Enabling it against real state is an operator reconciliation step, not a default PR behavior.
 
 ## Safety defaults
 
@@ -49,9 +27,9 @@ enable_prod_alias  = false
 enable_live_alerts = false
 ```
 
-Default `ecs_desired_count = 0` also keeps validation/planning safe until a real immutable image and required Secrets Manager values are available. Production should set desired/min count to at least `1` only after deploy approval or through the approved GitHub app deploy workflow.
+Default `ecs_desired_count = 0` also keeps first validation/planning safe until a real immutable image and required Secrets Manager values are available. Production should set desired/min count to at least `1` after deploy approval.
 
-Do not run `terraform apply` from autonomous PR work. Do not change DNS, attach production aliases, send live Slack/email alerts, or mutate production AWS resources without explicit approval.
+Do **not** run `terraform apply` from autonomous PR work. Do **not** change DNS, attach production aliases, send live Slack/email alerts, or mutate production AWS resources without explicit approval.
 
 ## Validation commands
 
@@ -59,9 +37,8 @@ From this directory:
 
 ```bash
 terraform fmt -check -recursive
-terraform init -backend=false -input=false
+terraform init -backend=false
 terraform validate
-rm -rf .terraform .terraform.lock.hcl
 ```
 
 A plan is optional and should only be run with safe credentials/state and cutover/live flags disabled, for example:
@@ -75,7 +52,7 @@ terraform plan \
 
 ## CloudFront caching and route protection
 
-CloudFront forwards `Host` and includes it in the public-page cache key. The app currently serves seller pages at apex/`www` and buyer/deals pages under `/deals`.
+CloudFront forwards `Host` and includes it in the public-page cache key so the app can render seller vs buyer surfaces from the same runtime.
 
 No-cache behavior is configured for paths that must not be cached or must forward auth/session/form details:
 
@@ -101,7 +78,7 @@ The Payload media bucket is private by default:
 
 ## Form submission source of truth
 
-By default, this stack references the existing form source-of-truth bucket:
+By default, this stack references the existing legacy source-of-truth bucket:
 
 ```hcl
 create_form_submissions_bucket = false
@@ -109,11 +86,11 @@ form_submissions_bucket_name   = "goldcoast-leads"
 form_submissions_prefixes      = ["seller-leads/", "buyer-signups/", "deal-interest/"]
 ```
 
-Set `create_form_submissions_bucket=true` only if an approved migration creates a successor bucket. Do not duplicate or take ownership of legacy static stack buckets unintentionally.
+Set `create_form_submissions_bucket=true` only if an approved migration creates a successor bucket. Do not duplicate or take ownership of `infra/website` buckets unintentionally.
 
 ## Secrets
 
-Never put secret values in Terraform variables, docs, logs, or evidence. Provide ARNs only, and redact them in committed docs unless the file intentionally uses placeholders:
+Never put secret values in Terraform variables, docs, logs, or evidence. Provide ARNs only:
 
 ```hcl
 database_uri_secret_arn = "arn:aws:secretsmanager:...:secret:..."
@@ -123,14 +100,14 @@ ghl_api_key_secret_arn  = "arn:aws:secretsmanager:...:secret:..."
 
 Slack/email alert secret ARNs are injected only when `enable_live_alerts=true`; the default is disabled. The app should log only non-PII metadata and emit custom metrics such as `FormSubmissionPersistedToS3`, `FormSubmissionGhlSyncFailed`, and `DealInterestAlertFailed` without raw contact details.
 
-RDS uses `manage_master_user_password = true`; the generated master secret ARN is output as sensitive metadata. The app contract uses a `DATABASE_URI` runtime secret, so operators should maintain a separate `DATABASE_URI` secret for ECS tasks.
+RDS uses `manage_master_user_password = true`; the generated master secret ARN is output as sensitive metadata. The current app contract still supports `DATABASE_URI`, so an operator should create/populate a separate `DATABASE_URI` secret before running tasks, or the app should be updated to derive its URL from the RDS host/user/secret variables.
 
 ## RDS defaults
 
 - Low-cost V1 class: `db.t4g.micro`, Single-AZ, 20 GiB gp3, autoscale to 100 GiB.
 - Non-prod defaults: 1 day backups, deletion protection off, final snapshot skipped.
 - Prod defaults: 7 day backups, deletion protection on, final snapshot required.
-- Production should confirm restore/PITR expectations before major content changes.
+- Production launch should confirm restore/PITR expectations and whether Multi-AZ is required before cutover.
 
 ## DNS and alias cutover
 
@@ -138,7 +115,6 @@ This stack uses data-source/reference patterns only:
 
 - It never creates `gcoffers.com` hosted zone ownership.
 - Production aliases are not attached unless `enable_prod_alias=true` and `cloudfront_acm_certificate_arn` is supplied.
-- Staging alias attachment is separate and gated by `enable_staging_alias=true`.
 - Route 53 A/AAAA records are not created unless `enable_dns_cutover=true`.
 - Use either `route53_zone_id` for the existing zone or let the data source look up `route53_zone_name` only during approved cutover planning.
 

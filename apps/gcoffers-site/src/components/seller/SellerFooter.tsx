@@ -14,6 +14,7 @@ export function SellerFooter() {
             <Link className="footer__logo" href="/" aria-label="Gold Coast Home Buyers home">
               <img src="/assets/logo-full-on-dark.svg" alt="Gold Coast Home Buyers" />
             </Link>
+            <p>{content.footer.description}</p>
             <a href={sellerPhoneHref}>{sellerPhoneLabel}</a>
           </div>
           <nav className="footer__cols" aria-label="Footer navigation">

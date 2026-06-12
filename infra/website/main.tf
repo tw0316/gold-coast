@@ -439,7 +439,7 @@ resource "aws_iam_role_policy" "lambda" {
 # ==========================================================================
 data "archive_file" "lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda"
+  source_dir  = "${path.module}/../../services/lead-handler"
   output_path = "${path.module}/.build/lambda.zip"
 }
 

@@ -1,71 +1,90 @@
 # Gold Coast Home Buyers — gcoffers.com
 
-Gold Coast Home Buyers production monorepo. The active public website for `gcoffers.com` and `www.gcoffers.com` is the Next.js + Payload CMS app in `apps/gcoffers-site`.
+Gold Coast Home Buyers production monorepo. The current production surface is the gcoffers.com lead generation website for a South Florida real estate wholesaling business.
 
-## Current stack
+## Stack
 
-- **App:** Next.js + Payload CMS in `apps/gcoffers-site`
-- **Runtime:** AWS ECS Fargate behind ALB + CloudFront
-- **CMS database:** AWS RDS PostgreSQL
-- **Media:** S3
-- **Lead capture:** S3-first form pipeline, then CRM sync path
-- **DNS:** Route 53 aliases to the Payload CloudFront distribution
-- **IaC:** Terraform in `infra/payload-site`
+- **Frontend:** Static HTML/CSS/JS (no build step)
+- **Hosting:** AWS S3 + CloudFront
+- **Backend:** AWS Lambda + API Gateway (form submissions)
+- **Data:** S3 (source of truth) + GoHighLevel CRM (parallel sync)
+- **DNS:** AWS Route 53
+- **IaC:** Terraform
 
 ## Environments
 
-| Environment | Domain | Runtime policy |
-|-------------|--------|----------------|
-| Production | `gcoffers.com`, `www.gcoffers.com` | Always-on ECS service, deployed from `main` |
-| Staging | `staging.gcoffers.com` | ECS service wakes for explicit manual staging deploys, then production deploys scale it back to zero |
+| Environment | Domain | Access |
+|-------------|--------|--------|
+| Production  | gcoffers.com | Public |
+| Staging     | staging.gcoffers.com | IP-restricted |
 
-## Deployment
+## Quick Start
 
-Deployments run through GitHub Actions.
+```bash
+# Deploy to staging
+./scripts/deploy.sh staging
 
-- **PR check:** `.github/workflows/pr-check.yml` validates pull requests.
-- **Payload deploy:** `.github/workflows/gcoffers-payload-deploy.yml` builds and deploys `apps/gcoffers-site`.
-  - PR pushes run CI only; explicit manual staging dispatches from `main` deploy staging, optionally using `deploy_ref` for PR branch/ref/SHA.
-  - Pushes to `main` and manual production dispatches from `main` deploy production.
-  - Deploys preserve the current ECS desired count, invalidate CloudFront, check readiness, and roll back to the prior task definition if the smoke check fails. Production deploys still scale staging ECS desired count to `0` after production is healthy.
+# Deploy to production
+./scripts/deploy.sh prod
+```
 
-The deploy workflow does **not** apply Terraform, change DNS, or enable live alerts. Those are explicit operational actions and require separate approval.
+## Repository Layout
+
+```text
+apps/
+  website/       Static gcoffers.com website, deployed to the existing S3 buckets
+  deals/         Investor deals portal prototype
+  tools/         Internal browser tools
+  data-lake/     Read-only Gold Coast data lake source extractor and curated table tooling
+services/
+  lead-handler/  Lambda source for website lead capture
+infra/
+  website/       Existing Terraform for website, API Gateway, Lambda, and DNS
+  data-lake-refresh/ ECS Fargate scheduled refresh infrastructure
+sql/
+  data-lake/     Gold Coast analytical SQL and acceptance queries
+docs/
+  ops/           Operating docs, deployment standards, and compliance tickets
+  product/       Product specs and PRDs
+```
+
+## Architecture
+
+```
+User → CloudFront → S3 (static site)
+                  → API Gateway → Lambda → S3 (lead data)
+                                         → GoHighLevel (CRM)
+```
+
+Form submissions hit Lambda via API Gateway. Lambda writes to S3 first (source of truth), then syncs to GoHighLevel CRM in parallel. If GHL fails, the lead is still captured in S3.
 
 ## Development
 
+No build step needed. Edit HTML/CSS/JS directly in `apps/website/` and deploy.
+
 ```bash
-cd apps/gcoffers-site
-npm ci
-npm run typecheck
-npm run build
+# Preview locally
+cd apps/website && python3 -m http.server 8080
 ```
 
-Useful focused checks:
+Data lake local checks:
 
 ```bash
-npm run verify:seller-site
-npm run verify:buyer-deals-site
-npm run verify:s3-first-form-pipeline
+cd apps/data-lake
+PYTHONPATH=src python3 -m pytest tests
 ```
 
 ## Infrastructure
 
-Active Payload infrastructure is modeled in `infra/payload-site`.
+Existing website AWS resources are managed via Terraform in `infra/website/`.
 
 ```bash
-cd infra/payload-site
-terraform fmt -check
-terraform validate
+cd infra/website
+terraform init
+terraform plan -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
+terraform apply -var-file=staging.tfvars -var="ghl_api_key=YOUR_KEY"
 ```
 
-Do not commit local Terraform state, `.terraform/`, `terraform.tfvars`, secrets, or local evidence files.
+## Standards
 
-## Legacy static site
-
-The old static `site/` source and static-site local deploy helpers were removed after the Payload cutover. The historical AWS static infrastructure under the root legacy `infra/` Terraform files is intentionally left in the repo until rollback/decommission resources are audited. See `docs/archive/legacy-static-site-cleanup.md`.
-
-## Operations docs
-
-- Payload runbook: `docs/ops/payload-site-runbook.md`
-- Payload ADR: `docs/architecture/gcoffers-payload-cms-adr.md`
-- Legacy static cleanup note: `docs/archive/legacy-static-site-cleanup.md`
+See [docs/ops/website-standards.md](docs/ops/website-standards.md) for website standards and [docs/ops/data-lake/](docs/ops/data-lake/) for data-lake operating docs.

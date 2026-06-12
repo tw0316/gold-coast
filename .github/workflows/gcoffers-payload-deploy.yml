@@ -1,12 +1,30 @@
 name: gcoffers Payload deploy
 
 'on':
+  pull_request:
+    branches:
+      - main
+      - feat/data-lake-monorepo-slice-1
+    paths:
+      - apps/gcoffers-site/**
+      - infra/payload-site/**
+      - .github/workflows/gcoffers-payload-deploy.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/gcoffers-site/**
+      - infra/payload-site/**
+      - .github/workflows/gcoffers-payload-deploy.yml
   workflow_dispatch:
     inputs:
-      deploy_ref:
-        description: Optional git ref/SHA to build and deploy to staging. Run the workflow from main. When set (non-empty), the production promotion is skipped.
-        required: false
-        type: string
+      target:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
 
 permissions:
   contents: read
@@ -18,21 +36,9 @@ env:
   AWS_PAGER: ""
 
 jobs:
-  validate-dispatch-source:
-    name: Validate manual dispatch source
-    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require workflow dispatch from main
-        shell: bash
-        run: |
-          echo "::error::Manual deploys must run this workflow from main. To test a branch on staging, run the workflow from main and set deploy_ref to the branch/ref/SHA (that run skips the production promotion)."
-          exit 1
-
   deploy-staging:
     name: Deploy staging
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -41,9 +47,6 @@ jobs:
     environment:
       name: staging
       url: ${{ vars.GCOFFERS_PAYLOAD_STAGING_URL }}
-    outputs:
-      image_digest: ${{ steps.imageref.outputs.image_digest }}
-      image_ref: ${{ steps.imageref.outputs.image_ref }}
     env:
       DEPLOY_ENV: staging
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -58,8 +61,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.deploy_ref || github.sha }}
 
       - name: Validate GitHub configuration
         shell: bash
@@ -119,8 +120,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
-        id: ecr
+      - name: Build and push immutable image
+        id: image
         shell: bash
         run: |
           set -euo pipefail
@@ -130,132 +131,39 @@ jobs:
           aws ecr get-login-password --region "$AWS_REGION" \
             | docker login --username AWS --password-stdin "$ecr_registry" >/dev/null
 
-          source_sha="$(git rev-parse --verify HEAD)"
-          echo "Deploying source commit ${source_sha}"
-          image_tag="${DEPLOY_ENV}-${source_sha:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          image_tag_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
+          image_tag="${DEPLOY_ENV}-${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          local_image="gcoffers-payload:${image_tag}"
+          image_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
 
-          echo "registry=${ecr_registry}" >> "$GITHUB_OUTPUT"
-          echo "image_tag_uri=${image_tag_uri}" >> "$GITHUB_OUTPUT"
-          echo "source_sha=${source_sha}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push immutable image
-        id: build
-        shell: bash
-        env:
-          IMAGE_TAG_URI: ${{ steps.ecr.outputs.image_tag_uri }}
-        run: |
-          set -euo pipefail
-
-          # Classic docker build/push (docker driver). This path does not issue
-          # the manifest HEAD pre-check that buildx's registry exporter does, so
-          # it does not require ecr:BatchGetImage — matching the deploy role's
-          # existing permissions (push-only). See deploy role gcoffers-payload-github-deploy.
-          docker build \
-            --file "${APP_DIR}/Dockerfile" \
-            --tag "${IMAGE_TAG_URI}" \
-            "${APP_DIR}"
-
-          docker push "${IMAGE_TAG_URI}"
-
-      - name: Resolve digest-pinned image reference
-        id: imageref
-        shell: bash
-        env:
-          IMAGE_TAG_URI: ${{ steps.ecr.outputs.image_tag_uri }}
-          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          set -euo pipefail
-
-          # Read the authoritative registry digest from the local image's
-          # RepoDigests (populated by the push above). Structured query — no
-          # stdout scraping, no extra ECR API calls.
-          repo_digest="$(docker image inspect "${IMAGE_TAG_URI}" \
-            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
-            | grep "^${ECR_REGISTRY}/${ECR_REPOSITORY}@sha256:" \
-            | head -n1)"
-
-          if [[ -z "${repo_digest}" ]]; then
-            echo "::error::Could not resolve a registry digest (RepoDigests) for ${IMAGE_TAG_URI} after push."
+          docker build --file "${APP_DIR}/Dockerfile" --tag "$local_image" "$APP_DIR"
+          docker tag "$local_image" "$image_uri"
+          if ! docker push "$image_uri" >/tmp/gcoffers-payload-docker-push.log 2>&1; then
+            echo "::error::Docker push failed for immutable ECR tag."
             exit 1
           fi
 
-          image_digest="${repo_digest##*@}"
-          if [[ "${image_digest}" != sha256:* ]]; then
-            echo "::error::Resolved image digest is not a sha256 reference (got '${image_digest}')."
-            exit 1
-          fi
-
-          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}@${image_digest}"
-          echo "image_digest=${image_digest}" >> "$GITHUB_OUTPUT"
-          echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
-          echo "Built and pushed digest-pinned image ${image_ref}"
-
-      - name: Capture current ECS service state
-        id: service_state
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --output json > service-state.json
-
-          python3 <<'PY'
-          import json
-          import os
-          import sys
-
-          with open("service-state.json", encoding="utf-8") as service_file:
-              response = json.load(service_file)
-
-          failures = response.get("failures") or []
-          if failures:
-              print(f"::error::ECS describe-services returned failures: {failures}", file=sys.stderr)
-              sys.exit(1)
-
-          services = response.get("services") or []
-          if len(services) != 1:
-              print(f"::error::Expected exactly one ECS service, found {len(services)}.", file=sys.stderr)
-              sys.exit(1)
-
-          service = services[0]
-          task_definition_arn = service.get("taskDefinition")
-          if not task_definition_arn:
-              print("::error::Could not find the current ECS task definition for the service.", file=sys.stderr)
-              sys.exit(1)
-
-          desired_count = service.get("desiredCount")
-          if not isinstance(desired_count, int) or desired_count < 0:
-              print(f"::error::Invalid ECS desiredCount: {desired_count!r}", file=sys.stderr)
-              sys.exit(1)
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output_file:
-              output_file.write(f"previous_task_definition_arn={task_definition_arn}\n")
-              output_file.write(f"previous_desired_count={desired_count}\n")
-
-          print(f"Captured ECS service state: task_definition={task_definition_arn}, desired_count={desired_count}")
-          PY
+          echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy ECS service
-        id: deploy
         shell: bash
         env:
-          IMAGE_URI: ${{ steps.imageref.outputs.image_ref }}
+          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
         run: |
           set -euo pipefail
 
-          previous_task_definition_arn="${{ steps.service_state.outputs.previous_task_definition_arn }}"
-          previous_desired_count="${{ steps.service_state.outputs.previous_desired_count }}"
+          task_definition_arn="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
 
-          if [[ -z "$previous_task_definition_arn" || -z "$previous_desired_count" ]]; then
-            echo "::error::Missing captured ECS service state."
+          if [[ -z "$task_definition_arn" || "$task_definition_arn" == "None" ]]; then
+            echo "::error::Could not find the current ECS task definition for the service."
             exit 1
           fi
 
           aws ecs describe-task-definition \
-            --task-definition "$previous_task_definition_arn" \
+            --task-definition "$task_definition_arn" \
             --query 'taskDefinition' \
             --output json > task-definition.json
 
@@ -298,24 +206,12 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)"
 
-          echo "new_task_definition_arn=${new_task_definition_arn}" >> "$GITHUB_OUTPUT"
-
-          update_service_args=(
-            --cluster "$ECS_CLUSTER"
-            --service "$ECS_SERVICE"
-            --task-definition "$new_task_definition_arn"
-            --no-cli-pager
-          )
-
-          if [[ "$DEPLOY_ENV" == "staging" && "$previous_desired_count" == "0" ]]; then
-            staging_readiness_desired_count=1
-            echo "::notice::Staging desired count is 0; temporarily scaling to ${staging_readiness_desired_count} so readiness can be smoke checked."
-            update_service_args+=(--desired-count "$staging_readiness_desired_count")
-          else
-            echo "Preserving existing ECS desired count (${previous_desired_count}); update-service will not override it."
-          fi
-
-          aws ecs update-service "${update_service_args[@]}" >/dev/null
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$new_task_definition_arn" \
+            --desired-count 1 \
+            --no-cli-pager >/dev/null
 
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER" \
@@ -355,36 +251,11 @@ jobs:
               sys.exit(1)
           PY
 
-      - name: Roll back ECS service after failed deploy or smoke check
-        if: failure() && steps.service_state.outputs.previous_task_definition_arn != ''
-        shell: bash
-        env:
-          PREVIOUS_TASK_DEFINITION_ARN: ${{ steps.service_state.outputs.previous_task_definition_arn }}
-          PREVIOUS_DESIRED_COUNT: ${{ steps.service_state.outputs.previous_desired_count }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${PREVIOUS_TASK_DEFINITION_ARN:-}" || -z "${PREVIOUS_DESIRED_COUNT:-}" ]]; then
-            echo "::error::Missing captured ECS service state; cannot roll back safely."
-            exit 1
-          fi
-
-          echo "::warning::Deploy failed after ECS state capture; rolling back ${ECS_SERVICE} to ${PREVIOUS_TASK_DEFINITION_ARN} with desired count ${PREVIOUS_DESIRED_COUNT}."
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$PREVIOUS_TASK_DEFINITION_ARN" \
-            --desired-count "$PREVIOUS_DESIRED_COUNT" \
-            --no-cli-pager >/dev/null
-
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
-
-  promote-production:
-    name: Promote to production
-    needs: deploy-staging
-    if: ${{ inputs.deploy_ref == '' }}
+  deploy-production:
+    name: Deploy production
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'production' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -405,11 +276,13 @@ jobs:
       STAGING_ECS_SERVICE: ${{ vars.GCOFFERS_PAYLOAD_STAGING_SERVICE }}
       STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Validate GitHub configuration
         shell: bash
         env:
           AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          PROMOTED_IMAGE_REF: ${{ needs.deploy-staging.outputs.image_ref }}
         run: |
           set -euo pipefail
 
@@ -433,15 +306,9 @@ jobs:
           check_required STAGING_ECS_CLUSTER "variable GCOFFERS_PAYLOAD_STAGING_CLUSTER"
           check_required STAGING_ECS_SERVICE "variable GCOFFERS_PAYLOAD_STAGING_SERVICE"
           check_required STAGING_CLOUDFRONT_DISTRIBUTION_ID "variable GCOFFERS_PAYLOAD_STAGING_CLOUDFRONT_DISTRIBUTION_ID"
-          check_required PROMOTED_IMAGE_REF "deploy-staging job output image_ref"
 
           if [[ "${ECR_REPOSITORY:-}" == *".dkr.ecr."* ]]; then
             echo "::error::GCOFFERS_PAYLOAD_ECR_REPOSITORY must be an ECR repository name, not a registry URL."
-            missing=1
-          fi
-
-          if [[ -n "${PROMOTED_IMAGE_REF:-}" && "${PROMOTED_IMAGE_REF}" != *"@sha256:"* ]]; then
-            echo "::error::Promoted image reference must be digest-pinned (repo@sha256:...), got '${PROMOTED_IMAGE_REF}'."
             missing=1
           fi
 
@@ -473,76 +340,50 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Capture current ECS service state
-        id: service_state
+      - name: Build and push immutable image
+        id: image
         shell: bash
         run: |
           set -euo pipefail
 
-          aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE" \
-            --output json > service-state.json
+          aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          ecr_registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "$ecr_registry" >/dev/null
 
-          python3 <<'PY'
-          import json
-          import os
-          import sys
+          image_tag="${DEPLOY_ENV}-${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          local_image="gcoffers-payload:${image_tag}"
+          image_uri="${ecr_registry}/${ECR_REPOSITORY}:${image_tag}"
 
-          with open("service-state.json", encoding="utf-8") as service_file:
-              response = json.load(service_file)
-
-          failures = response.get("failures") or []
-          if failures:
-              print(f"::error::ECS describe-services returned failures: {failures}", file=sys.stderr)
-              sys.exit(1)
-
-          services = response.get("services") or []
-          if len(services) != 1:
-              print(f"::error::Expected exactly one ECS service, found {len(services)}.", file=sys.stderr)
-              sys.exit(1)
-
-          service = services[0]
-          task_definition_arn = service.get("taskDefinition")
-          if not task_definition_arn:
-              print("::error::Could not find the current ECS task definition for the service.", file=sys.stderr)
-              sys.exit(1)
-
-          desired_count = service.get("desiredCount")
-          if not isinstance(desired_count, int) or desired_count < 0:
-              print(f"::error::Invalid ECS desiredCount: {desired_count!r}", file=sys.stderr)
-              sys.exit(1)
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output_file:
-              output_file.write(f"previous_task_definition_arn={task_definition_arn}\n")
-              output_file.write(f"previous_desired_count={desired_count}\n")
-
-          print(f"Captured ECS service state: task_definition={task_definition_arn}, desired_count={desired_count}")
-          PY
-
-      - name: Deploy ECS service
-        id: deploy
-        shell: bash
-        env:
-          IMAGE_URI: ${{ needs.deploy-staging.outputs.image_ref }}
-        run: |
-          set -euo pipefail
-
-          previous_task_definition_arn="${{ steps.service_state.outputs.previous_task_definition_arn }}"
-          previous_desired_count="${{ steps.service_state.outputs.previous_desired_count }}"
-
-          if [[ -z "$previous_task_definition_arn" || -z "$previous_desired_count" ]]; then
-            echo "::error::Missing captured ECS service state."
+          docker build --file "${APP_DIR}/Dockerfile" --tag "$local_image" "$APP_DIR"
+          docker tag "$local_image" "$image_uri"
+          if ! docker push "$image_uri" >/tmp/gcoffers-payload-docker-push.log 2>&1; then
+            echo "::error::Docker push failed for immutable ECR tag."
             exit 1
           fi
 
-          if [[ -z "${IMAGE_URI:-}" || "${IMAGE_URI}" != *"@sha256:"* ]]; then
-            echo "::error::Promoted image reference is missing or not digest-pinned (got '${IMAGE_URI:-}')."
+          echo "image_uri=${image_uri}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy ECS service
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+        run: |
+          set -euo pipefail
+
+          task_definition_arn="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [[ -z "$task_definition_arn" || "$task_definition_arn" == "None" ]]; then
+            echo "::error::Could not find the current ECS task definition for the service."
             exit 1
           fi
 
           aws ecs describe-task-definition \
-            --task-definition "$previous_task_definition_arn" \
+            --task-definition "$task_definition_arn" \
             --query 'taskDefinition' \
             --output json > task-definition.json
 
@@ -585,77 +426,16 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)"
 
-          echo "new_task_definition_arn=${new_task_definition_arn}" >> "$GITHUB_OUTPUT"
-
-          update_service_args=(
-            --cluster "$ECS_CLUSTER"
-            --service "$ECS_SERVICE"
-            --task-definition "$new_task_definition_arn"
-            --no-cli-pager
-          )
-
-          if [[ "$DEPLOY_ENV" == "staging" && "$previous_desired_count" == "0" ]]; then
-            staging_readiness_desired_count=1
-            echo "::notice::Staging desired count is 0; temporarily scaling to ${staging_readiness_desired_count} so readiness can be smoke checked."
-            update_service_args+=(--desired-count "$staging_readiness_desired_count")
-          else
-            echo "Preserving existing ECS desired count (${previous_desired_count}); update-service will not override it."
-          fi
-
-          aws ecs update-service "${update_service_args[@]}" >/dev/null
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$new_task_definition_arn" \
+            --desired-count 1 \
+            --no-cli-pager >/dev/null
 
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
-
-      - name: Assert deployed task definition image matches promoted digest
-        shell: bash
-        env:
-          EXPECTED_IMAGE_REF: ${{ needs.deploy-staging.outputs.image_ref }}
-          NEW_TASK_DEFINITION_ARN: ${{ steps.deploy.outputs.new_task_definition_arn }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${EXPECTED_IMAGE_REF:-}" || -z "${NEW_TASK_DEFINITION_ARN:-}" ]]; then
-            echo "::error::Missing expected image reference or registered task definition ARN for assertion."
-            exit 1
-          fi
-
-          aws ecs describe-task-definition \
-            --task-definition "$NEW_TASK_DEFINITION_ARN" \
-            --query 'taskDefinition' \
-            --output json > registered-task-definition.json
-
-          python3 <<'PY'
-          import json
-          import os
-          import sys
-
-          with open("registered-task-definition.json", encoding="utf-8") as task_file:
-              task_definition = json.load(task_file)
-
-          expected = os.environ["EXPECTED_IMAGE_REF"]
-          container_name = os.environ.get("CONTAINER_NAME", "app")
-          images = [
-              container.get("image")
-              for container in task_definition.get("containerDefinitions", [])
-              if container.get("name") == container_name
-          ]
-
-          if not images:
-              print(f"::error::Container {container_name!r} was not found in the registered task definition.", file=sys.stderr)
-              sys.exit(1)
-
-          actual = images[0]
-          if actual != expected:
-              print(
-                  f"::error::Registered production task definition image {actual!r} does not match the promoted staging image {expected!r}.",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
-          print(f"Verified production task definition image matches the promoted staging digest: {actual}")
-          PY
 
       - name: Invalidate CloudFront and smoke check readiness
         shell: bash
@@ -690,32 +470,6 @@ jobs:
               print("::error::Readiness endpoint did not return ok=true.", file=sys.stderr)
               sys.exit(1)
           PY
-
-      - name: Roll back ECS service after failed deploy or smoke check
-        if: failure() && steps.service_state.outputs.previous_task_definition_arn != ''
-        shell: bash
-        env:
-          PREVIOUS_TASK_DEFINITION_ARN: ${{ steps.service_state.outputs.previous_task_definition_arn }}
-          PREVIOUS_DESIRED_COUNT: ${{ steps.service_state.outputs.previous_desired_count }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${PREVIOUS_TASK_DEFINITION_ARN:-}" || -z "${PREVIOUS_DESIRED_COUNT:-}" ]]; then
-            echo "::error::Missing captured ECS service state; cannot roll back safely."
-            exit 1
-          fi
-
-          echo "::warning::Deploy failed after ECS state capture; rolling back ${ECS_SERVICE} to ${PREVIOUS_TASK_DEFINITION_ARN} with desired count ${PREVIOUS_DESIRED_COUNT}."
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$PREVIOUS_TASK_DEFINITION_ARN" \
-            --desired-count "$PREVIOUS_DESIRED_COUNT" \
-            --no-cli-pager >/dev/null
-
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
 
       - name: Scale staging ECS compute off
         shell: bash
