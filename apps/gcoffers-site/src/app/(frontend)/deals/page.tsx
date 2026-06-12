@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   },
 }
 
+// Render at request time against live Payload data so the active-deals list never bakes
+// build-time fallback content (the production image is built in CI without DB access).
+export const dynamic = 'force-dynamic'
+
 export default async function DealsPage() {
   const activeDeals = await listBuyerActiveDeals()
   return <BuyerDealsIndexPage activeDeals={activeDeals} />

@@ -130,6 +130,17 @@ const asMediaReference = (value: unknown): PublicMediaReference | null => {
   return null
 }
 
+// videoTourUrl is free CMS text rendered into a public <a href>. Only allow http(s) so a
+// stray value like "javascript:..." can never become a clickable script URL.
+const asExternalHttpUrl = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : null
+}
+
 // Map an already-sanitized public deal (Payload doc or fixture fallback) into the
 // buyer view-model the components render. All private fields are assumed already
 // stripped by sanitizeDealForPublic; this layer only shapes display data.
@@ -199,7 +210,7 @@ export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
     featureTagLabels: labelsFor(featureTags, FEATURE_TAG_LABELS),
     coverPhoto,
     photos,
-    videoTourUrl: asNullableString(deal.videoTourUrl),
+    videoTourUrl: asExternalHttpUrl(deal.videoTourUrl),
     heroVisual: deriveHeroVisual(propertyType, dealStatus),
     publishedAt: asString(deal.publishedAt),
     closedAt: asNullableString(deal.closedAt),

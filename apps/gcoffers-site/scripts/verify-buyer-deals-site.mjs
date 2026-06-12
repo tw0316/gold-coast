@@ -122,11 +122,16 @@ assert(
   'buyer deal loader reads through the sanitized public query helpers',
 )
 assert(!/overrideAccess:\s*true/.test(buyerDealsLoader), 'buyer deal loader never forces overrideAccess true')
+assert(
+  !buyerDealsLoader.includes('phase-production-build'),
+  'production build does not bake buyer fixtures into public routes (fixtures are dev/offline only)',
+)
 
 // Admin edits refresh public deal surfaces on demand via collection hooks.
 const dealsCollection = read('src/collections/Deals.ts')
 assert(dealsCollection.includes('afterChange') && dealsCollection.includes('afterDelete'), 'Deals collection wires revalidation hooks')
 assert(dealsCollection.includes('revalidatePath'), 'Deals collection revalidates public deal paths on change')
+assert(dealsCollection.includes('previousDoc'), 'slug edits also revalidate the previous deal path (rename leaves no stale page)')
 assert(dealsCollection.includes("name: 'bestUse'"), 'Deals collection exposes the buyer-facing bestUse field')
 assert(!/name:\s*'dealType'/.test(dealsCollection), 'retired internal dealType field is removed from the Deals collection')
 assert(!/name:\s*'neighborhood'/.test(dealsCollection), 'collapsed neighborhood field is removed from the Deals collection')
@@ -147,6 +152,7 @@ for (const marker of ['toBuyerView', 'getPublicLocationLabel', 'BEST_USE_LABELS'
   assert(dealView.includes(marker), `deal view-model uses ${marker}`)
 }
 assert(!dealView.includes('internalNotes'), 'deal view-model never references internalNotes')
+assert(dealView.includes('asExternalHttpUrl'), 'videoTourUrl is restricted to http(s) before public render')
 
 assert(visibility.includes("'bestUse'"), 'sanitized public deal keeps bestUse')
 assert(!visibility.includes("'dealType'"), 'sanitized public deal drops retired dealType')
@@ -189,6 +195,10 @@ assert(frontendRoot.includes('getBuyerHomeDealData'), 'buyer root loads deals fr
 const frontendDealsRoute = read('src/app/(frontend)/deals/page.tsx')
 assert(frontendDealsRoute.includes('listBuyerActiveDeals'), 'frontend deals route loads active deals from Payload')
 assert(frontendDealsRoute.includes('await'), 'frontend deals route awaits the Payload deal load')
+assert(
+  frontendDealsRoute.includes("dynamic = 'force-dynamic'"),
+  '/deals renders dynamically so it never bakes build-time fallback content',
+)
 
 const emailCapture = read('src/components/buyer/BuyerEmailCapture.tsx')
 assert(emailCapture.includes('href="/join/"'), 'buyer home email CTA links to /join/ without query params')
