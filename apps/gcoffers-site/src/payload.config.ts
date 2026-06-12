@@ -2,6 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { postgresAdapter } from '@payloadcms/db-postgres'
+import { s3Storage } from '@payloadcms/storage-s3'
 import { buildConfig } from 'payload'
 import sharp from 'sharp'
 
@@ -94,6 +95,23 @@ export default buildConfig({
     },
     prodMigrations: migrations,
   }),
+  // Media is stored in a PRIVATE S3 bucket (provisioned by infra/payload-site). Files are
+  // never publicly readable directly; staff access goes through Payload's access-controlled
+  // file route, and public delivery is app-mediated through /api/media/public/[id], which
+  // re-checks media eligibility and a live public deal/page reference before streaming.
+  plugins: [
+    // No ACL is set: the media bucket uses BucketOwnerEnforced (ACLs disabled) plus a public
+    // access block, so objects are private by ownership. Public delivery is app-mediated.
+    s3Storage({
+      bucket: process.env.PAYLOAD_MEDIA_BUCKET ?? 'gcoffers-media-unset',
+      collections: {
+        media: true,
+      },
+      config: {
+        region: process.env.AWS_REGION,
+      },
+    }),
+  ],
   secret: payloadSecret,
   serverURL,
   sharp,
