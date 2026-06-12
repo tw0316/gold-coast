@@ -48,7 +48,7 @@ from gold_coast_data_lake.transcription import (
     normalize_error_payload,
     sanitize_error_value,
     sanitize_text,
-    transcribe_with_openai_fallback,
+    transcribe_with_deterministic_strategy,
 )
 
 
@@ -512,7 +512,7 @@ def process_source_call(
                     "recording_byte_count": downloaded.byte_count,
                 }
             )
-            provider_result = transcribe_with_openai_fallback(
+            provider_result = transcribe_with_deterministic_strategy(
                 provider=provider,
                 audio_path=downloaded.path,
                 duration_seconds=source_row.get("recording_duration_seconds") or source_row.get("duration_seconds"),
@@ -663,6 +663,7 @@ def archived_recordings_sql(args: argparse.Namespace, *, limit: int, include_exi
     existing_join = ""
     existing_where = ""
     if include_existing_filter:
+        existing_models = ", ".join(sql_literal(model) for model in successful_transcription_models(args))
         existing_join = f"""
 LEFT JOIN {args.glue_database}.call_transcripts t
     ON t.call_message_id = c.call_message_id
@@ -672,7 +673,7 @@ LEFT JOIN {args.glue_database}.call_transcripts t
     )
     AND t.artifact_schema_version = {sql_literal(args.artifact_schema_version)}
     AND t.provider = {sql_literal(args.provider)}
-    AND t.transcription_model IN ({sql_literal(args.model)}, {sql_literal(args.fallback_model)})
+    AND t.transcription_model IN ({existing_models})
     AND t.transcription_status = 'succeeded'
 """
         existing_where = "AND t.call_message_id IS NULL"
@@ -1257,7 +1258,7 @@ def source_success_lookup_keys(source: Mapping[str, Any], args: argparse.Namespa
             args.provider,
             model,
         )
-        for model in {args.model, args.fallback_model}
+        for model in successful_transcription_models(args)
     }
 
 
@@ -1265,8 +1266,22 @@ def source_call_model_keys(source: Mapping[str, Any], args: argparse.Namespace) 
     call_message_id = str(source.get("call_message_id") or source.get("message_id"))
     return {
         (call_message_id, args.artifact_schema_version, args.provider, model)
-        for model in {args.model, args.fallback_model}
+        for model in successful_transcription_models(args)
     }
+
+
+def successful_transcription_models(args: argparse.Namespace) -> tuple[str, ...]:
+    models = [args.model, args.fallback_model]
+    if args.model and args.fallback_model and args.model != args.fallback_model:
+        models.extend([f"{args.model}+{args.fallback_model}", f"{args.fallback_model}+{args.model}"])
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for model in models:
+        text = str(model).strip()
+        if text and text not in seen:
+            seen.add(text)
+            ordered.append(text)
+    return tuple(ordered)
 
 
 def source_recording_sha(source: Mapping[str, Any]) -> str:
