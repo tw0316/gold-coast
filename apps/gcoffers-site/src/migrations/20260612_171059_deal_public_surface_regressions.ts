@@ -13,6 +13,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     WITH normalized AS (
       SELECT
         "id",
+        "slug",
         COALESCE(
           NULLIF(
             regexp_replace(
@@ -34,7 +35,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         row_number() OVER (
           PARTITION BY "base_slug"
           ORDER BY
-            CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END,
+            CASE WHEN COALESCE("slug", '') = "base_slug" THEN 0 ELSE 1 END,
             "id"
         ) AS "slug_rank",
         count(*) OVER (PARTITION BY "base_slug") AS "slug_count"
