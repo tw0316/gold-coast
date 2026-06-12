@@ -106,7 +106,7 @@ export const buyerFaqContent = {
     {
       question: 'What happens when I submit deal interest?',
       answer:
-        'This slice defines the form contract and local endpoint target. The secure persistence and notification API route is implemented in slice 6, so the form does not show a fake success state here.',
+        'Use the buyer form to share your email and optional buy-box details. We will follow up when an opportunity matches your criteria.',
     },
     {
       question: 'Are sold deals available?',

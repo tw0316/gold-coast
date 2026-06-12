@@ -401,7 +401,7 @@ export const sellerLegalPages = {
     title: 'Privacy Policy',
     lastUpdated: 'March 6, 2026',
     intro: [
-      'Gold Coast Offers LLC, doing business as Gold Coast Home Buyers, operates the website gcoffers.com. This Privacy Policy describes how we collect, use, disclose, and protect information submitted through the Site, online forms, phone, email, or text communications.',
+      'Gold Coast Offers LLC operates the website gcoffers.com. This Privacy Policy describes how we collect, use, disclose, and protect information submitted through the Site, online forms, phone, email, or text communications.',
       'By accessing or using the Site or submitting information through our forms, you acknowledge that you have read and understand this Privacy Policy.',
     ],
     sections: [
@@ -491,7 +491,7 @@ export const sellerLegalPages = {
     title: 'Terms of Service',
     lastUpdated: 'March 6, 2026',
     intro: [
-      'Welcome to gcoffers.com, owned and operated by Gold Coast Offers LLC, doing business as Gold Coast Home Buyers. By accessing or using this Site, you agree to be bound by these Terms of Service.',
+      'Welcome to gcoffers.com, owned and operated by Gold Coast Offers LLC. By accessing or using this Site, you agree to be bound by these Terms of Service.',
     ],
     sections: [
       {

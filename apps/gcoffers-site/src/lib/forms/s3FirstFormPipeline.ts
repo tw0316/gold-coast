@@ -326,6 +326,13 @@ export function buildSellerLeadSubmission(
     errors.push(requiredError('phone', 'Phone must be valid when provided.'))
   }
 
+  const serviceConsent = getBooleanField(body, 'serviceConsent')
+  const marketingConsent = getBooleanField(body, 'marketingConsent')
+
+  if (phone && !serviceConsent) {
+    errors.push(requiredError('serviceConsent', 'Service SMS consent is required when a phone number is provided.'))
+  }
+
   if (errors.length > 0 || !email) {
     return { ok: false, errors }
   }
@@ -333,8 +340,6 @@ export function buildSellerLeadSubmission(
   const emailHash = hashIdentifier(email)
   const { datePrefix, keyTimestamp } = getS3KeyParts(now)
   const s3Key = `seller-leads/${datePrefix}/seller-${keyTimestamp}-${emailHash}.json`
-  const serviceConsent = getBooleanField(body, 'serviceConsent')
-  const marketingConsent = getBooleanField(body, 'marketingConsent')
   const record = {
     formType: 'seller-lead',
     schemaVersion: FORM_PIPELINE_SCHEMA_VERSION,
@@ -402,6 +407,13 @@ export function buildBuyerSignupSubmission(
     errors.push(requiredError('phone', 'Phone must be valid when provided.'))
   }
 
+  const serviceConsent = getBooleanField(body, 'serviceConsent')
+  const marketingConsent = getBooleanField(body, 'marketingConsent')
+
+  if (phone && !serviceConsent) {
+    errors.push(requiredError('serviceConsent', 'Service SMS consent is required when a phone number is provided.'))
+  }
+
   if (errors.length > 0 || !email) {
     return { ok: false, errors }
   }
@@ -409,8 +421,6 @@ export function buildBuyerSignupSubmission(
   const emailHash = hashIdentifier(email)
   const { datePrefix, keyTimestamp } = getS3KeyParts(now)
   const s3Key = `buyer-signups/${datePrefix}/buyer-${keyTimestamp}-${emailHash}.json`
-  const serviceConsent = getBooleanField(body, 'serviceConsent')
-  const marketingConsent = getBooleanField(body, 'marketingConsent')
   const smsConsent = Boolean(phone && serviceConsent)
   const record = {
     formType: 'buyer-signup',
@@ -437,7 +447,7 @@ export function buildBuyerSignupSubmission(
   const sideEffects = [
     createGhlMockEffect({
       tags: ghlTags,
-      source: 'Deals Website - deals.gcoffers.com',
+      source: 'Deals Website - gcoffers.com',
       smsEligible: smsConsent,
     }),
     createPayloadMirrorMockEffect({ collection: 'buyer-signups' }),
@@ -484,6 +494,12 @@ export function buildDealInterestSubmission(
     errors.push(requiredError('phone', 'Phone must be valid when provided.'))
   }
 
+  const serviceConsent = getBooleanField(body, 'serviceConsent')
+
+  if (phone && !serviceConsent) {
+    errors.push(requiredError('serviceConsent', 'Service SMS consent is required when a phone number is provided.'))
+  }
+
   if (errors.length > 0 || !email || !dealSlug) {
     return { ok: false, errors }
   }
@@ -491,7 +507,6 @@ export function buildDealInterestSubmission(
   const emailHash = hashIdentifier(email)
   const { datePrefix, keyTimestamp } = getS3KeyParts(now)
   const s3Key = `deal-interest/${datePrefix}/${dealSlug}-${keyTimestamp}-${emailHash}.json`
-  const serviceConsent = getBooleanField(body, 'serviceConsent')
   const smsConsent = Boolean(phone && serviceConsent)
   const ghlTag = `interested-${dealSlug}`
   const ghlNote = `Interest in deal ${dealSlug} submitted at ${submittedAt}. Exact address omitted from the CRM note.`

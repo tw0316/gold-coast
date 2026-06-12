@@ -1,3 +1,5 @@
+'use client'
+
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 import {
   BUYER_FORM_HONEYPOT_FIELD,
@@ -7,27 +9,33 @@ import {
   DEAL_INTEREST_SOURCE,
 } from '@/lib/buyer/formContract'
 
+import { useInlineFormSubmit } from '../forms/useInlineFormSubmit'
+
 type DealInterestFormProps = {
   deal: BuyerPublicDeal
 }
 
+const dealInterestSuccessMessage = "Got it. We'll follow up with next steps on this deal."
+
 export function DealInterestForm({ deal }: DealInterestFormProps) {
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({
+    requireServiceConsentForPhone: true,
+    successMessage: dealInterestSuccessMessage,
+  })
+
   return (
     <form
       id="deal-interest-form"
       className="buyer-form-card buyer-form-card--compact"
       action={DEAL_INTEREST_POST_TARGET}
       method="post"
-      data-deal-interest-contract="email-required-lightweight-interest"
-      data-s3-first-contract="deal-interest"
+      data-form="deal-interest"
+      onSubmit={submitForm}
     >
       <div className="buyer-form-card__header">
         <p className="eyebrow">Interest CTA</p>
         <h2 id="buyer-interest-title">Interested in this deal?</h2>
-        <p>
-          Send a lightweight request. This baseline has no live side effects; the future handler must persist to S3
-          before CRM, alert, email, or admin mirror work.
-        </p>
+        <p>Send a quick request and we will follow up with the next steps for this opportunity.</p>
       </div>
 
       <input type="hidden" name="dealSlug" value={deal.slug} />
@@ -58,7 +66,7 @@ export function DealInterestForm({ deal }: DealInterestFormProps) {
       <div className="form-checkbox buyer-legal-checkbox">
         <input id="deal-interest-service-consent" name="serviceConsent" type="checkbox" value="true" />
         <label htmlFor="deal-interest-service-consent">
-          If I provide a phone number, I consent to receive service-related SMS messages from Gold Coast Home Buyers
+          If I provide a phone number, I consent to receive service-related SMS messages from Gold Coast Offers LLC
           about this deal, availability updates, and transaction communications. Message frequency varies. Message
           and data rates may apply. Reply STOP to opt out. Consent is not a condition of purchase.
         </label>
@@ -74,9 +82,18 @@ export function DealInterestForm({ deal }: DealInterestFormProps) {
         />
       </div>
 
-      <button type="submit" className="btn btn--primary btn--large btn--full">
-        I&apos;m Interested — Send Me Details
+      <button type="submit" className="btn btn--primary btn--large btn--full" disabled={isSubmitting}>
+        {isSubmitting ? 'Sending...' : "I'm Interested — Send Me Details"}
       </button>
+      {status.state !== 'idle' ? (
+        <p
+          className={`form-status active form-status--${status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'loading'}`}
+          role={status.state === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          {status.message}
+        </p>
+      ) : null}
       <p className="buyer-form-card__fine-print">
         Exact address is not included unless explicitly approved for public display. Buyer diligence is required.
       </p>

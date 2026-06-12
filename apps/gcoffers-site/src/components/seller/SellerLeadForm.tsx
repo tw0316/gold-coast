@@ -6,6 +6,8 @@ import Link from 'next/link'
 
 import { SELLER_LEAD_HONEYPOT_FIELD, SELLER_LEAD_POST_TARGET, SELLER_LEAD_SOURCE } from '@/lib/seller/formContract'
 
+import { useInlineFormSubmit } from '../forms/useInlineFormSubmit'
+
 type SellerLeadContext = {
   page: string
   referrer: string
@@ -25,6 +27,8 @@ const initialLeadContext: SellerLeadContext = {
   referrer: '',
   userAgent: '',
 }
+
+const sellerLeadSuccessMessage = "Got it. We'll review the property and follow up shortly."
 
 function getPhoneDigits(value: FormDataEntryValue | null) {
   return String(value ?? '').replace(/\D/g, '')
@@ -56,6 +60,7 @@ export function SellerLeadForm() {
   const [currentStep, setCurrentStep] = useState(0)
   const [leadContext, setLeadContext] = useState<SellerLeadContext>(initialLeadContext)
   const [errors, setErrors] = useState<SellerLeadErrors>({})
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({ successMessage: sellerLeadSuccessMessage })
 
   const progressSteps = useMemo(() => [0, 1, 2], [])
 
@@ -112,7 +117,9 @@ export function SellerLeadForm() {
     setErrors({})
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
     const formData = new FormData(event.currentTarget)
     const nextErrors: SellerLeadErrors = {
       address: String(formData.get('address') ?? '').trim().length < 5,
@@ -126,10 +133,10 @@ export function SellerLeadForm() {
     setErrors(nextErrors)
 
     if (!hasErrors) {
+      await submitForm(event)
       return
     }
 
-    event.preventDefault()
     const nextStep = getStepFromErrors(nextErrors)
     setCurrentStep(nextStep)
 
@@ -154,7 +161,7 @@ export function SellerLeadForm() {
       method="post"
       action={SELLER_LEAD_POST_TARGET}
       noValidate
-      data-seller-lead-contract="slice-6-s3-first"
+      data-form="seller-lead"
       onSubmit={handleSubmit}
     >
       <input type="hidden" name="source" value={SELLER_LEAD_SOURCE} />
@@ -311,10 +318,9 @@ export function SellerLeadForm() {
               <input id="service-consent" name="serviceConsent" type="checkbox" value="true" />
               <span>
                 If I provide a phone number, I agree to receive service-related SMS messages (appointment
-                confirmations, property updates, document requests, follow-ups) from Gold Coast Home Buyers,
-                dba W &amp; Co LLC, at the number above. Automated messages may be used; frequency varies;
-                message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a
-                condition of purchase.
+                confirmations, property updates, document requests, follow-ups) from Gold Coast Offers LLC at the
+                number above. Automated messages may be used; frequency varies; message &amp; data rates may apply.
+                Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
               </span>
             </label>
             <span className={`error-message${errors.serviceConsent ? ' active' : ''}`} id="service-consent-error">
@@ -325,9 +331,9 @@ export function SellerLeadForm() {
             <label className="checkbox" htmlFor="marketing-consent">
               <input id="marketing-consent" name="marketingConsent" type="checkbox" value="true" />
               <span>
-                I agree to receive marketing SMS messages (property opportunities, offers, company updates).
-                Frequency varies; message &amp; data rates may apply. Reply STOP to opt out. Consent is not a
-                condition of purchase.
+                I agree to receive marketing SMS messages from Gold Coast Offers LLC (property opportunities, offers,
+                company updates). Frequency varies; message &amp; data rates may apply. Reply STOP to opt out.
+                Consent is not a condition of purchase.
               </span>
             </label>
           </div>
@@ -340,10 +346,19 @@ export function SellerLeadForm() {
           <button className="btn btn--outline offer-back" type="button" onClick={() => goToStep(1)}>
             Back
           </button>
-          <button className="btn" type="submit">
-            Get my cash offer
+          <button className="btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Sending...' : 'Get my cash offer'}
           </button>
         </div>
+        {status.state !== 'idle' ? (
+          <p
+            className={`form-status active form-status--${status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'loading'}`}
+            role={status.state === 'error' ? 'alert' : 'status'}
+            aria-live="polite"
+          >
+            {status.message}
+          </p>
+        ) : null}
       </div>
     </form>
   )

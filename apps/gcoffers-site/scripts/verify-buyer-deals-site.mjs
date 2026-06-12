@@ -63,16 +63,16 @@ assert(frontendRoot.includes('<BuyerHomePage'), 'buyer host root renders BuyerHo
 assert(frontendRoot.includes('<SellerHomePage'), 'seller host root still renders SellerHomePage')
 const buyerRootMetadata = frontendRoot.match(/if \(routeSurface === 'buyer'\) \{[\s\S]*?return \{([\s\S]*?)\n    \}\n  \}/)?.[1] ?? ''
 assert(
-  buyerRootMetadata.includes("metadataBase: new URL('https://deals.gcoffers.com')"),
-  'buyer root metadata explicitly sets deals.gcoffers.com metadataBase',
+  buyerRootMetadata.includes("metadataBase: new URL('https://gcoffers.com')"),
+  'buyer root metadata explicitly sets gcoffers.com metadataBase',
 )
 assert(
-  buyerRootMetadata.includes("canonical: 'https://deals.gcoffers.com/'"),
-  'buyer root metadata uses deals.gcoffers.com canonical URL',
+  buyerRootMetadata.includes("canonical: 'https://gcoffers.com/'"),
+  'buyer root metadata uses gcoffers.com canonical URL',
 )
 assert(
-  buyerRootMetadata.includes("url: 'https://deals.gcoffers.com/'"),
-  'buyer root OpenGraph URL uses deals.gcoffers.com',
+  buyerRootMetadata.includes("url: 'https://gcoffers.com/'"),
+  'buyer root OpenGraph URL uses gcoffers.com',
 )
 assert(!buyerRootMetadata.includes('/assets/og-image.jpg'), 'buyer root OpenGraph metadata does not inherit seller OG image')
 assert(!exists('src/app/(buyer)/page.tsx'), 'no conflicting buyer route-group root page exists')
@@ -281,8 +281,8 @@ assert(!formContract.includes("from './formContracts'"), 'canonical buyer formCo
 for (const marker of [
   "BUYER_SIGNUP_POST_TARGET = '/api/buyer-signups'",
   "DEAL_INTEREST_POST_TARGET = '/api/deal-interest'",
-  "BUYER_SIGNUP_FORM_CONTRACT = 'slice-6-s3-first-buyer-signup'",
-  "DEAL_INTEREST_FORM_CONTRACT = 'slice-6-s3-first-deal-interest'",
+  "BUYER_SIGNUP_FORM_CONTRACT = 'buyer-signup'",
+  "DEAL_INTEREST_FORM_CONTRACT = 'deal-interest'",
   "DEAL_INTEREST_PHONE_CONSENT_CONTRACT = 'phone-requires-service-consent'",
   'buyerSignupFormContract',
   'dealInterestFormContract',
@@ -295,11 +295,14 @@ for (const marker of [
 
 const signupForm = read('src/components/buyer/BuyerSignupForm.tsx')
 const frontendDealsIndex = read('src/components/buyer/BuyerDealsIndexPage.tsx')
+const listSignupForm = read('src/components/buyer/BuyerListSignupForm.tsx')
 const interestForm = read('src/components/buyer/DealInterestForm.tsx')
 assert(signupForm.includes("from '@/lib/buyer/formContract'"), 'buyer signup form imports canonical form contract module')
 assert(!signupForm.includes('prefilledEmail'), 'buyer signup form does not prefill email from URL data')
-assert(signupForm.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'buyer signup form posts to future local endpoint')
+assert(signupForm.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'buyer signup form posts to the buyer signup endpoint')
 assert(signupForm.includes('method="post"'), 'buyer signup form uses POST')
+assert(signupForm.includes('data-form="buyer-signup"'), 'buyer signup form uses a neutral public form marker')
+assert(signupForm.includes('useInlineFormSubmit'), 'buyer signup form submits inline instead of navigating to JSON')
 assert(signupForm.includes('name="email"') && signupForm.includes('required'), 'buyer signup form requires email')
 for (const field of ['fullName', 'phone', 'buyerType', 'areas', 'propertyTypes', 'priceRange', 'purchaseMethod']) {
   assert(signupForm.includes(`name="${field}"`), `buyer signup form includes optional/progressive field: ${field}`)
@@ -311,34 +314,40 @@ for (const checkbox of ['serviceConsent', 'marketingConsent']) {
   assert(!/\b(defaultChecked|checked)\b/.test(tag), `${checkbox} checkbox is not prechecked`)
 }
 assert(signupForm.includes('name="contract"'), 'buyer signup form sends explicit contract marker')
-assert(signupForm.includes('future route must write to S3 first') || signupForm.includes('future route must write to S3'), 'buyer signup copy documents future S3-first persistence')
-assert(!/success|thank you|submitted/i.test(signupForm), 'buyer signup form does not claim fake persistence success')
+assert(signupForm.includes("You're on the list. We'll send deals that match your buy box."), 'buyer signup form has the approved inline success message')
+assert(!/future route|form contract only|local endpoint|fake persistence/i.test(signupForm), 'buyer signup form has no implementation-leak copy')
 
 assert(frontendDealsIndex.includes('<BuyerDealCard'), 'deals index renders deal cards when inventory exists')
 assert(frontendDealsIndex.includes('activeDeals'), 'deals index consumes server-provided active deals')
-assert(frontendDealsIndex.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
-assert(frontendDealsIndex.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
-assert(frontendDealsIndex.includes('method="post"'), 'frontend deals signup uses POST')
-assert(frontendDealsIndex.includes('data-s3-first-contract="buyer-signup"'), 'frontend deals signup declares S3-first contract')
-assert(frontendDealsIndex.includes('name="contract"'), 'frontend deals signup sends explicit contract marker')
-const frontendDealsEmailTag = frontendDealsIndex.match(/<input[^>]+id="buyer-email"[^>]*>/s)?.[0] ?? ''
-const frontendDealsFullNameTag = frontendDealsIndex.match(/<input[^>]+id="buyer-full-name"[^>]*>/s)?.[0] ?? ''
-const frontendDealsPhoneTag = frontendDealsIndex.match(/<input[^>]+id="buyer-phone"[^>]*>/s)?.[0] ?? ''
-const frontendDealsBuyerTypeTag = frontendDealsIndex.match(/<select[^>]+id="buyer-type"[^>]*>/s)?.[0] ?? ''
+assert(frontendDealsIndex.includes('BuyerListSignupForm'), 'deals index renders the reusable buyer signup form')
+assert(listSignupForm.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
+assert(listSignupForm.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
+assert(listSignupForm.includes('method="post"'), 'frontend deals signup uses POST')
+assert(listSignupForm.includes('data-form="buyer-signup"'), 'frontend deals signup uses a neutral public form marker')
+assert(!listSignupForm.includes('data-s3-first-contract'), 'frontend deals signup does not expose implementation contract markers')
+assert(listSignupForm.includes('useInlineFormSubmit'), 'frontend deals signup submits inline instead of navigating to JSON')
+assert(listSignupForm.includes('name="contract"'), 'frontend deals signup sends explicit contract marker')
+assert(listSignupForm.includes("You're on the list. We'll send deals that match your buy box."), 'frontend deals signup has the approved inline success message')
+const frontendDealsEmailTag = listSignupForm.match(/<input[^>]+id="buyer-email"[^>]*>/s)?.[0] ?? ''
+const frontendDealsFullNameTag = listSignupForm.match(/<input[^>]+id="buyer-full-name"[^>]*>/s)?.[0] ?? ''
+const frontendDealsPhoneTag = listSignupForm.match(/<input[^>]+id="buyer-phone"[^>]*>/s)?.[0] ?? ''
+const frontendDealsBuyerTypeTag = listSignupForm.match(/<select[^>]+id="buyer-type"[^>]*>/s)?.[0] ?? ''
 assert(frontendDealsEmailTag.includes('name="email"') && frontendDealsEmailTag.includes('required'), 'frontend deals signup requires email')
 assert(frontendDealsFullNameTag.includes('name="fullName"') && !/\brequired\b/.test(frontendDealsFullNameTag), 'frontend deals signup keeps full name optional')
 assert(frontendDealsPhoneTag.includes('name="phone"') && !/\brequired\b/.test(frontendDealsPhoneTag), 'frontend deals signup keeps phone optional')
 assert(frontendDealsBuyerTypeTag.includes('name="buyerType"') && !/\brequired\b/.test(frontendDealsBuyerTypeTag), 'frontend deals signup keeps buyer type optional')
 for (const checkbox of ['serviceConsent', 'marketingConsent']) {
   const pattern = new RegExp(`<input[^>]+name="${checkbox}"[^>]*>`, 's')
-  const tag = frontendDealsIndex.match(pattern)?.[0] ?? ''
+  const tag = listSignupForm.match(pattern)?.[0] ?? ''
   assert(tag.includes('type="checkbox"'), `frontend deals ${checkbox} is an explicit checkbox`)
   assert(!/\b(defaultChecked|checked)\b/.test(tag), `frontend deals ${checkbox} checkbox is not prechecked`)
 }
 
 assert(interestForm.includes("from '@/lib/buyer/formContract'"), 'deal interest form imports canonical form contract module')
-assert(interestForm.includes('action={DEAL_INTEREST_POST_TARGET}'), 'deal interest form posts to future local endpoint')
+assert(interestForm.includes('action={DEAL_INTEREST_POST_TARGET}'), 'deal interest form posts to the deal-interest endpoint')
 assert(interestForm.includes('method="post"'), 'deal interest form uses POST')
+assert(interestForm.includes('data-form="deal-interest"'), 'deal interest form uses a neutral public form marker')
+assert(interestForm.includes('useInlineFormSubmit'), 'deal interest form submits inline instead of navigating to JSON')
 assert(interestForm.includes('name="dealSlug"'), 'deal interest form includes dealSlug')
 assert(interestForm.includes('name="email"') && interestForm.includes('required'), 'deal interest form requires email')
 assert(interestForm.includes('name="phone"') && interestForm.includes('type="tel"'), 'deal interest form keeps phone optional as tel input')
@@ -347,10 +356,11 @@ const interestConsentTag = interestForm.match(/<input[^>]+name="serviceConsent"[
 assert(interestConsentTag.includes('type="checkbox"'), 'deal interest service/SMS consent is an explicit checkbox')
 assert(!/\b(defaultChecked|checked)\b/.test(interestConsentTag), 'deal interest service/SMS consent is not prechecked')
 assert(interestForm.includes('If I provide a phone number') && interestForm.includes('Consent is not a condition of purchase'), 'deal interest phone collection has explicit service/SMS consent copy')
+assert(interestForm.includes('Gold Coast Offers LLC'), 'deal interest SMS consent uses Gold Coast Offers LLC')
 assert(interestForm.includes('<h2 id="buyer-interest-title">'), 'active deal interest section has a visible aria-labelledby target')
 assert(interestForm.includes('name="contract"'), 'deal interest form sends explicit contract marker')
-assert(interestForm.includes('future handler must persist to S3'), 'deal interest copy documents future S3-first persistence')
-assert(!/success|thank you|submitted/i.test(interestForm), 'deal interest form does not claim fake persistence success')
+assert(interestForm.includes("Got it. We'll follow up with next steps on this deal."), 'deal interest form has the approved inline success message')
+assert(!/future handler|form contract only|local endpoint|fake persistence/i.test(interestForm), 'deal interest form has no implementation-leak copy')
 
 const sourceDirsToScan = [
   'src/app/(buyer)',
@@ -382,8 +392,8 @@ for (const file of sourceFilesToScan) {
   assert(!prohibitedLegacyEndpoint.test(source), `${file} does not contain retired legacy live endpoints`)
   assert(!prohibitedStorageUrl.test(source), `${file} does not contain raw storage/CDN media URLs`)
   if (file.startsWith('src/app/(buyer)') || file.startsWith('src/components/buyer') || file.startsWith('src/fixtures')) {
-    const rawUrlScanSource = source.replaceAll('https://deals.gcoffers.com', '')
-    assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs`)
+    const rawUrlScanSource = source.replace(/https:\/\/gcoffers\.com/g, '')
+    assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs beyond the canonical gcoffers.com metadata base`)
   }
 }
 

@@ -144,6 +144,12 @@ export const Deals: CollectionConfig = {
     {
       name: 'market',
       type: 'relationship',
+      admin: {
+        allowCreate: true,
+        allowEdit: true,
+        description:
+          'Select or create the market. Default South Florida markets are seeded by migration.',
+      },
       relationTo: 'markets',
     },
     {
@@ -364,6 +370,7 @@ export const Deals: CollectionConfig = {
       name: 'coverPhoto',
       type: 'upload',
       admin: {
+        allowCreate: true,
         description: 'Primary image shown on the deal card and detail hero. Falls back to the first gallery photo.',
       },
       relationTo: 'media',
@@ -371,6 +378,9 @@ export const Deals: CollectionConfig = {
     {
       name: 'photos',
       type: 'upload',
+      admin: {
+        allowCreate: true,
+      },
       hasMany: true,
       relationTo: 'media',
     },

@@ -1,6 +1,5 @@
 export type SiteSurface = 'seller' | 'buyer'
 
-const BUYER_HOST_PREFIXES = ['deals.']
 const BUYER_LOCAL_HOSTS = new Set(['buyer.localhost'])
 
 export function normalizeHost(host: string | null | undefined): string {
@@ -12,10 +11,6 @@ export function getSurfaceForHost(host: string | null | undefined): SiteSurface 
   const normalizedHost = normalizeHost(host)
 
   if (BUYER_LOCAL_HOSTS.has(normalizedHost)) {
-    return 'buyer'
-  }
-
-  if (BUYER_HOST_PREFIXES.some((prefix) => normalizedHost.startsWith(prefix))) {
     return 'buyer'
   }
 

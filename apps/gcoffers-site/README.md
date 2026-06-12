@@ -1,15 +1,15 @@
 # Gold Coast Offers site scaffold
 
-App-local Next.js + Payload scaffold for the future whole-site `gcoffers.com` and `deals.gcoffers.com` migration.
+App-local Next.js + Payload scaffold for the whole-site `gcoffers.com` migration, including seller pages and main-domain buyer/deals routes.
 
-This app is intentionally minimal for slice 2. It provides:
+This app provides:
 
 - Next.js App Router with host-aware seller/buyer surface detection.
 - Payload admin/API route scaffolding under `/admin` and `/api`.
 - Postgres-backed Payload config using the local Docker Compose database.
 - Node 22 / npm lockfile-based dependency management.
 - ECS-style production Dockerfile using Next standalone output.
-- Health route stubs for later ALB/CloudFront integration.
+- Payload-backed health routes for ALB/CloudFront deployment smoke checks.
 
 ## Prerequisites
 
@@ -34,10 +34,10 @@ Open:
 - Public scaffold: <http://localhost:3000>
 - Payload admin: <http://localhost:3000/admin>
 - GraphQL playground: <http://localhost:3000/api/graphql-playground> in development only.
-- Readiness health stub: <http://localhost:3000/api/health/readiness>
-- Public-content health stub: <http://localhost:3000/api/health/public-content>
+- Readiness health: <http://localhost:3000/api/health/readiness>
+- Public-content health: <http://localhost:3000/api/health/public-content>
 
-To exercise buyer-domain routing locally, map or proxy a host such as `buyer.localhost` or `deals.localhost` to the same dev server. The helper currently treats `deals.*` and `buyer.localhost` as buyer surfaces.
+Buyer/deals pages are served on the main domain paths, including `/deals/`, `/join/`, and `/faq/`. For local host-aware routing experiments, `buyer.localhost` remains the only buyer-host shortcut.
 
 ## Scripts
 
@@ -59,7 +59,7 @@ For local-only scaffold commands (`npm run dev`, `npm run build`, `npm run typec
 
 The GraphQL playground route is development-only. Outside `NODE_ENV=development`, `/api/graphql-playground` returns `404`; GraphQL API routing remains scaffolded separately at `/api/graphql`.
 
-Private media and form source-of-truth buckets are placeholders only in this slice. Do not assume public S3 object URLs. Later slices must add private media delivery and S3-first form persistence with redacted logging/evidence.
+Private media and form source-of-truth buckets stay private. Do not assume public S3 object URLs; public media delivery is app-mediated and form success responses do not expose persistence internals.
 
 ## Local Postgres
 

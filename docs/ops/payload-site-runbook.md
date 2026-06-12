@@ -4,7 +4,7 @@ Status: PR/runbook evidence for the Payload CMS whole-site migration. This docum
 
 ## Scope and guardrails
 
-The new app lives at `apps/gcoffers-site` and is intended to serve both `gcoffers.com` seller pages and `deals.gcoffers.com` buyer/deals pages after an explicitly approved cutover.
+The new app lives at `apps/gcoffers-site` and serves both `gcoffers.com` seller pages and main-domain buyer/deals pages after an explicitly approved cutover.
 
 Guardrails that remain in force until the owner explicitly approves launch work:
 
@@ -91,12 +91,12 @@ Open or curl:
 - Readiness health: `http://127.0.0.1:3000/api/health/readiness`
 - Public content health: `http://127.0.0.1:3000/api/health/public-content`
 
-Buyer/deals rendering is host-aware. For local smoke testing, send a buyer host header or map a local host to the dev server:
+Buyer/deals rendering is served from main-domain paths. For local smoke testing, hit the buyer paths directly:
 
 ```bash
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
+curl -fsS http://127.0.0.1:3000/deals/
+curl -fsS http://127.0.0.1:3000/join/
+curl -fsS http://127.0.0.1:3000/faq/
 ```
 
 ### Verification scripts
@@ -149,7 +149,7 @@ Key design points:
 - **S3 media:** private-by-default Payload media bucket with public access block, bucket owner enforced ownership, SSE-S3, versioning, and lifecycle rules. Public media delivery must be app-mediated or signed and must validate parent page/deal visibility.
 - **S3 forms:** form JSON remains source-of-truth. The stack references existing `goldcoast-leads` by default and grants only approved prefixes: `seller-leads/`, `buyer-signups/`, and `deal-interest/`. Creating a successor bucket is an explicit migration decision.
 - **Secrets Manager:** ECS receives secret values by ARN only. Do not put secret values in Terraform variables, docs, logs, or evidence. Live alert secrets are injected only when `enable_live_alerts=true`.
-- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host` for seller vs buyer rendering, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
+- **CloudFront/ALB/Route 53:** CloudFront fronts the ALB, forwards `Host`, caches public pages briefly, caches immutable assets longer, and disables caching for `/admin*`, `/api/*`, `/payload*`, `/preview*`, `/draft*`, `/_next/data/*`, and `/media/private/*`. Buyer/deals pages currently live on main-domain paths. Route 53 A/AAAA records are created only when `enable_dns_cutover=true`; no hosted zone is created by this stack.
 - **CloudWatch:** ECS app logs, non-PII log metric filter for form S3 persistence failures, and alarms for form persistence failure, ALB/app 5xx, unhealthy targets, high latency, ECS CPU/memory, and RDS CPU/free storage. Alarm actions are disabled unless `enable_live_alerts=true`.
 
 ## Terraform verification and safe plan caveat
@@ -411,9 +411,9 @@ curl -fsS http://127.0.0.1:3000/
 curl -fsS http://127.0.0.1:3000/privacy-policy/
 curl -fsS http://127.0.0.1:3000/terms/
 curl -fsSI http://127.0.0.1:3000/get-your-offer/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/join/
-curl -fsS -H 'Host: deals.gcoffers.com' http://127.0.0.1:3000/faq/
+curl -fsS http://127.0.0.1:3000/deals/
+curl -fsS http://127.0.0.1:3000/join/
+curl -fsS http://127.0.0.1:3000/faq/
 ```
 
 Expected outcomes:
@@ -421,7 +421,7 @@ Expected outcomes:
 - Health endpoints return JSON with `ok: true` and no secrets.
 - Seller home, privacy, and terms return HTML.
 - `/get-your-offer` redirects to the seller lead CTA and stays noindex.
-- Buyer host renders the buyer landing, join, FAQ, and public deal routes.
+- Main-domain buyer paths render the buyer listing, join, FAQ, and public deal routes.
 
 ### Local form route smoke
 
@@ -441,7 +441,7 @@ curl -fsS -X POST http://127.0.0.1:3000/api/deal-interest \
   -d '{"dealSlug":"sample-deal","email":"'"$SAFE_EMAIL"'","source":"deals-website","serviceConsent":false}'
 ```
 
-Before running these commands, replace `[REDACTED_EMAIL]` with a valid non-production test address in the local shell only. Do not commit it to docs/evidence. Expected response after valid local test data: `success: true`, `s3.persisted: true`, `s3.mocked: true`, mocked/skipped side effects, and no raw contact details in logs or evidence.
+Before running these commands, replace `[REDACTED_EMAIL]` with a valid non-production test address in the local shell only. Do not commit it to docs/evidence. Expected response after valid local test data: `success: true`, `accepted: true`, a user-facing `message`, `requestId`, and no raw persistence internals or contact details in logs/evidence.
 
 ### Terraform smoke
 
@@ -460,8 +460,8 @@ Expected outcome: validation succeeds and no plan/apply is run.
 
 ### Health endpoints
 
-- `/api/health/readiness` is the ALB/ECS health check path and should remain no-cache. Current scaffold response checks app readiness and returns non-secret JSON; production launch should extend or verify DB connectivity without leaking credentials.
-- `/api/health/public-content` is intended for public content renderability/freshness checks. Current scaffold response is non-secret; production launch should include safe last-render/content freshness metadata.
+- `/api/health/readiness` is the ALB/ECS health check path and should remain no-cache. It verifies the app can initialize Payload and query public pages without leaking credentials.
+- `/api/health/public-content` verifies the public content query path and reports required seller content availability. It returns `200` with `publicContentReady: false` when content is missing so deploy smoke can surface the gap without rolling back an otherwise healthy app/database deploy; query failures still return `503`.
 
 ### Logs, metrics, and alarms
 

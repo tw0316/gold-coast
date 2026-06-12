@@ -1,12 +1,12 @@
 export const BUYER_SIGNUP_POST_TARGET = '/api/buyer-signups'
 export const BUYER_SIGNUP_SOURCE = 'deals-website'
-export const BUYER_SIGNUP_FORM_CONTRACT = 'slice-6-s3-first-buyer-signup'
+export const BUYER_SIGNUP_FORM_CONTRACT = 'buyer-signup'
 export const BUYER_SIGNUP_CRM_TAGS = ['buyer-list', 'deals-website'] as const
 export const BUYER_FORM_HONEYPOT_FIELD = 'website'
 
 export const DEAL_INTEREST_POST_TARGET = '/api/deal-interest'
 export const DEAL_INTEREST_SOURCE = 'deals-website'
-export const DEAL_INTEREST_FORM_CONTRACT = 'slice-6-s3-first-deal-interest'
+export const DEAL_INTEREST_FORM_CONTRACT = 'deal-interest'
 export const DEAL_INTEREST_PHONE_CONSENT_CONTRACT = 'phone-requires-service-consent'
 
 export type BuyerSignupFormField = {

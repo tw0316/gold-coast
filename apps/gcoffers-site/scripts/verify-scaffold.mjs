@@ -106,6 +106,16 @@ if (!playgroundRoute.includes("NODE_ENV === 'development'") || !playgroundRoute.
   failures.push('GraphQL playground route must be development-only with a disabled response outside dev')
 }
 
+const readinessRoute = readFileSync(join(root, 'src/app/api/health/readiness/route.ts'), 'utf8')
+if (!readinessRoute.includes("publicPagesQuery: 'ok'") || !readinessRoute.includes("console.error('gcoffers readiness health check failed'")) {
+  failures.push('readiness health route should query Payload, report deterministic success, and log failures before returning 503')
+}
+
+const publicContentRoute = readFileSync(join(root, 'src/app/api/health/public-content/route.ts'), 'utf8')
+if (!publicContentRoute.includes('publicContentReady: hasPublicContent') || !publicContentRoute.includes("publicContent: hasPublicContent ? 'ok' : 'missing_required_public_content'")) {
+  failures.push('public-content health route should expose content readiness without making missing content a deploy-blocking app failure')
+}
+
 if (failures.length > 0) {
   console.error('Scaffold verification failed:')
   for (const failure of failures) {

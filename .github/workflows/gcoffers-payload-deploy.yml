@@ -337,22 +337,33 @@ jobs:
             --id "$invalidation_id"
 
           readiness_url="${PUBLIC_URL%/}/api/health/readiness"
+          public_content_url="${PUBLIC_URL%/}/api/health/public-content"
           curl --fail --silent --show-error \
             --retry 12 \
             --retry-all-errors \
             --retry-delay 10 \
             "$readiness_url" > /tmp/gcoffers-payload-readiness.json
+          curl --fail --silent --show-error \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            "$public_content_url" > /tmp/gcoffers-payload-public-content.json
 
           python3 <<'PY'
           import json
           import sys
 
-          with open("/tmp/gcoffers-payload-readiness.json", encoding="utf-8") as readiness_file:
-              readiness = json.load(readiness_file)
-
-          if readiness.get("ok") is not True:
-              print("::error::Readiness endpoint did not return ok=true.", file=sys.stderr)
-              sys.exit(1)
+          checks = [
+              ("readiness", "/tmp/gcoffers-payload-readiness.json"),
+              ("public-content", "/tmp/gcoffers-payload-public-content.json"),
+          ]
+          for name, path in checks:
+              with open(path, encoding="utf-8") as health_file:
+                  payload = json.load(health_file)
+              if payload.get("ok") is not True:
+                  print(f"::error::{name} endpoint did not return ok=true.", file=sys.stderr)
+                  print(json.dumps(payload, sort_keys=True), file=sys.stderr)
+                  sys.exit(1)
           PY
 
       - name: Roll back ECS service after failed deploy or smoke check
@@ -673,22 +684,33 @@ jobs:
             --id "$invalidation_id"
 
           readiness_url="${PUBLIC_URL%/}/api/health/readiness"
+          public_content_url="${PUBLIC_URL%/}/api/health/public-content"
           curl --fail --silent --show-error \
             --retry 12 \
             --retry-all-errors \
             --retry-delay 10 \
             "$readiness_url" > /tmp/gcoffers-payload-readiness.json
+          curl --fail --silent --show-error \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            "$public_content_url" > /tmp/gcoffers-payload-public-content.json
 
           python3 <<'PY'
           import json
           import sys
 
-          with open("/tmp/gcoffers-payload-readiness.json", encoding="utf-8") as readiness_file:
-              readiness = json.load(readiness_file)
-
-          if readiness.get("ok") is not True:
-              print("::error::Readiness endpoint did not return ok=true.", file=sys.stderr)
-              sys.exit(1)
+          checks = [
+              ("readiness", "/tmp/gcoffers-payload-readiness.json"),
+              ("public-content", "/tmp/gcoffers-payload-public-content.json"),
+          ]
+          for name, path in checks:
+              with open(path, encoding="utf-8") as health_file:
+                  payload = json.load(health_file)
+              if payload.get("ok") is not True:
+                  print(f"::error::{name} endpoint did not return ok=true.", file=sys.stderr)
+                  print(json.dumps(payload, sort_keys=True), file=sys.stderr)
+                  sys.exit(1)
           PY
 
       - name: Roll back ECS service after failed deploy or smoke check
