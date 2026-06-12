@@ -104,6 +104,38 @@ assert(
   'public media helper rejects media containing exact/private details',
 )
 
+// App-mediated public media delivery: the serving route is the wall between the public
+// internet and the PRIVATE media bucket, so its safety checks are pinned here.
+for (const file of [
+  'src/app/api/media/public/[id]/route.ts',
+  'src/app/api/media/public/[id]/thumbnail/route.ts',
+  'src/lib/media/servePublicMedia.ts',
+  'src/lib/media/publicReference.ts',
+  'src/lib/media/resolveDealMedia.ts',
+]) {
+  assert(exists(file), `${file} exists`)
+}
+
+const serveMedia = read('src/lib/media/servePublicMedia.ts')
+assert(serveMedia.includes('isMediaEligibleForPublicReference'), 'public media serving requires media eligibility')
+assert(serveMedia.includes('isMediaPubliclyReferenced'), 'public media serving requires a live public reference')
+assert(/Not found[\s\S]*status: 404/.test(serveMedia), 'public media serving denies with an opaque 404')
+assert(!serveMedia.includes('getSignedUrl') && !serveMedia.includes('createPresignedPost'), 'public media is streamed app-side; no direct/presigned S3 URL is exposed')
+
+const publicReference = read('src/lib/media/publicReference.ts')
+assert(publicReference.includes('publicDealVisibilityWhere'), 'media reference check uses the public deal visibility where-clause')
+assert(publicReference.includes("status: { equals: 'published' }"), 'media reference check requires published pages')
+assert(publicReference.includes('isPublic: { equals: true }'), 'media reference check requires public site settings')
+assert(/catch[\s\S]*return false/.test(publicReference), 'media reference check fails closed on error')
+
+const resolveDealMedia = read('src/lib/media/resolveDealMedia.ts')
+assert(!resolveDealMedia.includes('internalNotes'), 'deal media resolution never selects internalNotes')
+assert(resolveDealMedia.includes('MEDIA_SAFE_SELECT'), 'deal media resolution uses an explicit safe-field select')
+
+const payloadConfig = read('src/payload.config.ts')
+assert(payloadConfig.includes('s3Storage'), 'media uses the S3 storage adapter')
+assert(!payloadConfig.includes("'public-read'"), 'media objects are never uploaded public-read (bucket is private; delivery is app-mediated)')
+
 // Deals are served from Payload through the sanitized public query helpers, with the
 // fixture file used only as an offline/dev fallback. The public visibility where-clause
 // (not a static slug allowlist) is the security boundary, so it is asserted directly.

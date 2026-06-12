@@ -12,8 +12,10 @@ import {
   publicDealVisibilityWhere,
   publicSoldProofDealsWhere,
   sanitizeDealForPublic,
+  type DealVisibilityInput,
 } from '../deals/visibility'
 import { sanitizeMediaReferenceForPublic } from '../media/publicMedia'
+import { attachPublicDealMedia } from '../media/resolveDealMedia'
 
 export type PublicSiteSurface = 'seller' | 'buyer' | 'shared'
 
@@ -402,11 +404,23 @@ export const sanitizeSiteSettingsForPublic = <TSettings extends Record<string, u
   return sanitized
 }
 
+// Deals are fetched at depth 0 (media as ids), then referenced media is resolved with a
+// safe-field select before sanitization so public deals can emit app-mediated image URLs.
+const sanitizePublicDealDocs = async <TDoc extends DealVisibilityInput>(
+  payload: Payload,
+  result: { docs: TDoc[] },
+) =>
+  sanitizeDocs(
+    { ...result, docs: await attachPublicDealMedia(payload, result.docs) },
+    sanitizeDealForPublic,
+  )
+
 export const listPublicActiveDeals = async (
   payload: Payload,
   options: PublicQueryOptions = {},
 ) =>
-  sanitizeDocs(
+  sanitizePublicDealDocs(
+    payload,
     await payload.find({
       collection: 'deals',
       depth: clampPublicDepth(options.depth),
@@ -417,14 +431,14 @@ export const listPublicActiveDeals = async (
       sort: '-publishedAt',
       where: publicActiveDealsWhere,
     }),
-    sanitizeDealForPublic,
   )
 
 export const listPublicSoldProofDeals = async (
   payload: Payload,
   options: PublicQueryOptions = {},
 ) =>
-  sanitizeDocs(
+  sanitizePublicDealDocs(
+    payload,
     await payload.find({
       collection: 'deals',
       depth: clampPublicDepth(options.depth),
@@ -435,7 +449,6 @@ export const listPublicSoldProofDeals = async (
       sort: '-closedAt',
       where: publicSoldProofDealsWhere,
     }),
-    sanitizeDealForPublic,
   )
 
 export const getPublicDealBySlug = async (
@@ -457,7 +470,8 @@ export const getPublicDealBySlug = async (
     }),
   })
 
-  return sanitizeDealForPublic(result.docs[0])
+  const [doc] = await attachPublicDealMedia(payload, result.docs)
+  return sanitizeDealForPublic(doc)
 }
 
 export const listPublishedPages = async (
