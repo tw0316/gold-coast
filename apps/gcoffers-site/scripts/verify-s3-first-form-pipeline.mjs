@@ -27,8 +27,10 @@ const requiredFiles = [
   'src/app/api/deal-interest/route.ts',
   'src/lib/forms/s3FirstFormPipeline.ts',
   'src/lib/forms/routeHandlers.ts',
+  'src/components/forms/useInlineFormSubmit.ts',
   'src/components/seller/SellerLeadForm.tsx',
   'src/components/buyer/BuyerSignupForm.tsx',
+  'src/components/buyer/BuyerListSignupForm.tsx',
   'src/components/buyer/DealInterestForm.tsx',
   'src/lib/seller/formContract.ts',
   'src/lib/buyer/formContract.ts',
@@ -61,6 +63,7 @@ for (const [label, source, handler] of [
 }
 
 const routeHandlers = read('src/lib/forms/routeHandlers.ts')
+const inlineFormSubmit = read('src/components/forms/useInlineFormSubmit.ts')
 for (const marker of [
   'parseLimitedRequestBody(request)',
   'hasHoneypotValue(body)',
@@ -72,6 +75,16 @@ for (const marker of [
 ]) {
   assert(routeHandlers.includes(marker), `route handler contains pipeline marker: ${marker}`)
 }
+assert(routeHandlers.includes('message: getFormSuccessMessage'), 'public form response includes a user-facing success message')
+assert(!routeHandlers.includes('s3: {'), 'public form response does not expose S3 bucket/key details')
+assert(!routeHandlers.includes('sideEffects: result.sideEffects'), 'public form response does not expose side-effect diagnostics')
+assert(inlineFormSubmit.includes('new URLSearchParams()'), 'inline public forms serialize submissions as URL-encoded bodies')
+assert(inlineFormSubmit.includes('body.append(key, value)'), 'inline public form serialization preserves repeated field values')
+assert(
+  inlineFormSubmit.includes("'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'"),
+  'inline public forms send the content type parsed by the S3-first route handler',
+)
+assert(!inlineFormSubmit.includes('body: new FormData(form)'), 'inline public forms do not send multipart bodies to URLSearchParams parser')
 
 const pipelineSource = read('src/lib/forms/s3FirstFormPipeline.ts')
 for (const marker of [
@@ -100,10 +113,12 @@ assert(buyerContract.includes("BUYER_FORM_HONEYPOT_FIELD = 'website'"), 'buyer f
 
 const sellerForm = read('src/components/seller/SellerLeadForm.tsx')
 const signupForm = read('src/components/buyer/BuyerSignupForm.tsx')
+const listSignupForm = read('src/components/buyer/BuyerListSignupForm.tsx')
 const interestForm = read('src/components/buyer/DealInterestForm.tsx')
 for (const [label, source, fieldConstant] of [
   ['seller lead form', sellerForm, 'SELLER_LEAD_HONEYPOT_FIELD'],
   ['buyer signup form', signupForm, 'BUYER_FORM_HONEYPOT_FIELD'],
+  ['buyer list signup form', listSignupForm, 'BUYER_FORM_HONEYPOT_FIELD'],
   ['deal interest form', interestForm, 'BUYER_FORM_HONEYPOT_FIELD'],
 ]) {
   assert(source.includes('className="sr-only"') && source.includes('Leave this field blank'), `${label} includes an accessible honeypot trap`)
@@ -115,6 +130,8 @@ for (const [label, source, field] of [
   ['seller marketing consent', sellerForm, 'marketingConsent'],
   ['buyer service consent', signupForm, 'serviceConsent'],
   ['buyer marketing consent', signupForm, 'marketingConsent'],
+  ['buyer list service consent', listSignupForm, 'serviceConsent'],
+  ['buyer list marketing consent', listSignupForm, 'marketingConsent'],
   ['deal interest service consent', interestForm, 'serviceConsent'],
 ]) {
   const tag = source.match(new RegExp(`<input[^>]+name="${field}"[^>]*>`, 's'))?.[0] ?? ''
@@ -167,8 +184,8 @@ if (buyerBuild.ok) {
 
 const buyerNoConsent = pipeline.buildBuyerSignupSubmission({ email: safeEmail, phone: safePhone }, metadata, fixedNow)
 assert(
-  buyerNoConsent.ok && buyerNoConsent.submission.sideEffectExpectations.smsEligible === false,
-  'buyer signup does not enable SMS behavior without explicit consent',
+  !buyerNoConsent.ok && buyerNoConsent.errors.some((error) => error.field === 'serviceConsent'),
+  'buyer signup rejects phone submissions without explicit service SMS consent',
 )
 
 const dealBuild = pipeline.buildDealInterestSubmission(
@@ -213,6 +230,16 @@ if (dealBuild.ok) {
   )
 }
 
+const dealNoConsent = pipeline.buildDealInterestSubmission(
+  { dealSlug: 'sample-deal', email: safeEmail, phone: safePhone },
+  metadata,
+  fixedNow,
+)
+assert(
+  !dealNoConsent.ok && dealNoConsent.errors.some((error) => error.field === 'serviceConsent'),
+  'deal interest rejects phone submissions without explicit service SMS consent',
+)
+
 const sellerBuild = pipeline.buildSellerLeadSubmission(
   {
     fullName: '[REDACTED_NAME]',
@@ -252,6 +279,21 @@ assert(sellerNoPhoneBuild.ok, 'seller lead build accepts missing optional phone'
 assert(
   sellerNoPhoneBuild.ok && sellerNoPhoneBuild.submission.sideEffectExpectations.smsEligible === false,
   'seller lead does not enable SMS behavior without phone plus consent',
+)
+
+const sellerNoConsent = pipeline.buildSellerLeadSubmission(
+  {
+    fullName: '[REDACTED_NAME]',
+    address: ['REDACTED', 'PROPERTY', 'PLACEHOLDER'].join(' '),
+    email: safeSellerEmail,
+    phone: safePhone,
+  },
+  metadata,
+  fixedNow,
+)
+assert(
+  !sellerNoConsent.ok && sellerNoConsent.errors.some((error) => error.field === 'serviceConsent'),
+  'seller lead rejects phone submissions without explicit service SMS consent',
 )
 
 if (buyerBuild.ok) {
@@ -394,6 +436,7 @@ const piiAndSecretFilesToScan = [
   'src/app/api/deal-interest/route.ts',
   'src/components/seller/SellerLeadForm.tsx',
   'src/components/buyer/BuyerSignupForm.tsx',
+  'src/components/buyer/BuyerListSignupForm.tsx',
   'src/components/buyer/DealInterestForm.tsx',
 ]
 const piiAndSecretPatterns = [

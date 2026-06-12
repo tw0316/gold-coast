@@ -179,23 +179,25 @@ function buildSubmission(
   return buildDealInterestSubmission(body, metadata, now)
 }
 
+function getFormSuccessMessage(formType: FormType): string {
+  if (formType === 'seller-lead') {
+    return "Got it. We'll review the property and follow up shortly."
+  }
+
+  if (formType === 'buyer-signup') {
+    return "You're on the list. We'll send deals that match your buy box."
+  }
+
+  return "Got it. We'll follow up with next steps on this deal."
+}
+
 function toPublicResponse(result: S3FirstSubmissionResult) {
   return {
     success: true,
-    formType: result.formType,
+    accepted: true,
     duplicate: result.duplicate,
+    formType: result.formType,
+    message: getFormSuccessMessage(result.formType),
     requestId: result.requestId,
-    s3: {
-      persisted: true,
-      key: result.s3Key,
-      bucket: result.s3Bucket,
-      mocked: result.s3Mocked,
-    },
-    sideEffects: result.sideEffects.map((effect) => ({
-      name: effect.name,
-      status: effect.status,
-      mocked: effect.mocked,
-      details: effect.details,
-    })),
   }
 }

@@ -45,8 +45,10 @@ const transpileTsModule = (relativePath) => {
 }
 
 for (const relativePath of [
+  'src/access/roles.ts',
   'src/lib/deals/visibility.ts',
   'src/lib/media/publicMedia.ts',
+  'src/lib/media/resolveDealMedia.ts',
   'src/lib/payload/publicQueries.ts',
   'src/lib/deals/fixtures.ts',
   'src/fixtures/schema-access-fixtures.ts',
@@ -55,6 +57,7 @@ for (const relativePath of [
 }
 
 try {
+  const roles = tempRequire(join(tmpRoot, 'src/access/roles.js'))
   const visibility = tempRequire(join(tmpRoot, 'src/lib/deals/visibility.js'))
   const media = tempRequire(join(tmpRoot, 'src/lib/media/publicMedia.js'))
   const publicQueries = tempRequire(join(tmpRoot, 'src/lib/payload/publicQueries.js'))
@@ -64,6 +67,33 @@ try {
 
   const exactArray = (actual, expected) =>
     Array.isArray(actual) && actual.length === expected.length && actual.every((value, index) => value === expected[index])
+
+  assert(roles.isAdmin({ id: 1, role: 'admin' }), 'Admin role grants admin access')
+  assert(roles.isAdminOrEditor({ id: 2, role: 'editor' }), 'Editor role grants staff content access')
+  assert(roles.isAdminOrEditor({ id: 3, role: 'Admin' }), 'Role checks normalize legacy capitalization')
+  assert(
+    roles.isAdminOrEditor({ id: 4 }),
+    'Authenticated legacy users without a role retain staff content access for deals, markets, and media',
+  )
+  assert(!roles.isAdmin({ id: 4 }), 'Authenticated legacy users without a role are not promoted to admin-only access')
+  assert(!roles.isAdminOrEditor(null), 'Anonymous users do not receive staff content access')
+
+  const dealsCollectionSource = readSource('src/collections/Deals.ts')
+  assert(dealsCollectionSource.includes('allowCreate: true'), 'Deal market/media admin fields explicitly allow create drawers')
+  assert(dealsCollectionSource.includes('allowEdit: true'), 'Deal market relationship explicitly allows editing existing markets')
+
+  const staffMigrationSource = readSource('src/migrations/20260612_151525_staff_access_and_default_markets.ts')
+  for (const marker of [
+    'WITH first_legacy_user AS',
+    'THEN \'admin\'::"enum_users_role"',
+    'ELSE \'editor\'::"enum_users_role"',
+    "'Miami-Dade', 'miami-dade'",
+    "'Broward', 'broward'",
+    "'Palm Beach', 'palm-beach'",
+    'ON CONFLICT ("slug") DO UPDATE',
+  ]) {
+    assert(staffMigrationSource.includes(marker), `Staff/default markets migration marker present: ${marker}`)
+  }
 
   assert(
     exactArray(visibility.PUBLIC_DEAL_STATUSES, [

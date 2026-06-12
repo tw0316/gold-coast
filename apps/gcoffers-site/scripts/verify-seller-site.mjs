@@ -61,7 +61,11 @@ const formContract = read('src/lib/seller/formContract.ts')
 assert(formContract.includes("SELLER_LEAD_POST_TARGET = '/api/seller-leads'"), 'seller lead POST target is /api/seller-leads')
 assert(formSource.includes('method="post"'), 'seller lead form uses POST')
 assert(formSource.includes('action={SELLER_LEAD_POST_TARGET}'), 'seller lead form posts to the internal contract target')
-assert(formSource.includes('data-seller-lead-contract="slice-6-s3-first"'), 'seller lead form documents the slice 6 S3-first contract')
+assert(formSource.includes('data-form="seller-lead"'), 'seller lead form uses a neutral public form marker')
+assert(!formSource.includes('data-seller-lead-contract'), 'seller lead form does not expose implementation contract markers')
+assert(formSource.includes('useInlineFormSubmit'), 'seller lead form uses inline submission instead of navigating to JSON')
+assert(formSource.includes("Got it. We'll review the property and follow up shortly."), 'seller lead form has the approved inline success message')
+assert(formSource.includes('Gold Coast Offers LLC'), 'seller lead SMS consent uses Gold Coast Offers LLC')
 
 const inputTags = formSource.match(/<input[\s\S]*?>/g) ?? []
 const findInputByName = (name) => inputTags.find((tag) => tag.includes(`name="${name}"`) || tag.includes(`name='${name}'`))
@@ -69,7 +73,7 @@ const findInputByName = (name) => inputTags.find((tag) => tag.includes(`name="${
 for (const field of ['fullName', 'address', 'email']) {
   const tag = findInputByName(field)
   assert(Boolean(tag), `seller lead form includes ${field} input`)
-  assert(Boolean(tag?.includes('required')), `${field} input is required in the baseline form contract`)
+  assert(Boolean(tag?.includes('required')), `${field} input is required in the seller lead form`)
 }
 
 const phoneTag = findInputByName('phone')

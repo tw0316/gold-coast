@@ -34,7 +34,7 @@ This ADR intentionally does not authorize deployment, DNS changes, Terraform app
 | Seller CSS/JS | `apps/website/css/styles.css`, `apps/website/js/main.js` | No build step; vanilla HTML/CSS/JS. New app should preserve the current design/performance bar while moving rendering into Next.js. |
 | Seller static assets | `apps/website/assets/favicon.ico`, `hero-home.png`, `hero-home.svg`, `logo-goldcoast.png`, `og-image.jpg` | Use as migration references. Future media uploaded through Payload must not inherit public S3 object semantics by default. |
 
-### Buyer/deals surface: `deals.gcoffers.com`
+### Buyer/deals surface: main-domain `/deals`, `/join`, and `/faq`
 
 | Route / asset area | Current files | Current behavior / notes for migration |
 | --- | --- | --- |
@@ -103,7 +103,7 @@ Decision: build one new whole-site app for both seller and buyer/deals surfaces 
 The app will own after-cutover rendering for:
 
 - `gcoffers.com` seller pages
-- `deals.gcoffers.com` buyer/deals pages
+- `gcoffers.com` buyer/deals pages under `/deals`, `/join`, and `/faq`
 - `/admin` Payload admin
 - CMS-managed seller pages, buyer pages, FAQs, markets/areas, site settings, deals, media, buyer signups, and deal interest records
 
@@ -112,7 +112,7 @@ Consequences for following slices:
 - Keep `apps/website` and `apps/deals` as legacy/reference surfaces until cutover.
 - Scaffold the new app separately, expected as `apps/gcoffers-site` unless a later slice records a different path.
 - Seed or CMS-model current legal pages and high-priority marketing content rather than leaving static-only orphan routes.
-- Route host-based rendering must distinguish seller and buyer domains while sharing the same app/runtime.
+- Main-domain routes must render seller and buyer/deals surfaces from the shared app/runtime. Buyer subdomain routing is not part of the current production target.
 
 ### DEC-002: AWS runtime: ECS Fargate + RDS Postgres + private S3 media + CloudFront/Route 53
 

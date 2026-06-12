@@ -1,6 +1,6 @@
 # gcoffers Payload CMS AWS infrastructure
 
-Terraform for the new whole-site `gcoffers.com` / `deals.gcoffers.com` Next.js + Payload runtime on AWS.
+Terraform for the whole-site `gcoffers.com` Next.js + Payload runtime on AWS, including seller pages and main-domain buyer/deals routes.
 
 This directory is intentionally separate from `infra/website`, which owns the current static website/API/DNS resources. This stack **does not create a Route 53 hosted zone** and defaults all production cutover and live-alert controls to off.
 
@@ -52,7 +52,7 @@ terraform plan \
 
 ## CloudFront caching and route protection
 
-CloudFront forwards `Host` and includes it in the public-page cache key so the app can render seller vs buyer surfaces from the same runtime.
+CloudFront forwards `Host` and includes it in the public-page cache key. Production buyer/deals pages currently live on main-domain paths rather than a buyer subdomain.
 
 No-cache behavior is configured for paths that must not be cached or must forward auth/session/form details:
 

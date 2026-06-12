@@ -1,3 +1,5 @@
+'use client'
+
 import { buyerSignupOptions } from '@/lib/buyer/content'
 import {
   BUYER_FORM_HONEYPOT_FIELD,
@@ -6,15 +8,21 @@ import {
   BUYER_SIGNUP_SOURCE,
 } from '@/lib/buyer/formContract'
 
+import { useInlineFormSubmit } from '../forms/useInlineFormSubmit'
+
+const buyerSignupSuccessMessage = "You're on the list. We'll send deals that match your buy box."
+
 export function BuyerSignupForm() {
+  const { isSubmitting, status, submitForm } = useInlineFormSubmit({ successMessage: buyerSignupSuccessMessage })
+
   return (
     <form
       id="buyer-signup-form"
       className="buyer-form-card"
       action={BUYER_SIGNUP_POST_TARGET}
       method="post"
-      data-buyer-signup-contract="email-required-progressive-fields"
-      data-s3-first-contract="buyer-signup"
+      data-form="buyer-signup"
+      onSubmit={submitForm}
     >
       <div className="buyer-form-card__header">
         <p className="eyebrow">Buyer list</p>
@@ -119,7 +127,7 @@ export function BuyerSignupForm() {
       <div className="form-checkbox buyer-legal-checkbox">
         <input id="buyer-signup-service-consent" name="serviceConsent" type="checkbox" value="true" />
         <label htmlFor="buyer-signup-service-consent">
-          If I provide a phone number, I consent to receive service-related SMS messages from Gold Coast Home Buyers,
+          If I provide a phone number, I consent to receive service-related SMS messages from Gold Coast Offers LLC,
           including deal alerts, availability updates, and transaction communications. Message frequency varies.
           Message and data rates may apply. Reply STOP to opt out. Consent is not a condition of purchase.
         </label>
@@ -128,17 +136,25 @@ export function BuyerSignupForm() {
       <div className="form-checkbox buyer-legal-checkbox">
         <input id="buyer-signup-marketing-consent" name="marketingConsent" type="checkbox" value="true" />
         <label htmlFor="buyer-signup-marketing-consent">
-          I also consent to occasional marketing messages about new deals, market updates, and investor resources.
-          This checkbox is optional and not pre-checked.
+          I also consent to occasional marketing messages from Gold Coast Offers LLC about new deals, market updates,
+          and investor resources. This checkbox is optional and not pre-checked.
         </label>
       </div>
 
-      <button type="submit" className="btn btn--primary btn--large btn--full">
-        Join Buyers List
+      <button type="submit" className="btn btn--primary btn--large btn--full" disabled={isSubmitting}>
+        {isSubmitting ? 'Sending...' : 'Join Buyers List'}
       </button>
+      {status.state !== 'idle' ? (
+        <p
+          className={`form-status active form-status--${status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'loading'}`}
+          role={status.state === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          {status.message}
+        </p>
+      ) : null}
       <p className="buyer-form-card__fine-print">
-        This baseline defines the form contract only. The future route must write to S3 first before any CRM,
-        alerting, or admin mirror side effects.
+        We use your information to follow up on relevant South Florida investment opportunities.
       </p>
     </form>
   )

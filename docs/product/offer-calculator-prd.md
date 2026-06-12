@@ -304,7 +304,7 @@ ROI % = Profit ÷ (Contract Price + Total Rehab Estimate + Buyer Closing Costs) 
 **Open questions for V2:**
 - Does this output as a shareable page, a PDF, an email template?
 - Does it feed into GHL for buyer list distribution?
-- Does it sync with deals.gcoffers.com?
+- Does it sync with the main-domain buyer/deals surface?
 
 ---
 
@@ -353,7 +353,7 @@ ROI % = Profit ÷ (Contract Price + Total Rehab Estimate + Buyer Closing Costs) 
 | Miami-Dade county support | Low | Different doc stamp rates and title insurance customs |
 | View 3 full build-out | Low | Photos, maps, email/newsletter integration |
 | GHL / CRM integration | Low | Push deal data into GoHighLevel pipeline |
-| deals.gcoffers.com sync | Low | Surface disposition data on investor portal |
+| Buyer/deals surface sync | Low | Surface disposition data on investor portal |
 | MLS integration | Low | Tej has MLS access; could automate comp pulling |
 | Authentication / multi-user | Low | Only needed if team grows |
 
