@@ -2,8 +2,12 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 // Production follow-up for first live buyer deal entry:
 // - normalize existing deal slugs so public links are URL-safe
-// - mark public-deal-referenced media as ready/public-reference eligible, while still
+// - mark public-deal-referenced cover/gallery media as ready/public-reference eligible, while still
 //   refusing hidden/archived media and media explicitly flagged as containing private details
+//
+// Intentional privacy boundary: attaching media to a public deal's cover or gallery publishes it
+// through the app-mediated reference-checked proxy only. Direct media reads and raw bucket URLs
+// remain blocked, and media flagged as containing private details is never promoted.
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     WITH normalized AS (
@@ -23,14 +27,27 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         ) AS "base_slug"
       FROM "deals"
     ),
+    ranked AS (
+      SELECT
+        "id",
+        "base_slug",
+        row_number() OVER (
+          PARTITION BY "base_slug"
+          ORDER BY
+            CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END,
+            "id"
+        ) AS "slug_rank",
+        count(*) OVER (PARTITION BY "base_slug") AS "slug_count"
+      FROM normalized
+    ),
     deduped AS (
       SELECT
         "id",
         CASE
-          WHEN count(*) OVER (PARTITION BY "base_slug") > 1 THEN "base_slug" || '-' || "id"
+          WHEN "slug_count" > 1 AND "slug_rank" > 1 THEN "base_slug" || '-' || "id"
           ELSE "base_slug"
         END AS "normalized_slug"
-      FROM normalized
+      FROM ranked
     )
     UPDATE "deals"
     SET "slug" = deduped."normalized_slug",

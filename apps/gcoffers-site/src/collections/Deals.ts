@@ -123,42 +123,53 @@ const syncReferencedMediaPublicState: CollectionAfterChangeHook = async ({ doc, 
     return
   }
 
+  // Public deal gallery media is buyer-facing by design. Promotion here does not expose
+  // raw bucket URLs or direct media reads; it only permits the app-mediated reference check.
   const mediaIds = collectDealMediaIds(doc as { coverPhoto?: unknown; photos?: unknown })
   for (const mediaId of mediaIds) {
-    const media = (await req.payload.findByID({
-      collection: 'media',
-      id: mediaId,
-      depth: 0,
-      overrideAccess: true,
-    })) as {
-      accessPolicy?: string | null
-      containsExactAddressOrPrivateDetails?: boolean | null
-      mediaStatus?: string | null
-    } | null
+    try {
+      const media = (await req.payload.findByID({
+        collection: 'media',
+        id: mediaId,
+        depth: 0,
+        overrideAccess: true,
+      })) as {
+        accessPolicy?: string | null
+        containsExactAddressOrPrivateDetails?: boolean | null
+        mediaStatus?: string | null
+      } | null
 
-    if (
-      !media ||
-      media.containsExactAddressOrPrivateDetails === true ||
-      media.mediaStatus === 'hidden' ||
-      media.mediaStatus === 'archived'
-    ) {
-      continue
+      if (
+        !media ||
+        media.containsExactAddressOrPrivateDetails === true ||
+        media.mediaStatus === 'hidden' ||
+        media.mediaStatus === 'archived'
+      ) {
+        continue
+      }
+
+      if (media.accessPolicy === 'public_after_reference_check' && media.mediaStatus === 'ready') {
+        continue
+      }
+
+      await req.payload.update({
+        collection: 'media',
+        id: mediaId,
+        data: {
+          accessPolicy: 'public_after_reference_check',
+          mediaStatus: 'ready',
+        },
+        depth: 0,
+        overrideAccess: true,
+      })
+    } catch (error) {
+      const dealId = (doc as { id?: unknown }).id
+      console.error('gcoffers deal media public-state sync failed', {
+        dealId,
+        mediaId,
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
-
-    if (media.accessPolicy === 'public_after_reference_check' && media.mediaStatus === 'ready') {
-      continue
-    }
-
-    await req.payload.update({
-      collection: 'media',
-      id: mediaId,
-      data: {
-        accessPolicy: 'public_after_reference_check',
-        mediaStatus: 'ready',
-      },
-      depth: 0,
-      overrideAccess: true,
-    })
   }
 }
 

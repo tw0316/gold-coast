@@ -85,6 +85,8 @@ try {
   assert(dealsCollectionSource.includes('beforeValidate: [normalizeDealSlugBeforeValidate]'), 'Deals collection normalizes slugs before validation')
   assert(dealsCollectionSource.includes('originalDoc'), 'Deal slug normalization preserves existing slugs on partial updates')
   assert(dealsCollectionSource.includes('afterChange: [syncReferencedMediaPublicState, revalidateAfterChange]'), 'Deals collection promotes eligible public-deal media before revalidation')
+  assert(dealsCollectionSource.includes('gcoffers deal media public-state sync failed'), 'Deals collection isolates media sync errors from deal saves')
+  assert(dealsCollectionSource.includes('gallery media is buyer-facing by design'), 'Deals collection documents public gallery media promotion intent')
   assert(dealsCollectionSource.includes('allowCreate: true'), 'Deal market/media admin fields explicitly allow create drawers')
   assert(dealsCollectionSource.includes('allowEdit: true'), 'Deal market relationship explicitly allows editing existing markets')
 
@@ -105,6 +107,10 @@ try {
   for (const marker of [
     'regexp_replace(lower("slug")',
     '"base_slug" || \'-\' || "id"',
+    'CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END',
+    '"slug_count" > 1 AND "slug_rank" > 1',
+    'public-deal-referenced cover/gallery media',
+    'media flagged as containing private details is never promoted',
     'public_deal_media AS',
     '"deals_rels"."path" = \'photos\'',
     '"access_policy" = \'public_after_reference_check\'',

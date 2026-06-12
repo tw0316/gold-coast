@@ -16,7 +16,7 @@ import {
 } from '../deals/visibility'
 import { sanitizeMediaReferenceForPublic } from '../media/publicMedia'
 import { attachPublicDealMedia } from '../media/resolveDealMedia'
-import { normalizeDealSlugInput, toDealSlug } from '../deals/slug'
+import { normalizeDealSlugInput } from '../deals/slug'
 
 export type PublicSiteSurface = 'seller' | 'buyer' | 'shared'
 
@@ -452,6 +452,23 @@ export const listPublicSoldProofDeals = async (
     }),
   )
 
+const uniqueSlugCandidates = (candidates: string[]) =>
+  candidates.filter((candidate, index, all) => candidate.length > 0 && all.indexOf(candidate) === index)
+
+const legacySlugCandidatesFor = (slug: string, normalizedSlug: string) => {
+  let decodedSlug = slug
+  try {
+    decodedSlug = decodeURIComponent(slug)
+  } catch {
+    decodedSlug = slug
+  }
+
+  const spacedSlug = normalizedSlug.replace(/-/g, ' ')
+  const titleSpacedSlug = spacedSlug.replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+
+  return uniqueSlugCandidates([normalizedSlug, decodedSlug, slug, spacedSlug, titleSpacedSlug])
+}
+
 export const getPublicDealBySlug = async (
   payload: Payload,
   slug: string,
@@ -476,28 +493,12 @@ export const getPublicDealBySlug = async (
   let result = await findByExactSlug(normalizedSlug)
 
   // Legacy production deals were easy to save with title-cased/space-containing slugs.
-  // Keep public URLs canonical (/deals/test-deal) while still resolving those records.
-  if (result.docs.length === 0 && normalizedSlug !== slug) {
-    result = await findByExactSlug(slug)
-  }
-
-  if (result.docs.length === 0) {
-    const legacyCandidates = await payload.find({
-      collection: 'deals',
-      depth: clampPublicDepth(options.depth),
-      limit: clampPublicLimit(options.limit, 100, 100),
-      overrideAccess: false,
-      page: 1,
-      select: publicDealSelect,
-      where: publicDealVisibilityWhere,
-    })
-    result = {
-      ...legacyCandidates,
-      docs: legacyCandidates.docs.filter((doc) =>
-        toDealSlug(String((doc as Record<string, unknown>).slug ?? (doc as Record<string, unknown>).title ?? '')) ===
-        normalizedSlug,
-      ),
+  // Resolve a small set of deterministic legacy forms instead of scanning public deals on every 404.
+  for (const candidateSlug of legacySlugCandidatesFor(slug, normalizedSlug)) {
+    if (result.docs.length > 0 || candidateSlug === normalizedSlug) {
+      continue
     }
+    result = await findByExactSlug(candidateSlug)
   }
 
   const [doc] = await attachPublicDealMedia(payload, result.docs.slice(0, 1))

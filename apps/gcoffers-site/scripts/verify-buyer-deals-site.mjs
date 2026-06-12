@@ -174,7 +174,8 @@ const publicQueries = read('src/lib/payload/publicQueries.ts')
 assert(publicQueries.includes('overrideAccess: false'), 'public deal queries run with overrideAccess: false')
 assert(publicQueries.includes('publicActiveDealsWhere'), 'active deal query uses the public active where-clause')
 assert(publicQueries.includes('normalizeDealSlugInput'), 'deal-by-slug query normalizes incoming slug paths')
-assert(publicQueries.includes('toDealSlug(String'), 'deal-by-slug query can resolve legacy title-cased/space-containing production slugs')
+assert(publicQueries.includes('legacySlugCandidatesFor'), 'deal-by-slug query resolves deterministic legacy slug variants')
+assert(!publicQueries.includes('legacyCandidates'), 'deal-by-slug query does not full-scan public deals on true 404s')
 assert(
   publicQueries.includes('publicDealVisibilityWhere'),
   'deal-by-slug query enforces the public visibility where-clause',
@@ -345,6 +346,10 @@ assert(styles.includes('.buyer-deals-grid--public-index'), 'styles define a publ
 assert(styles.includes('repeat(auto-fit, minmax(min(100%, 320px), 1fr))'), 'public deals grid uses bounded responsive cards')
 assert(styles.includes('.map-pin[aria-pressed="true"]'), 'map pins visually reflect active filter state')
 assert(styles.includes('.buyer-deal-card__media'), 'styles define stable deal card media wrapper')
+for (const tone of ['blue', 'gold', 'green', 'slate']) {
+  assert(styles.includes(`.buyer-deal-card__placeholder--${tone}`), `deal card placeholder supports ${tone} hero tone`)
+}
+assert(!styles.includes('.buyer-deal-card__placeholder--sold'), 'deal card placeholder CSS does not define dead sold tone class')
 assert(listSignupForm.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
 assert(listSignupForm.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
 assert(listSignupForm.includes('method="post"'), 'frontend deals signup uses POST')

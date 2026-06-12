@@ -1957,8 +1957,20 @@ textarea {
   font-weight: 900;
 }
 
-.buyer-deal-card__placeholder--sold {
-  background: linear-gradient(135deg, #1f7a45 0%, #15803d 55%, #14532d 100%);
+.buyer-deal-card__placeholder--blue {
+  background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+}
+
+.buyer-deal-card__placeholder--gold {
+  background: linear-gradient(135deg, #92400e, #d5b238);
+}
+
+.buyer-deal-card__placeholder--green {
+  background: linear-gradient(135deg, #166534, #22c55e);
+}
+
+.buyer-deal-card__placeholder--slate {
+  background: linear-gradient(135deg, #334155, #64748b);
 }
 
 .buyer-deal-card__badges,
