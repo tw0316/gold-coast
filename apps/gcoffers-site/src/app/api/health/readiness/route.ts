@@ -11,7 +11,7 @@ const healthHeaders = {
 export async function GET() {
   try {
     const payload = await getPayload({ config })
-    const result = await payload.find({
+    await payload.find({
       collection: 'pages',
       depth: 0,
       limit: 1,
@@ -26,12 +26,13 @@ export async function GET() {
         checks: {
           app: 'ok',
           database: 'ok',
-          publicPagesQuery: typeof result.totalDocs === 'number' ? 'ok' : 'unknown',
+          publicPagesQuery: 'ok',
         },
       },
       { headers: healthHeaders },
     )
-  } catch {
+  } catch (error) {
+    console.error('gcoffers readiness health check failed', error)
     return NextResponse.json(
       {
         ok: false,

@@ -461,7 +461,7 @@ Expected outcome: validation succeeds and no plan/apply is run.
 ### Health endpoints
 
 - `/api/health/readiness` is the ALB/ECS health check path and should remain no-cache. It verifies the app can initialize Payload and query public pages without leaking credentials.
-- `/api/health/public-content` verifies the public content query path and required seller content availability. It returns `503` when required public content is missing or queries fail.
+- `/api/health/public-content` verifies the public content query path and reports required seller content availability. It returns `200` with `publicContentReady: false` when content is missing so deploy smoke can surface the gap without rolling back an otherwise healthy app/database deploy; query failures still return `503`.
 
 ### Logs, metrics, and alarms
 

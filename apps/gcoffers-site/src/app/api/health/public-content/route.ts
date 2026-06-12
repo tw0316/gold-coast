@@ -30,18 +30,20 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        ok: hasPublicContent,
+        ok: true,
         service: 'gcoffers-site',
         checks: {
           app: 'ok',
           database: 'ok',
           publicContent: hasPublicContent ? 'ok' : 'missing_required_public_content',
         },
+        publicContentReady: hasPublicContent,
         counts,
       },
-      { status: hasPublicContent ? 200 : 503, headers: healthHeaders },
+      { status: 200, headers: healthHeaders },
     )
-  } catch {
+  } catch (error) {
+    console.error('gcoffers public content health check failed', error)
     return NextResponse.json(
       {
         ok: false,

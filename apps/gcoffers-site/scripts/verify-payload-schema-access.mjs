@@ -70,12 +70,9 @@ try {
 
   assert(roles.isAdmin({ id: 1, role: 'admin' }), 'Admin role grants admin access')
   assert(roles.isAdminOrEditor({ id: 2, role: 'editor' }), 'Editor role grants staff content access')
-  assert(roles.isAdminOrEditor({ id: 3, role: 'Admin' }), 'Role checks normalize legacy capitalization')
-  assert(
-    roles.isAdminOrEditor({ id: 4 }),
-    'Authenticated legacy users without a role retain staff content access for deals, markets, and media',
-  )
-  assert(!roles.isAdmin({ id: 4 }), 'Authenticated legacy users without a role are not promoted to admin-only access')
+  assert(roles.isAdminOrEditor({ id: 3, role: ' Admin ' }), 'Role checks trim and normalize legacy capitalization')
+  assert(!roles.isAdminOrEditor({ id: 4 }), 'Roleless authenticated users do not receive staff content access without the migration backfill')
+  assert(!roles.isAdmin({ id: 4 }), 'Roleless authenticated users are not promoted to admin-only access')
   assert(!roles.isAdminOrEditor(null), 'Anonymous users do not receive staff content access')
 
   const dealsCollectionSource = readSource('src/collections/Deals.ts')

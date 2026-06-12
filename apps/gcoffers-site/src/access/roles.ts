@@ -8,7 +8,7 @@ type RoleBearingUser = PayloadRequest['user'] & {
 
 const getUserRole = (user: PayloadRequest['user']): GcoffersUserRole | null => {
   if (user && typeof user === 'object' && 'role' in user) {
-    const role = (user as RoleBearingUser).role?.toLowerCase() ?? null
+    const role = (user as RoleBearingUser).role?.trim().toLowerCase() ?? null
     if (role === 'admin' || role === 'editor') {
       return role
     }
@@ -16,9 +16,6 @@ const getUserRole = (user: PayloadRequest['user']): GcoffersUserRole | null => {
 
   return null
 }
-
-const isAuthenticatedUser = (user: PayloadRequest['user']): boolean =>
-  Boolean(user && typeof user === 'object' && 'id' in user)
 
 export const hasRole = (
   user: PayloadRequest['user'],
@@ -32,8 +29,7 @@ export const isAdmin = (user: PayloadRequest['user']): boolean => hasRole(user, 
 
 export const isEditor = (user: PayloadRequest['user']): boolean => hasRole(user, ['editor'])
 
-export const isAdminOrEditor = (user: PayloadRequest['user']): boolean =>
-  hasRole(user, ['admin', 'editor']) || isAuthenticatedUser(user)
+export const isAdminOrEditor = (user: PayloadRequest['user']): boolean => hasRole(user, ['admin', 'editor'])
 
 export const adminOnly: Access = ({ req }) => isAdmin(req.user)
 
