@@ -106,6 +106,7 @@ try {
   const publicSurfaceMigrationSource = readSource('src/migrations/20260612_171059_deal_public_surface_regressions.ts')
   for (const marker of [
     'regexp_replace(lower("slug")',
+    '"id",\n        "slug",',
     '"base_slug" || \'-\' || "id"',
     'CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END',
     '"slug_count" > 1 AND "slug_rank" > 1',

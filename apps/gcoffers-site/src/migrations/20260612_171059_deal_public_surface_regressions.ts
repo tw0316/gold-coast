@@ -13,6 +13,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     WITH normalized AS (
       SELECT
         "id",
+        "slug",
         COALESCE(
           NULLIF(
             regexp_replace(
