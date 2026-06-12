@@ -193,8 +193,11 @@ export function SellerLeadForm() {
           </span>
         </div>
         <div className="offer-nav">
-          <button className="btn offer-next" type="button" onClick={() => goToStep(1)}>
-            Continue
+          <button className="btn offer-next" type="button" onClick={() => goToStep(1)} aria-label="Continue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
           </button>
         </div>
       </div>

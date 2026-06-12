@@ -46,8 +46,8 @@ export const sellerHomePageSeed: SellerPayloadPageSeed = {
     {
       sectionType: 'hero',
       eyebrow: '4.9 from 400+ South Florida homeowners',
-      heading: 'Sell your home the easy way.',
-      body: 'We’re your neighbors in South Florida. Tell us about your home and we’ll send a fair cash offer — no repairs, no fees, and you pick the day you move.',
+      heading: 'The straightforward way to sell.',
+      body: 'We’re your neighbors. Tell us about your home and we’ll send a fair cash offer.',
       ctaLabel: 'Get my cash offer',
       ctaHref: '/#offer',
       sortOrder: 10,
@@ -55,15 +55,15 @@ export const sellerHomePageSeed: SellerPayloadPageSeed = {
     {
       sectionType: 'rich_text',
       eyebrow: 'How it works',
-      heading: 'Three simple steps to a fair offer.',
-      body: 'From the first address to cash at closing, we keep it calm, clear, and on your schedule.',
+      heading: 'From your address, to cash at closing.',
+      body: 'We keep it calm, clear, and on your schedule.',
       sortOrder: 20,
     },
     {
       sectionType: 'rich_text',
       eyebrow: 'Why sellers choose us',
-      heading: 'A simpler way to sell, start to finish.',
-      body: 'No repairs, no fees, no waiting on a buyer’s lender — just a fair, underwritten offer and a close that works on your terms.',
+      heading: 'Sell without the compromises.',
+      body: 'You get a fair number and a closing date. That’s really it.',
       sortOrder: 30,
     },
     {
@@ -188,10 +188,9 @@ export const sellerPageSeeds = [
 
 export const sellerHomeContent = {
   hero: {
-    rating: '4.9 from 400+ South Florida homeowners',
-    heading: 'Sell your home the easy way.',
+    heading: 'The straightforward way to sell.',
     lede:
-      'We’re your neighbors in South Florida. Tell us about your home and we’ll send a fair cash offer — no repairs, no fees, and you pick the day you move.',
+      'We’re your neighbors. Tell us about your home and we’ll send a fair cash offer.',
     assurances: ['No obligation', 'Takes 2 minutes', 'Your info stays private'],
     trustRow: ['No repairs', 'No fees or commissions', 'Close in as few as 14 days'],
     situationsIntro: 'We work with sellers facing',
@@ -218,67 +217,62 @@ export const sellerHomeContent = {
   },
   howItWorks: {
     eyebrow: 'How it works',
-    heading: 'Three simple steps to a fair offer.',
-    lede: 'From the first address to cash at closing, we keep it calm, clear, and on your schedule.',
+    heading: 'From your address, to cash at closing.',
+    lede: 'We keep it calm, clear, and on your schedule.',
     steps: [
       {
-        icon: '⌂',
+        icon: 'home',
         num: '01',
         title: 'Tell us about the home',
-        text: 'Share the address and a few details. Takes about two minutes — no account, no obligation.',
+        text: 'Share the address and a few details. Takes about two minutes.',
       },
       {
-        icon: '✓',
+        icon: 'offer',
         num: '02',
         title: 'Get a verified cash offer',
-        text: 'We pull local comps and underwrite the property in house, then send a fair, no-obligation offer.',
+        text: 'We pull recent sales in your neighborhood and run the numbers ourselves, then send a fair, no-obligation offer.',
       },
       {
-        icon: '⚿',
+        icon: 'key',
         num: '03',
         title: 'Close on your timeline',
-        text: 'Pick the date that works for you. We cover standard closing costs and handle the paperwork.',
+        text: 'Pick the date that works for you. We cover standard closing costs, work with a local title company, and handle the paperwork.',
       },
     ],
   },
   proof: {
     eyebrow: 'Why sellers choose us',
-    heading: 'A simpler way to sell, start to finish.',
+    heading: 'Sell without the compromises.',
     lede:
-      'No repairs, no fees, no waiting on a buyer’s lender — just a fair, underwritten offer and a close that works on your terms.',
+      'You get a fair number and a closing date. That’s really it.',
     cards: [
       {
-        icon: '🔧',
+        icon: 'wrench',
         title: 'No repairs or cleanout',
-        text: 'Sell exactly as it sits. Skip the contractors, the staging, and the dumpster — we underwrite around the condition.',
+        text: 'Sell exactly as it sits. Roof issues, bad tenants, storm damage, full of stuff, we buy it all. None of it stops the deal.',
       },
       {
-        icon: '▤',
+        icon: 'dollar',
         title: 'No commissions or fees',
-        text: 'No agent commission, no listing fees, no surprise line items. The number we send is the number you keep.',
+        text: 'No agent commission, no listing fees, no closing costs. The number we send is the number you keep.',
       },
       {
-        icon: '◷',
+        icon: 'clock',
         title: 'Cash offer in 24 hours',
-        text: 'Send the address and a few details. Our acquisitions team pulls comps and responds within a single day.',
+        text: 'Share the address and a few details. Our acquisitions team pulls comps and responds the same day with a real number.',
       },
       {
-        icon: '□',
+        icon: 'calendar',
         title: 'You pick the closing date',
-        text: 'Close in as few as 14 days or take 90 — choose the date that fits your move and we work around it.',
+        text: 'Close in as few as 14 days or take 90. You pick the date, and we work around your life.',
       },
     ],
-    movePanel: {
-      eyebrow: 'Included free at close',
-      title: 'The Move On Package',
-      text: 'When you close with us, we coordinate and pay for a professional cleanout. Take what matters to you and leave the rest — nothing to haul, sort, or scrub. You walk away with a check and a clean break.',
-    },
   },
   reviews: {
-    eyebrow: 'Why sellers choose us',
-    heading: '412 South Florida families have moved on with us.',
+    eyebrow: 'What sellers say',
+    heading: 'Neighbors who trusted us\nto get it done.',
     lede:
-      'Real neighbors, real closings. Here’s what it was like to sell their home to a local team that picked up the phone.',
+      'All it took was one conversation.',
     score: '4.9 / 5 average from verified sellers',
     cards: [
       {
@@ -286,37 +280,34 @@ export const sellerHomeContent = {
         quote:
           'They didn’t treat it like a transaction. We had just lost my father, and Gold Coast handled everything so our family could focus on each other. We closed in eleven days.',
         name: 'Maria G.',
-        detail: 'Miami · Sold her family’s home',
+        detail: 'Miami, FL · Sold her family’s home',
       },
       {
         initials: 'JR',
         quote:
           'After two failed listings I was worn out. Gold Coast sent a fair number the same week and let us pick the closing date around our move. It finally felt easy.',
         name: 'James R.',
-        detail: 'Fort Lauderdale · Relocating for work',
+        detail: 'Westbury, NY · Relocating for work',
       },
       {
         initials: 'PL',
         quote:
           'I needed to move quickly and I was nervous about being taken advantage of. They were honest, local, and the number they sent was the number we got at closing.',
         name: 'Patricia L.',
-        detail: 'Boca Raton · Downsizing after retirement',
+        detail: 'Boca Raton, FL · Downsizing after retirement',
       },
     ],
   },
   comparison: {
     eyebrow: 'Us vs. listing',
-    heading: 'Selling to us vs. listing with an agent.',
-    lede: 'Same home, two very different paths. Here’s how they stack up, line by line.',
+    heading: 'Same home, two very different paths.',
     rows: [
-      ['Commissions & fees', '✓ None — we don’t charge any', '✕ 5–6% agent commission'],
+      ['Commissions & fees', '✓ None', '✕ 5–6% agent commission'],
       ['Closing costs', '✓ We cover standard closing costs', '✕ Typically 1–3%, paid by you'],
-      ['Repairs required', '✓ None — we buy as-is', '✕ Often required before listing'],
-      ['Inspection contingency', '✓ None — no contingencies', '✕ Buyer’s inspection can re-trade the price'],
-      ['Average days to close', '✓ As few as 14 days', '✕ 60–90+ days'],
-      ['Number of showings', '✓ Zero — no strangers in your home', '✕ Ongoing, on the buyer’s schedule'],
+      ['Repairs required', '✓ None', '✕ Often required before listing'],
+      ['Inspection contingency', '✓ None', '✕ Buyer’s inspection can re-trade the price'],
+      ['Average days to close', '✓ As few as 14 days', '✕ 3-6 months'],
       ['Closing date flexibility', '✓ You pick the date', '✕ Dictated by the buyer’s lender'],
-      ['Cleanout assistance', '✓ Included — our Move On Package', '✕ Not provided'],
     ],
   },
   faqs: {
@@ -326,12 +317,12 @@ export const sellerHomeContent = {
       {
         question: 'Are you just going to lowball me?',
         answer:
-          'No. We pull recent comparable sales in your immediate neighborhood, factor in the home’s condition and any work it needs, and underwrite the deal in house. You get a fair, data-backed number you can check against the comps — not a throwaway placeholder.',
+          'No. We pull recent comparable sales in your immediate neighborhood, factor in the home’s condition and any work it needs, and underwrite the deal in house. You get a fair, data-backed number you can check against the comps.',
       },
       {
         question: 'How do you calculate your offer?',
         answer:
-          'We start from the after-repair value (ARV) based on local comps, then subtract the cost of any repairs plus our holding and transaction costs. What’s left is your cash price. We’ll walk you through the math so the number makes sense.',
+          'We start from what the home would sell for in good condition based on recent sales nearby, then subtract the cost of any repairs plus our holding and transaction costs. What’s left is your cash price. We’ll walk you through the math so the number makes sense.',
       },
       {
         question: 'What if I still have a mortgage on the home?',
@@ -344,9 +335,19 @@ export const sellerHomeContent = {
           'Bring it on. Roof, foundation, fire or storm damage, code violations — we buy as-is and underwrite around it. You don’t fix, clean, or stage anything before closing.',
       },
       {
+        question: 'Can you still buy if I’m behind on payments or in foreclosure?',
+        answer:
+          'Yes — this is one of the most common situations we work with. As long as the sale closes before the foreclosure is finalized, we can still move forward. If you’re behind on payments or have received a notice, reach out as soon as possible so we have enough time to work with.',
+      },
+      {
+        question: 'What if there are tenants in the property?',
+        answer:
+          'We buy tenant-occupied properties. Depending on the lease and the situation, we’ll work through the details with you — you don’t need to handle an eviction or wait for the lease to end before we can move forward.',
+      },
+      {
         question: 'How fast can you actually close?',
         answer:
-          'We’ve closed in as few as 14 days. Because we pay cash, there’s no lender, no appraisal delay, and no financing fall-through. If you need more time, pick a later date — it’s your call.',
+          'We’ve closed in as few as 14 days. Because we pay cash, there’s no lender, no appraisal delay, and no financing fall-through. If you need more time, you can choose a later date most convenient for you.',
       },
       {
         question: 'Do I need to be present at closing?',
@@ -354,9 +355,14 @@ export const sellerHomeContent = {
           'No. Closings run through a local title company and can be done remotely with a mobile notary if that’s easier. Sign where it suits you, and your funds are wired or cut as a check.',
       },
       {
+        question: 'Who actually buys my home?',
+        answer:
+          'We put your home under contract, then either close on it directly or assign that contract to a vetted investor in our network.',
+      },
+      {
         question: 'What areas do you buy in?',
         answer:
-          'We buy across Miami-Dade and Broward — Miami, Hollywood, Fort Lauderdale, Pembroke Pines, Miramar, Hialeah, Homestead, and the surrounding neighborhoods. If you’re nearby and not sure, just ask.',
+          'We buy across South Florida and Long Island, NY. If you’re nearby and not sure, just ask.',
       },
     ],
   },
@@ -370,9 +376,8 @@ export const sellerHomeContent = {
     phoneHref: ['tel:+1', '786', '983', '5811'].join(''),
   },
   footer: {
-    description: 'A South Florida cash buyer. We source, underwrite, and stand behind every offer.',
-    bottomLeft: '© 2026 Gold Coast Home Buyers · W & Co LLC · Hollywood, FL',
-    bottomRight: 'Serving Miami, Fort Lauderdale, Boca Raton, West Palm Beach & all of South Florida',
+    bottomLeft: '© 2026 Gold Coast Home Buyers · Gold Coast Offers LLC',
+    bottomRight: 'Serving all of South Florida and Long Island, NY.',
   },
 } as const
 
@@ -396,7 +401,7 @@ export const sellerLegalPages = {
     title: 'Privacy Policy',
     lastUpdated: 'March 6, 2026',
     intro: [
-      'W & Co LLC, doing business as Gold Coast Home Buyers, operates the website gcoffers.com. This Privacy Policy describes how we collect, use, disclose, and protect information submitted through the Site, online forms, phone, email, or text communications.',
+      'Gold Coast Offers LLC, doing business as Gold Coast Home Buyers, operates the website gcoffers.com. This Privacy Policy describes how we collect, use, disclose, and protect information submitted through the Site, online forms, phone, email, or text communications.',
       'By accessing or using the Site or submitting information through our forms, you acknowledge that you have read and understand this Privacy Policy.',
     ],
     sections: [
@@ -486,7 +491,7 @@ export const sellerLegalPages = {
     title: 'Terms of Service',
     lastUpdated: 'March 6, 2026',
     intro: [
-      'Welcome to gcoffers.com, owned and operated by W & Co LLC, doing business as Gold Coast Home Buyers. By accessing or using this Site, you agree to be bound by these Terms of Service.',
+      'Welcome to gcoffers.com, owned and operated by Gold Coast Offers LLC, doing business as Gold Coast Home Buyers. By accessing or using this Site, you agree to be bound by these Terms of Service.',
     ],
     sections: [
       {
