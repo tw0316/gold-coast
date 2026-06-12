@@ -16,6 +16,7 @@ import {
 } from '../deals/visibility'
 import { sanitizeMediaReferenceForPublic } from '../media/publicMedia'
 import { attachPublicDealMedia } from '../media/resolveDealMedia'
+import { normalizeDealSlugInput, toDealSlug } from '../deals/slug'
 
 export type PublicSiteSurface = 'seller' | 'buyer' | 'shared'
 
@@ -456,21 +457,50 @@ export const getPublicDealBySlug = async (
   slug: string,
   options: PublicQueryOptions = {},
 ) => {
-  const result = await payload.find({
-    collection: 'deals',
-    depth: clampPublicDepth(options.depth),
-    limit: 1,
-    overrideAccess: false,
-    page: 1,
-    select: publicDealSelect,
-    where: andWhere(publicDealVisibilityWhere, {
-      slug: {
-        equals: slug,
-      },
-    }),
-  })
+  const normalizedSlug = normalizeDealSlugInput(slug)
+  const findByExactSlug = async (candidateSlug: string) =>
+    payload.find({
+      collection: 'deals',
+      depth: clampPublicDepth(options.depth),
+      limit: 1,
+      overrideAccess: false,
+      page: 1,
+      select: publicDealSelect,
+      where: andWhere(publicDealVisibilityWhere, {
+        slug: {
+          equals: candidateSlug,
+        },
+      }),
+    })
 
-  const [doc] = await attachPublicDealMedia(payload, result.docs)
+  let result = await findByExactSlug(normalizedSlug)
+
+  // Legacy production deals were easy to save with title-cased/space-containing slugs.
+  // Keep public URLs canonical (/deals/test-deal) while still resolving those records.
+  if (result.docs.length === 0 && normalizedSlug !== slug) {
+    result = await findByExactSlug(slug)
+  }
+
+  if (result.docs.length === 0) {
+    const legacyCandidates = await payload.find({
+      collection: 'deals',
+      depth: clampPublicDepth(options.depth),
+      limit: clampPublicLimit(options.limit, 100, 100),
+      overrideAccess: false,
+      page: 1,
+      select: publicDealSelect,
+      where: publicDealVisibilityWhere,
+    })
+    result = {
+      ...legacyCandidates,
+      docs: legacyCandidates.docs.filter((doc) =>
+        toDealSlug(String((doc as Record<string, unknown>).slug ?? (doc as Record<string, unknown>).title ?? '')) ===
+        normalizedSlug,
+      ),
+    }
+  }
+
+  const [doc] = await attachPublicDealMedia(payload, result.docs.slice(0, 1))
   return sanitizeDealForPublic(doc)
 }
 

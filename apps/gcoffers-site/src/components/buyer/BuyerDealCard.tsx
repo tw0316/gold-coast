@@ -44,7 +44,7 @@ export function BuyerDealCard({ deal, mode = 'active' }: BuyerDealCardProps) {
   return (
     <article className={`buyer-deal-card buyer-deal-card--${mode}`} data-deal-slug={deal.slug}>
       <Link href={`/deals/${deal.slug}/`} className="buyer-deal-card__link-wrap">
-        <div className={`buyer-deal-card__visual buyer-deal-card__visual--${deal.heroVisual.tone}`}>
+        <div className="buyer-deal-card__media">
           {deal.coverPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -52,13 +52,12 @@ export function BuyerDealCard({ deal, mode = 'active' }: BuyerDealCardProps) {
               alt={deal.coverPhoto.alt ?? deal.title}
               className="buyer-deal-card__image"
               loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
-            <>
+            <div className={`buyer-deal-card__placeholder buyer-deal-card__placeholder--${deal.heroVisual.tone}`}>
               <span aria-hidden="true">{deal.heroVisual.icon}</span>
               <small>{deal.heroVisual.label}</small>
-            </>
+            </div>
           )}
           <div className="buyer-deal-card__badges" aria-label="Deal badges">
             <span className={`buyer-badge buyer-badge--${deal.dealStatus.replaceAll('_', '-')}`}>

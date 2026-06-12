@@ -27,6 +27,7 @@ const requiredFiles = [
   'src/app/(buyer)/deals/[slug]/page.tsx',
   'src/components/buyer/BuyerHomePage.tsx',
   'src/components/buyer/BuyerDealsIndexPage.tsx',
+  'src/components/buyer/BuyerDealsExplorer.tsx',
   'src/components/buyer/BuyerDealCard.tsx',
   'src/components/buyer/BuyerDealDetailPage.tsx',
   'src/components/buyer/BuyerEmailCapture.tsx',
@@ -172,6 +173,8 @@ assert(dealsCollection.includes('exactAddressPublicOrStaffFieldAccess'), 'exactA
 const publicQueries = read('src/lib/payload/publicQueries.ts')
 assert(publicQueries.includes('overrideAccess: false'), 'public deal queries run with overrideAccess: false')
 assert(publicQueries.includes('publicActiveDealsWhere'), 'active deal query uses the public active where-clause')
+assert(publicQueries.includes('normalizeDealSlugInput'), 'deal-by-slug query normalizes incoming slug paths')
+assert(publicQueries.includes('toDealSlug(String'), 'deal-by-slug query can resolve legacy title-cased/space-containing production slugs')
 assert(
   publicQueries.includes('publicDealVisibilityWhere'),
   'deal-by-slug query enforces the public visibility where-clause',
@@ -184,6 +187,7 @@ for (const marker of ['toBuyerView', 'getPublicLocationLabel', 'BEST_USE_LABELS'
   assert(dealView.includes(marker), `deal view-model uses ${marker}`)
 }
 assert(!dealView.includes('internalNotes'), 'deal view-model never references internalNotes')
+assert(dealView.includes('slug = toDealSlug'), 'deal view-model exposes canonical URL-safe slugs to deal cards')
 assert(dealView.includes('asExternalHttpUrl'), 'videoTourUrl is restricted to http(s) before public render')
 
 assert(visibility.includes("'bestUse'"), 'sanitized public deal keeps bestUse')
@@ -295,6 +299,8 @@ for (const marker of [
 
 const signupForm = read('src/components/buyer/BuyerSignupForm.tsx')
 const frontendDealsIndex = read('src/components/buyer/BuyerDealsIndexPage.tsx')
+const dealsExplorer = read('src/components/buyer/BuyerDealsExplorer.tsx')
+const dealCard = read('src/components/buyer/BuyerDealCard.tsx')
 const listSignupForm = read('src/components/buyer/BuyerListSignupForm.tsx')
 const interestForm = read('src/components/buyer/DealInterestForm.tsx')
 assert(signupForm.includes("from '@/lib/buyer/formContract'"), 'buyer signup form imports canonical form contract module')
@@ -317,9 +323,28 @@ assert(signupForm.includes('name="contract"'), 'buyer signup form sends explicit
 assert(signupForm.includes("You're on the list. We'll send deals that match your buy box."), 'buyer signup form has the approved inline success message')
 assert(!/future route|form contract only|local endpoint|fake persistence/i.test(signupForm), 'buyer signup form has no implementation-leak copy')
 
-assert(frontendDealsIndex.includes('<BuyerDealCard'), 'deals index renders deal cards when inventory exists')
+assert(frontendDealsIndex.includes('<BuyerDealsExplorer'), 'deals index delegates interactive map/list filtering to BuyerDealsExplorer')
 assert(frontendDealsIndex.includes('activeDeals'), 'deals index consumes server-provided active deals')
 assert(frontendDealsIndex.includes('BuyerListSignupForm'), 'deals index renders the reusable buyer signup form')
+for (const marker of [
+  "'use client'",
+  'useState',
+  "const areas = ['Miami-Dade', 'Broward', 'Palm Beach'] as const",
+  'areaFromDeal',
+  'setActiveArea(area)',
+  'filteredDeals.map',
+  'aria-pressed={activeArea === area}',
+  'buyer-deals-grid--public-index',
+]) {
+  assert(dealsExplorer.includes(marker), `deals explorer interactive filter marker present: ${marker}`)
+}
+assert(dealCard.includes('buyer-deal-card__media'), 'deal card uses dedicated media wrapper for stable tile layout')
+assert(dealCard.includes('buyer-deal-card__placeholder'), 'deal card uses a nested placeholder instead of styling the image wrapper as the fallback')
+const styles = read('src/app/(frontend)/styles.css')
+assert(styles.includes('.buyer-deals-grid--public-index'), 'styles define a public-index deal card grid')
+assert(styles.includes('repeat(auto-fit, minmax(min(100%, 320px), 1fr))'), 'public deals grid uses bounded responsive cards')
+assert(styles.includes('.map-pin[aria-pressed="true"]'), 'map pins visually reflect active filter state')
+assert(styles.includes('.buyer-deal-card__media'), 'styles define stable deal card media wrapper')
 assert(listSignupForm.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
 assert(listSignupForm.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
 assert(listSignupForm.includes('method="post"'), 'frontend deals signup uses POST')

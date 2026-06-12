@@ -1,6 +1,7 @@
 import type {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
+  CollectionBeforeValidateHook,
   CollectionConfig,
 } from 'payload'
 
@@ -11,6 +12,7 @@ import {
   WEBSITE_VISIBILITIES,
   publicDealVisibilityWhere,
 } from '../lib/deals/visibility'
+import { toDealSlug } from '../lib/deals/slug'
 import {
   BEST_USE_OPTIONS,
   FEATURE_TAG_OPTIONS,
@@ -75,6 +77,116 @@ const revalidateAfterDelete: CollectionAfterDeleteHook = async ({ doc }) => {
   await revalidatePublicDealSurfaces((doc as { slug?: unknown }).slug)
 }
 
+const publicMediaDealStatuses = new Set(['coming_soon', 'available', 'under_contract', 'sold'])
+
+const isPublicDealDoc = (doc: { websiteVisibility?: unknown; dealStatus?: unknown }): boolean =>
+  doc.websiteVisibility === 'public' &&
+  typeof doc.dealStatus === 'string' &&
+  publicMediaDealStatuses.has(doc.dealStatus)
+
+const mediaIdFromReference = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return value
+  }
+
+  if (value && typeof value === 'object') {
+    const id = (value as { id?: unknown }).id
+    if (typeof id === 'number' && Number.isInteger(id)) {
+      return id
+    }
+  }
+
+  return null
+}
+
+const collectDealMediaIds = (doc: { coverPhoto?: unknown; photos?: unknown }): number[] => {
+  const ids = new Set<number>()
+  const coverPhotoId = mediaIdFromReference(doc.coverPhoto)
+  if (coverPhotoId) {
+    ids.add(coverPhotoId)
+  }
+
+  if (Array.isArray(doc.photos)) {
+    for (const photo of doc.photos) {
+      const photoId = mediaIdFromReference(photo)
+      if (photoId) {
+        ids.add(photoId)
+      }
+    }
+  }
+
+  return [...ids]
+}
+
+const syncReferencedMediaPublicState: CollectionAfterChangeHook = async ({ doc, req }) => {
+  if (!isPublicDealDoc(doc as { websiteVisibility?: unknown; dealStatus?: unknown })) {
+    return
+  }
+
+  const mediaIds = collectDealMediaIds(doc as { coverPhoto?: unknown; photos?: unknown })
+  for (const mediaId of mediaIds) {
+    const media = (await req.payload.findByID({
+      collection: 'media',
+      id: mediaId,
+      depth: 0,
+      overrideAccess: true,
+    })) as {
+      accessPolicy?: string | null
+      containsExactAddressOrPrivateDetails?: boolean | null
+      mediaStatus?: string | null
+    } | null
+
+    if (
+      !media ||
+      media.containsExactAddressOrPrivateDetails === true ||
+      media.mediaStatus === 'hidden' ||
+      media.mediaStatus === 'archived'
+    ) {
+      continue
+    }
+
+    if (media.accessPolicy === 'public_after_reference_check' && media.mediaStatus === 'ready') {
+      continue
+    }
+
+    await req.payload.update({
+      collection: 'media',
+      id: mediaId,
+      data: {
+        accessPolicy: 'public_after_reference_check',
+        mediaStatus: 'ready',
+      },
+      depth: 0,
+      overrideAccess: true,
+    })
+  }
+}
+
+const normalizeDealSlugBeforeValidate: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
+  if (!data) {
+    return data
+  }
+
+  const existing = originalDoc as { slug?: unknown; title?: unknown } | undefined
+  const rawSlug =
+    typeof data.slug === 'string' && data.slug.trim().length > 0
+      ? data.slug
+      : typeof data.title === 'string' && data.title.trim().length > 0
+        ? data.title
+        : typeof existing?.slug === 'string' && existing.slug.trim().length > 0
+          ? existing.slug
+          : existing?.title
+
+  if (typeof rawSlug !== 'string' || rawSlug.trim().length === 0) {
+    return data
+  }
+
+  return {
+    ...data,
+    slug: toDealSlug(rawSlug),
+  }
+}
+
 export const Deals: CollectionConfig = {
   slug: 'deals',
   admin: {
@@ -89,7 +201,8 @@ export const Deals: CollectionConfig = {
     update: adminOrEditor,
   },
   hooks: {
-    afterChange: [revalidateAfterChange],
+    beforeValidate: [normalizeDealSlugBeforeValidate],
+    afterChange: [syncReferencedMediaPublicState, revalidateAfterChange],
     afterDelete: [revalidateAfterDelete],
   },
   fields: [
@@ -101,6 +214,9 @@ export const Deals: CollectionConfig = {
     {
       name: 'slug',
       type: 'text',
+      admin: {
+        description: 'URL path segment. Spaces/case are normalized automatically, e.g. "Test Deal" becomes "test-deal".',
+      },
       index: true,
       required: true,
       unique: true,
