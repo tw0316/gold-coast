@@ -22,13 +22,17 @@ export type BuyerHomeDealData = {
 }
 
 // Freshness model: deal pages read Payload at render time. The buyer home is dynamic
-// (host header), and the /deals index + detail routes are revalidated on demand by the
-// Deals collection afterChange/afterDelete hooks (revalidatePath), so admin edits appear
-// within seconds without a redeploy.
+// (host header), /deals is force-dynamic, and the detail route renders on demand and is
+// revalidated by the Deals collection hooks (revalidatePath), so admin edits appear within
+// seconds without a redeploy.
+//
+// Fixtures are an OFFLINE/DEV-ONLY fallback. They are intentionally NOT used during the
+// production build or at production runtime, because the production image is built in CI
+// without database access — using fixtures there would bake fake sample inventory into the
+// public output. In production a Payload failure yields empty data, never fixtures (unless
+// the explicit override flag is set).
 const canUseBuyerFixtureFallback = (): boolean =>
-  process.env.NODE_ENV !== 'production' ||
-  process.env.NEXT_PHASE === 'phase-production-build' ||
-  process.env.GCOFFERS_USE_BUYER_FIXTURES === 'true'
+  process.env.NODE_ENV !== 'production' || process.env.GCOFFERS_USE_BUYER_FIXTURES === 'true'
 
 let payloadClientPromise: Promise<Payload> | null = null
 

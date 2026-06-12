@@ -45,21 +45,30 @@ const showCurrentRent = (data: unknown): boolean =>
 // On-demand revalidation: when staff publish or edit a deal in the admin, refresh
 // the public buyer surfaces within seconds without a redeploy. The dynamic import
 // keeps Payload CLI codegen (no Next runtime) from failing.
-const revalidatePublicDealSurfaces = async (slug?: unknown): Promise<void> => {
+const revalidatePublicDealSurfaces = async (...slugs: unknown[]): Promise<void> => {
   try {
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/')
     revalidatePath('/deals')
-    if (typeof slug === 'string' && slug.length > 0) {
-      revalidatePath(`/deals/${slug}`)
+    const revalidatedSlugs = new Set<string>()
+    for (const slug of slugs) {
+      if (typeof slug === 'string' && slug.length > 0 && !revalidatedSlugs.has(slug)) {
+        revalidatedSlugs.add(slug)
+        revalidatePath(`/deals/${slug}`)
+      }
     }
   } catch {
     // next/cache is unavailable outside the Next server runtime (e.g. codegen). Safe to ignore.
   }
 }
 
-const revalidateAfterChange: CollectionAfterChangeHook = async ({ doc }) => {
-  await revalidatePublicDealSurfaces((doc as { slug?: unknown }).slug)
+// Pass both the new and previous slug: slug is editable, so a rename must also drop the
+// cached page at the old /deals/<old-slug> path (which now resolves to a 404).
+const revalidateAfterChange: CollectionAfterChangeHook = async ({ doc, previousDoc }) => {
+  await revalidatePublicDealSurfaces(
+    (doc as { slug?: unknown }).slug,
+    (previousDoc as { slug?: unknown } | undefined)?.slug,
+  )
 }
 
 const revalidateAfterDelete: CollectionAfterDeleteHook = async ({ doc }) => {
