@@ -16,3 +16,12 @@ apps/data-lake/tmp/
 apps/data-lake/.pytest_cache/
 apps/data-lake/.venv/
 *.zip
+
+# Local agent/runtime evidence and profile files. Keep these out of product PRs.
+.jks/
+.openclaw/
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md

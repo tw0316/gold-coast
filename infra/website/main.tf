@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 }
 
@@ -221,6 +225,42 @@ resource "aws_wafv2_web_acl" "staging" {
 }
 
 # ==========================================================================
+# CloudFront Function — clean static routes
+# ==========================================================================
+resource "aws_cloudfront_function" "clean_urls" {
+  name    = "gcoffers-clean-urls-${var.environment}"
+  runtime = "cloudfront-js-1.0"
+  comment = "Rewrite clean static routes to index.html before S3 origin lookup"
+  publish = true
+  code    = <<-EOT
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+
+  if (uri.indexOf('/api/') === 0) {
+    return request;
+  }
+
+  if (uri === '') {
+    request.uri = '/index.html';
+    return request;
+  }
+
+  if (uri.endsWith('/')) {
+    request.uri = uri + 'index.html';
+    return request;
+  }
+
+  if (uri.indexOf('.') === -1) {
+    request.uri = uri + '/index.html';
+  }
+
+  return request;
+}
+EOT
+}
+
+# ==========================================================================
 # CloudFront Distribution
 # ==========================================================================
 resource "aws_cloudfront_distribution" "site" {
@@ -267,6 +307,11 @@ resource "aws_cloudfront_distribution" "site" {
     default_ttl            = 3600
     max_ttl                = 86400
     compress               = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.clean_urls.arn
+    }
   }
 
   # Route /api/* to API Gateway
@@ -417,6 +462,25 @@ resource "aws_lambda_function" "lead_handler" {
   }
 }
 
+resource "aws_lambda_function" "buyer_signup_handler" {
+  filename         = data.archive_file.lambda.output_path
+  function_name    = "gcoffers-buyer-signup-handler-${var.environment}"
+  role             = aws_iam_role.lambda.arn
+  handler          = "buyer-signup.handler"
+  source_code_hash = data.archive_file.lambda.output_base64sha256
+  runtime          = "nodejs20.x"
+  timeout          = 15
+  memory_size      = 256
+
+  environment {
+    variables = {
+      LEADS_BUCKET    = local.leads_bucket
+      GHL_SECRET_NAME = "goldcoast/ghl-api-key"
+      ENVIRONMENT     = var.environment
+    }
+  }
+}
+
 # ==========================================================================
 # API Gateway (HTTP API)
 # ==========================================================================
@@ -452,10 +516,32 @@ resource "aws_apigatewayv2_route" "submit_lead" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+resource "aws_apigatewayv2_integration" "buyer_signup_lambda" {
+  api_id                 = aws_apigatewayv2_api.lead_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.buyer_signup_handler.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "buyer_signup" {
+  api_id    = aws_apigatewayv2_api.lead_api.id
+  route_key = "POST /api/buyer-signup"
+  target    = "integrations/${aws_apigatewayv2_integration.buyer_signup_lambda.id}"
+}
+
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lead_handler.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.lead_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "buyer_signup_apigw" {
+  statement_id  = "AllowAPIGatewayBuyerSignup"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.buyer_signup_handler.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.lead_api.execution_arn}/*/*"
 }
