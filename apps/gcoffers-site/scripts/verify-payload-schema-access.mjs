@@ -70,6 +70,40 @@ try {
   const exactArray = (actual, expected) =>
     Array.isArray(actual) && actual.length === expected.length && actual.every((value, index) => value === expected[index])
 
+  const normalizeMigrationSlug = (rawSlug, id) => {
+    const base = String(rawSlug ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+    return base || `deal-${id}`
+  }
+  const simulateDealSlugMigration = (rows) => {
+    const normalizedRows = rows.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      baseSlug: normalizeMigrationSlug(row.slug, row.id),
+    }))
+    const counts = normalizedRows.reduce((acc, row) => {
+      acc.set(row.baseSlug, (acc.get(row.baseSlug) ?? 0) + 1)
+      return acc
+    }, new Map())
+    return normalizedRows
+      .sort((left, right) => {
+        if (left.baseSlug !== right.baseSlug) {
+          return left.baseSlug.localeCompare(right.baseSlug)
+        }
+        const leftCanonical = (left.slug ?? '') === left.baseSlug ? 0 : 1
+        const rightCanonical = (right.slug ?? '') === right.baseSlug ? 0 : 1
+        return leftCanonical - rightCanonical || left.id - right.id
+      })
+      .reduce((acc, row) => {
+        const priorSameBase = [...acc.values()].filter((slug) => slug === row.baseSlug || slug.startsWith(`${row.baseSlug}-`)).length
+        const isDuplicate = (counts.get(row.baseSlug) ?? 0) > 1 && priorSameBase > 0
+        acc.set(row.id, isDuplicate ? `${row.baseSlug}-${row.id}` : row.baseSlug)
+        return acc
+      }, new Map())
+  }
+
   assert(roles.isAdmin({ id: 1, role: 'admin' }), 'Admin role grants admin access')
   assert(roles.isAdminOrEditor({ id: 2, role: 'editor' }), 'Editor role grants staff content access')
   assert(roles.isAdminOrEditor({ id: 3, role: ' Admin ' }), 'Role checks trim and normalize legacy capitalization')
@@ -106,9 +140,8 @@ try {
   const publicSurfaceMigrationSource = readSource('src/migrations/20260612_171059_deal_public_surface_regressions.ts')
   for (const marker of [
     'regexp_replace(lower("slug")',
-    '"id",\n        "slug",',
     '"base_slug" || \'-\' || "id"',
-    'CASE WHEN "slug" = "base_slug" THEN 0 ELSE 1 END',
+    'CASE WHEN COALESCE("slug", \'\') = "base_slug" THEN 0 ELSE 1 END',
     '"slug_count" > 1 AND "slug_rank" > 1',
     'public-deal-referenced cover/gallery media',
     'media flagged as containing private details is never promoted',
@@ -120,6 +153,18 @@ try {
   ]) {
     assert(publicSurfaceMigrationSource.includes(marker), `Public deal surface migration marker present: ${marker}`)
   }
+  assert(
+    /WITH normalized AS \([\s\S]*?SELECT\s+"id",\s+"slug",\s+COALESCE\(/.test(publicSurfaceMigrationSource),
+    'Public deal surface migration projects slug into the normalized CTE without whitespace-sensitive matching',
+  )
+  const migratedSlugs = simulateDealSlugMigration([
+    { id: 8, slug: 'Test Deal' },
+    { id: 3, slug: 'test-deal' },
+    { id: 12, slug: null },
+  ])
+  assert(migratedSlugs.get(3) === 'test-deal', 'Public deal slug migration keeps an existing canonical slug unsuffixed')
+  assert(migratedSlugs.get(8) === 'test-deal-8', 'Public deal slug migration suffixes lower-priority duplicate normalized slugs')
+  assert(migratedSlugs.get(12) === 'deal-12', 'Public deal slug migration falls back deterministically for null/blank slugs')
 
   assert(
     exactArray(visibility.PUBLIC_DEAL_STATUSES, [
