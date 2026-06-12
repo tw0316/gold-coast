@@ -6,13 +6,22 @@ import {
   BUYER_SIGNUP_POST_TARGET,
   BUYER_SIGNUP_SOURCE,
 } from '@/lib/buyer/formContract'
+import type { BuyerPublicDeal } from '@/lib/deals/dealView'
+
+import { BuyerDealCard } from './BuyerDealCard'
 
 const areas = ['Miami-Dade', 'Broward', 'Palm Beach']
 const buyerTypes = ['Fix and flip', 'Buy and hold', 'Developer', 'Wholesaler / disposition', 'Other']
 const priceRanges = ['Under $250K', '$250K - $500K', '$500K - $750K', '$750K+']
 const purchaseMethods = ['Cash', 'Hard money', 'Private capital', 'Conventional']
 
-export function BuyerDealsIndexPage() {
+type BuyerDealsIndexPageProps = {
+  activeDeals: BuyerPublicDeal[]
+}
+
+export function BuyerDealsIndexPage({ activeDeals }: BuyerDealsIndexPageProps) {
+  const activeCount = activeDeals.length
+
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
@@ -49,7 +58,7 @@ export function BuyerDealsIndexPage() {
           <div className="deal-list">
             <div className="count-bar">
               <div>
-                <strong>0 active deals</strong>
+                <strong>{activeCount} active deal{activeCount === 1 ? '' : 's'}</strong>
                 <span className="deal-count-region">South Florida</span>
               </div>
               <div className="pill-row" aria-label="Deal filters">
@@ -59,19 +68,27 @@ export function BuyerDealsIndexPage() {
                 ))}
               </div>
             </div>
-            <div className="empty-deals">
-              <div className="empty-deals__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  <path d="M9 22V12h6v10" />
-                </svg>
+            {activeCount > 0 ? (
+              <div className="buyer-deals-grid">
+                {activeDeals.map((deal) => (
+                  <BuyerDealCard deal={deal} key={deal.id} />
+                ))}
               </div>
-              <h2>No active deals right now</h2>
-              <p className="lede">
-                We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.
-              </p>
-              <a className="btn" href="#join">Join the buyer list</a>
-            </div>
+            ) : (
+              <div className="empty-deals">
+                <div className="empty-deals__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <path d="M9 22V12h6v10" />
+                  </svg>
+                </div>
+                <h2>No active deals right now</h2>
+                <p className="lede">
+                  We are under contract on new inventory. Join the buyer list and you will hear about the next one before it posts here.
+                </p>
+                <a className="btn" href="#join">Join the buyer list</a>
+              </div>
+            )}
           </div>
         </section>
 

@@ -281,7 +281,12 @@ export interface Deal {
   id: number;
   title: string;
   slug: string;
-  dealType: 'wholesale' | 'fix_and_flip' | 'rental' | 'land' | 'other';
+  /**
+   * Best investment use for buyers (multi-select). Drives the deal badges and buyer filtering.
+   */
+  bestUse?:
+    | ('fix_and_flip' | 'buy_and_hold' | 'brrrr' | 'turnkey_immediate_equity' | 'land_bank' | 'development')[]
+    | null;
   /**
    * Internal-only deals must remain Hidden. Public deal visibility is websiteVisibility = public plus the approved deal status matrix.
    */
@@ -289,10 +294,9 @@ export interface Deal {
   dealStatus: 'draft' | 'coming_soon' | 'available' | 'under_contract' | 'sold' | 'cancelled';
   market?: (number | null) | Market;
   /**
-   * Neighborhood/area label safe for public display.
+   * Area / neighborhood label safe for public display (no exact address).
    */
   area?: string | null;
-  neighborhood?: string | null;
   city?: string | null;
   county?: string | null;
   zip?: string | null;
@@ -305,6 +309,14 @@ export interface Deal {
    */
   exactAddress?: string | null;
   propertyDetails?: {
+    /**
+     * What the property is. Controls which detail fields below apply.
+     */
+    propertyType?: ('single_family' | 'condo' | 'townhouse' | 'duplex' | 'multifamily' | 'land') | null;
+    /**
+     * Number of units (duplex / multifamily).
+     */
+    units?: number | null;
     beds?: number | null;
     baths?: number | null;
     sqft?: number | null;
@@ -321,13 +333,49 @@ export interface Deal {
     arv?: number | null;
     estimatedRehab?: number | null;
     estimatedClosingCosts?: number | null;
+    /**
+     * Estimated market rent (monthly) for buy-and-hold / BRRRR buyers.
+     */
+    marketRent?: number | null;
+    /**
+     * Current in-place rent (monthly) if the property is occupied.
+     */
+    currentRent?: number | null;
+    /**
+     * Estimated cap rate (%). Leave blank to let the public UI compute from rent and price.
+     */
+    estCapRate?: number | null;
     potentialProfitOverride?: number | null;
     potentialROIOverride?: number | null;
     closedPrice?: number | null;
   };
   summary?: string | null;
   rehabScope?: string | null;
+  /**
+   * Quick highlight chips shown on the deal card and detail page.
+   */
+  featureTags?:
+    | (
+        | 'cash_only'
+        | 'tenant_occupied'
+        | 'cosmetic_reno'
+        | 'full_gut'
+        | 'owner_financing'
+        | 'pool'
+        | 'waterfront'
+        | 'corner_lot'
+        | 'new_roof'
+      )[]
+    | null;
+  /**
+   * Primary image shown on the deal card and detail hero. Falls back to the first gallery photo.
+   */
+  coverPhoto?: (number | null) | Media;
   photos?: (number | Media)[] | null;
+  /**
+   * Walkthrough video or 3D tour URL (YouTube, Matterport, etc.).
+   */
+  videoTourUrl?: string | null;
   disclaimer?: string | null;
   /**
    * Internal-only notes. Never include in public helpers or evidence.
@@ -739,12 +787,11 @@ export interface FaqsSelect<T extends boolean = true> {
 export interface DealsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
-  dealType?: T;
+  bestUse?: T;
   websiteVisibility?: T;
   dealStatus?: T;
   market?: T;
   area?: T;
-  neighborhood?: T;
   city?: T;
   county?: T;
   zip?: T;
@@ -753,6 +800,8 @@ export interface DealsSelect<T extends boolean = true> {
   propertyDetails?:
     | T
     | {
+        propertyType?: T;
+        units?: T;
         beds?: T;
         baths?: T;
         sqft?: T;
@@ -768,13 +817,19 @@ export interface DealsSelect<T extends boolean = true> {
         arv?: T;
         estimatedRehab?: T;
         estimatedClosingCosts?: T;
+        marketRent?: T;
+        currentRent?: T;
+        estCapRate?: T;
         potentialProfitOverride?: T;
         potentialROIOverride?: T;
         closedPrice?: T;
       };
   summary?: T;
   rehabScope?: T;
+  featureTags?: T;
+  coverPhoto?: T;
   photos?: T;
+  videoTourUrl?: T;
   disclaimer?: T;
   internalNotes?: T;
   closedAt?: T;

@@ -34,12 +34,15 @@ const requiredFiles = [
   'src/components/buyer/DealInterestForm.tsx',
   'src/components/buyer/BuyerHeader.tsx',
   'src/components/buyer/BuyerFooter.tsx',
-  'src/fixtures/buyerDeals.ts',
   'src/lib/buyer/content.ts',
   'src/lib/buyer/formContract.ts',
   'src/lib/buyer/formContracts.ts',
-  'src/lib/deals/publicBuyerDeals.ts',
+  'src/lib/buyer/fixtures.ts',
+  'src/lib/buyer/publicDeals.ts',
+  'src/lib/deals/dealView.ts',
+  'src/lib/deals/taxonomy.ts',
   'src/lib/deals/visibility.ts',
+  'src/lib/payload/publicQueries.ts',
   'src/lib/media/publicMedia.ts',
 ]
 
@@ -101,38 +104,60 @@ assert(
   'public media helper rejects media containing exact/private details',
 )
 
-const buyerDealsLib = read('src/lib/deals/publicBuyerDeals.ts')
+// Deals are served from Payload through the sanitized public query helpers, with the
+// fixture file used only as an offline/dev fallback. The public visibility where-clause
+// (not a static slug allowlist) is the security boundary, so it is asserted directly.
+const buyerDealsLoader = read('src/lib/buyer/publicDeals.ts')
 for (const marker of [
-  'isPublicActiveDeal',
-  'isPublicSoldProofDeal',
-  'isPublicDealVisible',
-  'sanitizeDealForPublic',
-  'getPublicLocationLabel',
-  'getBuyerPublicActiveDeals',
-  'getBuyerPublicSoldProofDeals',
-  'getBuyerPublicDealBySlug',
-  'getBuyerPublicDealSlugs',
+  'listPublicActiveDeals',
+  'listPublicSoldProofDeals',
+  'getPublicDealBySlug',
+  'toBuyerView',
+  'canUseBuyerFixtureFallback',
 ]) {
-  assert(buyerDealsLib.includes(marker), `buyer public deal helper uses ${marker}`)
+  assert(buyerDealsLoader.includes(marker), `buyer deal loader uses ${marker}`)
 }
 assert(
-  /getBuyerPublicActiveDeals[\s\S]*\.filter\(isPublicActiveDeal\)/.test(buyerDealsLib),
-  'active listing helper filters with the public active predicate',
+  buyerDealsLoader.includes("from '../payload/publicQueries'"),
+  'buyer deal loader reads through the sanitized public query helpers',
 )
+assert(!/overrideAccess:\s*true/.test(buyerDealsLoader), 'buyer deal loader never forces overrideAccess true')
+
+// Admin edits refresh public deal surfaces on demand via collection hooks.
+const dealsCollection = read('src/collections/Deals.ts')
+assert(dealsCollection.includes('afterChange') && dealsCollection.includes('afterDelete'), 'Deals collection wires revalidation hooks')
+assert(dealsCollection.includes('revalidatePath'), 'Deals collection revalidates public deal paths on change')
+assert(dealsCollection.includes("name: 'bestUse'"), 'Deals collection exposes the buyer-facing bestUse field')
+assert(!/name:\s*'dealType'/.test(dealsCollection), 'retired internal dealType field is removed from the Deals collection')
+assert(!/name:\s*'neighborhood'/.test(dealsCollection), 'collapsed neighborhood field is removed from the Deals collection')
+assert(dealsCollection.includes('exactAddressPublicOrStaffFieldAccess'), 'exactAddress keeps its public/staff field-level access gate')
+
+const publicQueries = read('src/lib/payload/publicQueries.ts')
+assert(publicQueries.includes('overrideAccess: false'), 'public deal queries run with overrideAccess: false')
+assert(publicQueries.includes('publicActiveDealsWhere'), 'active deal query uses the public active where-clause')
 assert(
-  /getBuyerPublicSoldProofDeals[\s\S]*\.filter\(isPublicSoldProofDeal\)/.test(buyerDealsLib),
-  'sold proof helper filters only public sold proof deals',
+  publicQueries.includes('publicDealVisibilityWhere'),
+  'deal-by-slug query enforces the public visibility where-clause',
 )
+assert(!publicQueries.includes('internalNotes'), 'public deal select never requests internalNotes')
+assert(!publicQueries.includes('dealType: true'), 'retired dealType is not requested by the public deal select')
+
+const dealView = read('src/lib/deals/dealView.ts')
+for (const marker of ['toBuyerView', 'getPublicLocationLabel', 'BEST_USE_LABELS', 'deriveHeroVisual']) {
+  assert(dealView.includes(marker), `deal view-model uses ${marker}`)
+}
+assert(!dealView.includes('internalNotes'), 'deal view-model never references internalNotes')
+
+assert(visibility.includes("'bestUse'"), 'sanitized public deal keeps bestUse')
+assert(!visibility.includes("'dealType'"), 'sanitized public deal drops retired dealType')
+assert(!visibility.includes("'neighborhood'"), 'sanitized public deal no longer carries the collapsed neighborhood field')
+assert(!visibility.includes("'internalNotes'"), 'sanitized public deal never includes internalNotes')
 assert(
-  /getBuyerPublicDealBySlug[\s\S]*!isPublicDealVisible\(deal\)/.test(buyerDealsLib),
-  'deal detail helper rejects non-public/non-approved deal statuses',
-)
-assert(
-  /getBuyerPublicDealSlugs[\s\S]*filter\(isPublicDealVisible\)/.test(buyerDealsLib),
-  'public slug helper excludes hidden/draft/cancelled/internal-only deals',
+  visibility.includes('sanitizeMediaReferenceForPublic(deal.coverPhoto'),
+  'cover photo is sanitized through the public media helper',
 )
 
-const fixtures = read('src/fixtures/buyerDeals.ts')
+const fixtures = read('src/lib/buyer/fixtures.ts')
 for (const marker of [
   "websiteVisibility: 'public'",
   "dealStatus: 'coming_soon'",
@@ -153,11 +178,17 @@ assert(!/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(fixtures), 'buyer fixtures
 assert(!/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/.test(fixtures), 'buyer fixtures contain no raw phone numbers')
 
 const homePage = read('src/components/buyer/BuyerHomePage.tsx')
-assert(homePage.includes('getBuyerPublicActiveDeals()'), 'buyer home reads public active deals')
-assert(homePage.includes('getBuyerPublicSoldProofDeals()'), 'buyer home reads public sold proof deals separately')
+assert(homePage.includes('activeDeals') && homePage.includes('soldDeals'), 'buyer home renders deals passed from the server loader')
+assert(homePage.includes('<BuyerDealCard'), 'buyer home renders deal cards')
+assert(!homePage.includes('getBuyerPublicActiveDeals'), 'buyer home no longer reads fixtures directly')
 assert(homePage.includes('data-buyer-page="home"'), 'buyer home identifies buyer surface for verification')
 assert(homePage.includes('Only public deals with status coming soon, available, or under contract'), 'buyer listing copy documents active predicate')
 assert(homePage.includes('Sold proof renders only public deals with status sold'), 'sold proof copy documents sold-only predicate')
+assert(frontendRoot.includes('getBuyerHomeDealData'), 'buyer root loads deals from Payload for the buyer home')
+
+const frontendDealsRoute = read('src/app/(frontend)/deals/page.tsx')
+assert(frontendDealsRoute.includes('listBuyerActiveDeals'), 'frontend deals route loads active deals from Payload')
+assert(frontendDealsRoute.includes('await'), 'frontend deals route awaits the Payload deal load')
 
 const emailCapture = read('src/components/buyer/BuyerEmailCapture.tsx')
 assert(emailCapture.includes('href="/join/"'), 'buyer home email CTA links to /join/ without query params')
@@ -175,9 +206,13 @@ assert(!joinPage.includes('prefilledEmail'), 'buyer join page does not accept UR
 
 const detailRoute = read('src/app/(buyer)/deals/[slug]/page.tsx')
 assert(detailRoute.includes('notFound()'), 'deal detail route returns 404 for missing/non-public deals')
-assert(detailRoute.includes('getBuyerPublicDealBySlug'), 'deal detail route uses public deal lookup helper')
+assert(detailRoute.includes('await getBuyerPublicDealBySlug'), 'deal detail route awaits the public deal lookup helper')
 assert(detailRoute.includes('getBuyerPublicDealSlugs'), 'deal detail static params come from public slugs only')
-assert(detailRoute.includes('dynamicParams = false'), 'deal detail route prevents unknown dynamic public slugs')
+assert(detailRoute.includes("from '@/lib/buyer/publicDeals'"), 'deal detail reads deals from the Payload loader')
+// dynamicParams=true lets newly published public deals render on-demand; the public
+// visibility query (getBuyerPublicDealBySlug) — not a static slug allowlist — keeps
+// hidden/draft/preview/cancelled deals returning notFound().
+assert(detailRoute.includes('dynamicParams = true'), 'deal detail renders newly published public deals on-demand')
 
 const detailPage = read('src/components/buyer/BuyerDealDetailPage.tsx')
 assert(detailPage.includes('deal.exactAddress ?'), 'deal detail renders exact address only when present after sanitization')
@@ -237,6 +272,8 @@ assert(signupForm.includes('name="contract"'), 'buyer signup form sends explicit
 assert(signupForm.includes('future route must write to S3 first') || signupForm.includes('future route must write to S3'), 'buyer signup copy documents future S3-first persistence')
 assert(!/success|thank you|submitted/i.test(signupForm), 'buyer signup form does not claim fake persistence success')
 
+assert(frontendDealsIndex.includes('<BuyerDealCard'), 'deals index renders deal cards when inventory exists')
+assert(frontendDealsIndex.includes('activeDeals'), 'deals index consumes server-provided active deals')
 assert(frontendDealsIndex.includes("from '@/lib/buyer/formContract'"), 'frontend deals signup imports canonical form contract module')
 assert(frontendDealsIndex.includes('action={BUYER_SIGNUP_POST_TARGET}'), 'frontend deals signup posts to buyer signup endpoint')
 assert(frontendDealsIndex.includes('method="post"'), 'frontend deals signup uses POST')

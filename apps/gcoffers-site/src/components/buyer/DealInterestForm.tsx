@@ -1,4 +1,4 @@
-import type { BuyerPublicDeal } from '@/lib/deals/publicBuyerDeals'
+import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 import {
   BUYER_FORM_HONEYPOT_FIELD,
   DEAL_INTEREST_FORM_CONTRACT,
