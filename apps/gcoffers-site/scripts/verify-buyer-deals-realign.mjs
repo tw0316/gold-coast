@@ -39,7 +39,9 @@ assert(map.includes('allTilesFailed'), 'BuyerDealsMap must detect when all USGS 
 assert(map.includes('Map tiles are temporarily unavailable. Deal pins are still shown.'), 'BuyerDealsMap must render a visible fallback when all tiles fail.')
 assert(map.includes("loading: rowOffset === 0 && columnOffset === 0 ? 'eager' : 'lazy'"), 'BuyerDealsMap must eagerly load only the center tile and lazy-load surrounding tiles.')
 assert(map.includes('loading={tile.loading}'), 'BuyerDealsMap must pass per-tile loading priority to tile images.')
-assert(!map.includes('deal.mapLocation ?'), 'BuyerDealsMap location keys must not keep a dead no-map-location fallback branch.')
+assert(map.includes('currentTileKeys'), 'BuyerDealsMap must evaluate failed-tile state only against the current tile set.')
+assert(map.includes('setAttemptedTileKeys(new Set())'), 'BuyerDealsMap must reset attempted tile state when the tile set changes.')
+assert(map.includes('setFailedTileKeys(new Set())'), 'BuyerDealsMap must reset failed tile state when the tile set changes.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 

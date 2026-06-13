@@ -19,7 +19,7 @@ const countyFromDeal = (deal: BuyerPublicDeal): string | null => {
   const county = deal.county?.trim()
 
   if (county) {
-    const normalizedCounty = county.toLowerCase()
+    const normalizedCounty = county.toLowerCase().replace(/[-_]+/g, ' ')
 
     if (normalizedCounty.includes('miami')) {
       return 'Miami-Dade'
@@ -27,7 +27,7 @@ const countyFromDeal = (deal: BuyerPublicDeal): string | null => {
     if (normalizedCounty.includes('broward')) {
       return 'Broward'
     }
-    if (normalizedCounty.includes('palm')) {
+    if (normalizedCounty.includes('palm beach')) {
       return 'Palm Beach'
     }
 

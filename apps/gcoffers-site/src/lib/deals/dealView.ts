@@ -160,7 +160,7 @@ const normalizeCountyKey = (county: string | null | undefined): string | null =>
     return null
   }
 
-  const normalized = county.toLowerCase().replace(/ county/g, '').trim()
+  const normalized = county.toLowerCase().replace(/[-_]+/g, ' ').replace(/ county/g, '').trim()
 
   if (normalized.includes('miami')) {
     return 'miami-dade'
@@ -168,7 +168,7 @@ const normalizeCountyKey = (county: string | null | undefined): string | null =>
   if (normalized.includes('broward')) {
     return 'broward'
   }
-  if (normalized.includes('palm')) {
+  if (normalized.includes('palm beach')) {
     return 'palm-beach'
   }
 

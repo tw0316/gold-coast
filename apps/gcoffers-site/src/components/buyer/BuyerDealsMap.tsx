@@ -1,6 +1,6 @@
 'use client'
 
-import { type CSSProperties, useMemo, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -128,7 +128,14 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
       tiles: buildTiles(centerPoint, centerTileX, centerTileY),
     }
   }, [deals])
-  const allTilesFailed = attemptedTileKeys.size > 0 && [...attemptedTileKeys].every((tileKey) => failedTileKeys.has(tileKey))
+  const currentTileKeys = new Set(tiles.map((tile) => tile.key))
+  const attemptedCurrentTileKeys = [...attemptedTileKeys].filter((tileKey) => currentTileKeys.has(tileKey))
+  const allTilesFailed = attemptedCurrentTileKeys.length > 0 && attemptedCurrentTileKeys.every((tileKey) => failedTileKeys.has(tileKey))
+
+  useEffect(() => {
+    setAttemptedTileKeys(new Set())
+    setFailedTileKeys(new Set())
+  }, [tiles])
 
   const handleTileError = (tileKey: string) => {
     setAttemptedTileKeys((current) => {
