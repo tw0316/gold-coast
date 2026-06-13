@@ -7,6 +7,8 @@ import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 const TILE_SIZE = 256
 const ZOOM = 9
 const TILE_GRID_SIZE = TILE_SIZE * 3
+// This is a lightweight static approximation, not a full slippy map: center a fixed 3x3
+// USGS tile grid and clamp pins into the visible frame.
 const DEFAULT_CENTER = { latitude: 26.1901, longitude: -80.3659 } as const
 
 type BuyerDealsMapProps = {
@@ -163,12 +165,16 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
     }
 
     setTileStatus((current) => {
-      const attempted = current.tileSetKey === tileSetKey ? new Set(current.attempted) : new Set<string>()
-      const failed = current.tileSetKey === tileSetKey ? new Set(current.failed) : new Set<string>()
+      if (current.tileSetKey !== tileSetKey) {
+        return current
+      }
+
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
       const alreadyAttempted = attempted.has(tileKey)
       const alreadyFailed = failed.has(tileKey)
 
-      if (current.tileSetKey === tileSetKey && alreadyAttempted && alreadyFailed) {
+      if (alreadyAttempted && alreadyFailed) {
         return current
       }
 
@@ -187,12 +193,16 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
     }
 
     setTileStatus((current) => {
-      const attempted = current.tileSetKey === tileSetKey ? new Set(current.attempted) : new Set<string>()
-      const failed = current.tileSetKey === tileSetKey ? new Set(current.failed) : new Set<string>()
+      if (current.tileSetKey !== tileSetKey) {
+        return current
+      }
+
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
       const alreadyAttempted = attempted.has(tileKey)
       const failedHasTile = failed.has(tileKey)
 
-      if (current.tileSetKey === tileSetKey && alreadyAttempted && !failedHasTile) {
+      if (alreadyAttempted && !failedHasTile) {
         return current
       }
 
@@ -248,7 +258,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
               type="button"
             >
               <span>{formatMapPrice(deal)}</span>
-              {deal.mapLocation?.source === 'county-fallback' ? <small>Approx.</small> : null}
+              {deal.mapLocation.source === 'county-fallback' ? <small>Approx.</small> : null}
             </button>
           )
         })}

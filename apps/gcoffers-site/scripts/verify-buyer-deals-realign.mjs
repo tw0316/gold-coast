@@ -14,6 +14,8 @@ const card = read('src/components/buyer/BuyerDealCard.tsx')
 const map = read('src/components/buyer/BuyerDealsMap.tsx')
 const dealView = read('src/lib/deals/dealView.ts')
 const publicQueries = read('src/lib/payload/publicQueries.ts')
+const buyerFixtures = read('src/lib/buyer/fixtures.ts')
+const visibility = read('src/lib/deals/visibility.ts')
 const taxonomy = read('src/lib/deals/taxonomy.ts')
 const dealsCollection = read('src/collections/Deals.ts')
 const styles = read('src/app/(frontend)/styles.css')
@@ -33,6 +35,7 @@ assert(explorer.includes('hoveredDealId && !filteredDeals.some((deal) => deal.id
 assert(explorer.includes('scrollIntoView'), 'Selecting a map pin must scroll the corresponding deal card into view.')
 assert(explorer.includes('cardRef={registerDealCard(deal.id)}'), 'Deals explorer must register deal-card elements for map-pin selection scroll.')
 assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real map component.')
+assert(explorer.includes('setSelectedDealId((current) => selected ? deal.id : (current === deal.id ? null : current))'), 'Collapsing one expanded deal card must not clear another card selection.')
 
 assert(map.includes('const nextMappedDeals = deals'), 'BuyerDealsMap must keep deal-derived map geometry inside the memoized block.')
 assert(map.includes('useMemo(() => {'), 'BuyerDealsMap must memoize tile and pin geometry.')
@@ -52,9 +55,12 @@ assert(map.includes('useMemo(() => {') && map.includes('const currentTileKeys'),
 assert(map.includes('currentTileKeys'), 'BuyerDealsMap must evaluate failed-tile state only against the current tile set.')
 assert(map.includes('attemptedCurrentTileKeys.length === tiles.length'), 'BuyerDealsMap must show the failure banner only after every current tile has attempted and failed.')
 assert(map.includes('tileStatus.tileSetKey !== tileSetKey'), 'BuyerDealsMap must suppress stale tile-failure status during tile-set changes.')
+assert((map.match(/if \(current\.tileSetKey !== tileSetKey\) \{\n\s+return current\n\s+\}/g) ?? []).length >= 2, 'BuyerDealsMap tile handlers must discard stale tile events before mutating current tile status.')
 assert(map.includes('emptyTileStatus(tileSetKey)'), 'BuyerDealsMap must reset tile status when the tile set changes.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
+assert(map.includes('lightweight static approximation') && map.includes('USGS tile grid'), 'BuyerDealsMap must document the intentional static-map tradeoff.')
+assert(!map.includes('deal.mapLocation?.source'), 'BuyerDealsMap should not optional-chain non-null buyer map locations.')
 
 assert(explorer.includes('County filtering intentionally scopes both the list and the map'), 'Deals explorer must document that county filtering intentionally scopes the map too.')
 assert(card.includes('setCardExpanded'), 'BuyerDealCard must share expand/collapse selection state through one helper.')
@@ -93,6 +99,9 @@ assert(
   dealsCollection.includes('Sensitive exact map pin coordinates') && dealsCollection.includes('verify they match the approved public address'),
   'Deals collection must warn editors that exact map coordinates are sensitive and must match the approved public address.',
 )
+assert(buyerFixtures.includes('Dev/test fixtures only') && buyerFixtures.includes('placeholder addresses'), 'Buyer fixtures must document that public-address examples are dev/test placeholders only.')
+assert(publicQueries.includes('sanitizeDealForPublic before returning'), 'Public deal select must document that exact-coordinate fields are sanitizer-only.')
+assert(visibility.includes('Raw selected deal documents must never be returned'), 'Public deal sanitizer must document the raw-select privacy invariant.')
 
 if (failures.length > 0) {
   console.error('Buyer deals realignment verification failed:')

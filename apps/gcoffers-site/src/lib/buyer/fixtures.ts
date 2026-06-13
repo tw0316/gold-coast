@@ -52,6 +52,7 @@ const readyPublicFixtureMedia = (id: string, alt: string) => ({
   thumbnailURL: 'REDACTED_RAW_THUMBNAIL_URL',
 })
 
+// Dev/test fixtures only. Exact-address examples use placeholder addresses and must not be copied into real deal seed data.
 export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Central Broward',

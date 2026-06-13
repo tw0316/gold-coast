@@ -174,7 +174,9 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
                 onFocus={() => setHoveredDealId(deal.id)}
                 onHover={() => setHoveredDealId(deal.id)}
                 onLeave={() => setHoveredDealId(null)}
-                onSelect={(selected) => setSelectedDealId(selected ? deal.id : null)}
+                onSelect={(selected) =>
+                  setSelectedDealId((current) => selected ? deal.id : (current === deal.id ? null : current))
+                }
               />
             ))}
           </div>

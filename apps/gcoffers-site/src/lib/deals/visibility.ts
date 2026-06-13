@@ -177,6 +177,8 @@ export const sanitizeDealForPublic = <TDeal extends DealVisibilityInput>(
     }
   }
 
+  // Some public queries fetch exactAddress/mapLocation so this sanitizer can make the disclosure decision.
+  // Raw selected deal documents must never be returned from public surfaces without passing through this gate.
   if (isExactAddressPublic(deal) && typeof deal.exactAddress === 'string') {
     sanitized.exactAddress = deal.exactAddress
   }

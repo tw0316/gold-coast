@@ -162,8 +162,9 @@ export const publicDealSelect = {
   zip: true,
   showExactAddressPublicly: true,
   exactAddress: true,
-  // Selected for sanitizer-only use. Public helpers expose exact coordinates only
-  // when showExactAddressPublicly is explicitly true.
+  // Selected for sanitizer-only use. Public helpers must pass raw results through
+  // sanitizeDealForPublic before returning; exact coordinates are exposed only when
+  // showExactAddressPublicly is explicitly true.
   mapLocation: {
     latitude: true,
     longitude: true,
