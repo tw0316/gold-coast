@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { type FocusEvent, type Ref, useEffect, useId, useRef, useState } from 'react'
 
+import { southFloridaCountyLabelFor } from '@/lib/deals/taxonomy'
+
 import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
 
 import { DealInterestForm } from './DealInterestForm'
@@ -101,6 +103,9 @@ export function BuyerDealCard({
   const potentialROI = getPotentialROI(deal)
   const badgeUse = deal.bestUseLabels.slice(0, 2)
   const displayAddress = (deal.exactAddress ?? deal.locationLabel) || deal.title
+  const displayCounty = deal.county
+    ? southFloridaCountyLabelFor(deal.county) ?? deal.county.replace(/ county$/i, '').trim()
+    : 'South Florida'
   const secondaryTitle = displayAddress !== deal.title ? deal.title : deal.locationLabel
   const canSubmitOffer = mode !== 'sold' && deal.dealStatus !== 'sold'
   const mediaUrl = deal.coverPhoto?.thumbnailURL ?? deal.coverPhoto?.url ?? null
@@ -173,7 +178,7 @@ export function BuyerDealCard({
         </div>
       </div>
       <div className="buyer-deal-card__body">
-        <p className="buyer-deal-card__location">{deal.county ? deal.county.replace(/ county$/i, '') : 'South Florida'}</p>
+        <p className="buyer-deal-card__location">{displayCounty}</p>
         <h3>{displayAddress}</h3>
         {secondaryTitle ? <p className="buyer-deal-card__deal-name">{secondaryTitle}</p> : null}
         <p className="buyer-deal-card__specs">{getSpecs(deal)}</p>
@@ -205,7 +210,13 @@ export function BuyerDealCard({
                 {isExpanded ? 'Hide underwriting' : 'View underwriting'}
               </button>
               {canSubmitOffer ? (
-                <button className="btn btn--primary buyer-deal-card__submit" onClick={expandCard} type="button">
+                <button
+                  aria-controls={detailsId}
+                  aria-expanded={isExpanded}
+                  className="btn btn--primary buyer-deal-card__submit"
+                  onClick={expandCard}
+                  type="button"
+                >
                   Submit Offer
                 </button>
               ) : (

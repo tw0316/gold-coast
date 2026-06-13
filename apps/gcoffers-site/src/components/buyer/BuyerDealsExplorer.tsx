@@ -130,6 +130,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   return (
     <section className="deals-shell" aria-label="Current deal map and list">
       <div className="map-panel">
+        {/* County filtering intentionally scopes both the list and the map; clicking the selected county restores full South Florida context. */}
         <BuyerDealsMap
           activeDealId={activeDealId}
           deals={filteredDeals}

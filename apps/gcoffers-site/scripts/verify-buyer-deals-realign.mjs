@@ -48,6 +48,7 @@ assert(map.includes('setFailedTileKeys(new Set())'), 'BuyerDealsMap must reset f
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
+assert(explorer.includes('County filtering intentionally scopes both the list and the map'), 'Deals explorer must document that county filtering intentionally scopes the map too.')
 assert(card.includes('setCardExpanded'), 'BuyerDealCard must share expand/collapse selection state through one helper.')
 assert(card.includes('onClick={() => setCardExpanded(!isExpanded)}'), 'Underwriting toggle must use the shared card expansion helper.')
 assert(card.includes('cardRef?: Ref<HTMLElement>'), 'BuyerDealCard must expose a cardRef for map-pin selection scroll.')
@@ -56,6 +57,9 @@ assert(taxonomy.includes('southFloridaCountyLabelFor'), 'South Florida county la
 assert(taxonomy.includes('southFloridaCountyKeyFor'), 'South Florida county key matching must live in the shared deal taxonomy helper.')
 assert(explorer.includes('southFloridaCountyLabelFor'), 'Deals explorer must reuse the shared South Florida county helper.')
 assert(dealView.includes('southFloridaCountyKeyFor'), 'Buyer deal view model must reuse the shared South Florida county helper.')
+assert(card.includes('displayCounty'), 'BuyerDealCard must use the canonical county display label.')
+assert(card.includes('aria-controls={detailsId}'), 'BuyerDealCard controls that reveal underwriting must point to the expandable details region.')
+assert(card.includes('aria-expanded={isExpanded}'), 'BuyerDealCard controls that reveal underwriting must expose expanded state.')
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
 assert(!card.includes('Request Showing'), 'Deal cards must not include Request Showing CTA copy.')
 assert(card.includes('Submit Offer'), 'Deal cards must expose a single Submit Offer CTA.')
