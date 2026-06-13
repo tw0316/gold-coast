@@ -8,9 +8,15 @@ import { southFloridaCountyLabelFor } from '@/lib/deals/taxonomy'
 
 import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
 
+const DealInterestFormLoading = () => (
+  <p className="form-status active form-status--loading" role="status">
+    Loading offer form...
+  </p>
+)
+
 const DealInterestForm = dynamic(
   () => import('./DealInterestForm').then((module) => ({ default: module.DealInterestForm })),
-  { ssr: false },
+  { loading: DealInterestFormLoading, ssr: false },
 )
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
@@ -101,7 +107,9 @@ export function BuyerDealCard({
 }: BuyerDealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
+  const [shouldScrollToOffer, setShouldScrollToOffer] = useState(false)
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const offerFormRef = useRef<HTMLDivElement | null>(null)
   const detailsId = useId()
   const potentialProfit = getPotentialProfit(deal)
   const potentialROI = getPotentialROI(deal)
@@ -123,12 +131,27 @@ export function BuyerDealCard({
     }
   }, [mediaUrl])
 
+  useEffect(() => {
+    if (!inlineDetails || !isExpanded || !shouldScrollToOffer) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      offerFormRef.current?.focus({ preventScroll: true })
+      setShouldScrollToOffer(false)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [inlineDetails, isExpanded, shouldScrollToOffer])
+
   const setCardExpanded = (expanded: boolean) => {
     setIsExpanded(expanded)
     onSelect?.(expanded)
   }
 
   const expandCard = () => {
+    setShouldScrollToOffer(true)
     setCardExpanded(true)
   }
 
@@ -270,7 +293,11 @@ export function BuyerDealCard({
               ))}
             </div>
           ) : null}
-          {canSubmitOffer ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}
+          {canSubmitOffer ? (
+            <div ref={offerFormRef} className="buyer-deal-card__offer-form-anchor" tabIndex={-1}>
+              <DealInterestForm deal={deal} idSuffix={deal.slug} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>
