@@ -41,6 +41,7 @@ assert(explorer.includes('hoveredDealId && !filteredDeals.some((deal) => deal.id
 assert(explorer.includes('scrollIntoView'), 'Selecting a map pin must scroll the corresponding deal card into view.')
 assert(explorer.includes('scrollPendingDealIdRef.current = dealId'), 'Only map-pin selection should schedule the deal-card scroll side effect.')
 assert(explorer.includes('scrollPendingDealIdRef.current !== selectedDealId'), 'County filter updates must not re-trigger the selected-card scroll.')
+assert(explorer.includes('}, [selectedDealId])'), 'Selected-card scrolling must depend only on map-pin selection changes, not filtered deal arrays.')
 assert(explorer.includes('cardRef={registerDealCard(deal.id)}'), 'Deals explorer must register deal-card elements for map-pin selection scroll.')
 assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real map component.')
 assert(explorer.includes('setSelectedDealId((current) => selected ? deal.id : (current === deal.id ? null : current))'), 'Collapsing one expanded deal card must not clear another card selection.')

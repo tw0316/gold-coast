@@ -84,7 +84,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   }, [filteredDeals, hoveredDealId, selectedDealId])
 
   useEffect(() => {
-    if (!selectedDealId || scrollPendingDealIdRef.current !== selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)) {
+    if (!selectedDealId || scrollPendingDealIdRef.current !== selectedDealId) {
       return
     }
 
@@ -93,7 +93,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
       behavior: 'smooth',
       block: 'nearest',
     })
-  }, [filteredDeals, selectedDealId])
+  }, [selectedDealId])
 
   const handleMapDealSelect = useCallback((dealId: string | null) => {
     scrollPendingDealIdRef.current = dealId
