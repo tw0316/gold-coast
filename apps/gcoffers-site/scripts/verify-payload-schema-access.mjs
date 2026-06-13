@@ -170,6 +170,19 @@ try {
   assert(migratedSlugs.get(8) === 'test-deal-8', 'Public deal slug migration suffixes lower-priority duplicate normalized slugs')
   assert(migratedSlugs.get(12) === 'deal-12', 'Public deal slug migration falls back deterministically for null/blank slugs')
 
+  const dealMapAndCompMigrationSource = readSource('src/migrations/20260613_074900_deal_map_and_comp_fields.ts')
+  for (const marker of [
+    '"map_location_latitude" numeric',
+    '"map_location_longitude" numeric',
+    '"condition_summary" varchar',
+    'CREATE TABLE "deals_sale_comps"',
+    'CREATE TABLE "deals_rental_comps"',
+    '"deals_sale_comps_parent_fk"',
+    '"deals_rental_comps_parent_fk"',
+  ]) {
+    assert(dealMapAndCompMigrationSource.includes(marker), `Deal map/comps migration marker present: ${marker}`)
+  }
+
   assert(
     exactArray(visibility.PUBLIC_DEAL_STATUSES, [
       'coming_soon',

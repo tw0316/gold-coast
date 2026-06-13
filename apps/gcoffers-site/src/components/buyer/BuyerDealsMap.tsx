@@ -1,6 +1,6 @@
 'use client'
 
-import { type CSSProperties, useEffect, useMemo, useState } from 'react'
+import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -155,7 +155,13 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
     setTileStatus((current) => (current.tileSetKey === tileSetKey ? current : emptyTileStatus(tileSetKey)))
   }, [tileSetKey])
 
-  const handleTileError = (tileKey: string) => {
+  const handleTileError = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
+    const tileKey = event.currentTarget.dataset.tileKey
+
+    if (!tileKey) {
+      return
+    }
+
     setTileStatus((current) => {
       const attempted = current.tileSetKey === tileSetKey ? new Set(current.attempted) : new Set<string>()
       const failed = current.tileSetKey === tileSetKey ? new Set(current.failed) : new Set<string>()
@@ -171,9 +177,15 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
 
       return { attempted, failed, tileSetKey }
     })
-  }
+  }, [tileSetKey])
 
-  const handleTileLoad = (tileKey: string) => {
+  const handleTileLoad = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
+    const tileKey = event.currentTarget.dataset.tileKey
+
+    if (!tileKey) {
+      return
+    }
+
     setTileStatus((current) => {
       const attempted = current.tileSetKey === tileSetKey ? new Set(current.attempted) : new Set<string>()
       const failed = current.tileSetKey === tileSetKey ? new Set(current.failed) : new Set<string>()
@@ -189,7 +201,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
 
       return { attempted, failed, tileSetKey }
     })
-  }
+  }, [tileSetKey])
 
   return (
     <div className="map-card buyer-real-map" aria-label="Map of active South Florida deals">
@@ -198,10 +210,11 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
           <img
             alt=""
             className="buyer-real-map__tile"
+            data-tile-key={tile.key}
             key={tile.key}
             loading={tile.loading}
-            onError={() => handleTileError(tile.key)}
-            onLoad={() => handleTileLoad(tile.key)}
+            onError={handleTileError}
+            onLoad={handleTileLoad}
             src={tile.src}
             style={{
               '--tile-left': `${tile.left}%`,
