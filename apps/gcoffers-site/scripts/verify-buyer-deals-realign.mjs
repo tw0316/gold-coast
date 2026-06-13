@@ -104,6 +104,7 @@ assert(!submitButtonSnippet.includes('aria-controls') && !submitButtonSnippet.in
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
 assert(!card.includes('Request Showing'), 'Deal cards must not include Request Showing CTA copy.')
 assert(card.includes('Submit Offer'), 'Deal cards must expose a single Submit Offer CTA.')
+assert(!card.includes('deal.conditionSummary || deal.rehabScope'), 'Buyer cards must not expose internal rehabScope as a public condition fallback.')
 assert(card.includes('DealInterestForm'), 'Submit Offer must reveal the existing deal-interest form contract inline.')
 assert(card.includes('aria-expanded={isExpanded}'), 'Expandable cards must expose aria-expanded state.')
 assert(card.includes('buyer-deal-card--is-active'), 'Map/card active styling must use a distinct selected class, not the active listing mode class.')

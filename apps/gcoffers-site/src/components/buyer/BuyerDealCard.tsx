@@ -256,7 +256,7 @@ export function BuyerDealCard({
           <div className="buyer-deal-card__details-grid">
             <section className="buyer-deal-card__detail-section">
               <h4>Condition</h4>
-              <p>{deal.conditionSummary || deal.rehabScope || 'Condition notes are available during buyer diligence.'}</p>
+              <p>{deal.conditionSummary || 'Condition notes are available during buyer diligence.'}</p>
             </section>
             <dl className="buyer-deal-card__detail-list">
               <div>
