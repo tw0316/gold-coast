@@ -117,6 +117,7 @@ assert(card.includes('buyer-deal-card--is-active'), 'Map/card active styling mus
 assert(styles.includes('buyer-deal-card--is-active'), 'CSS must style only the selected deal-card state, not every active listing card.')
 assert(!styles.includes('.buyer-deal-card--is-active, .buyer-deal-card:hover'), 'CSS must give durable selected deal cards a distinct visual treatment from transient hover.')
 assert(styles.includes('border-left: 5px solid var(--gchb-gold)'), 'Selected buyer deal cards must have a stronger persistent accent than hover-only cards.')
+assert(styles.includes('.buyer-deal-card--is-active:hover') && styles.includes('.buyer-deal-card--is-active:hover { border-color: var(--gchb-gold); box-shadow: 0 18px 48px rgba(26,58,107,0.16); }'), 'Selected buyer deal cards must preserve the stronger selection treatment while hovered.')
 assert(styles.includes('.buyer-map-pin[aria-pressed="true"], .buyer-map-pin[data-hovered="true"]'), 'CSS must style selected pins and transient hovered pins separately.')
 assert(!styles.includes('.buyer-map-pin[aria-pressed="true"], .buyer-map-pin:hover, .buyer-map-pin:focus-visible'), 'CSS hover styling must not require hover state to masquerade as aria-pressed.')
 assert(!styles.includes('.buyer-deal-card--active, .buyer-deal-card:hover'), 'CSS must not treat all active listings as selected cards.')
