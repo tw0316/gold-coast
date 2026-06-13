@@ -7,7 +7,6 @@ import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 const TILE_SIZE = 256
 const ZOOM = 9
 const TILE_GRID_SIZE = TILE_SIZE * 3
-const CARTO_TILE_SUBDOMAINS = ['a', 'b', 'c', 'd'] as const
 const DEFAULT_CENTER = { latitude: 26.1901, longitude: -80.3659 } as const
 
 type BuyerDealsMapProps = {
@@ -83,12 +82,10 @@ const buildTiles = (centerPoint: ReturnType<typeof project>, centerTileX: number
       const left = ((TILE_SIZE * 1.5 + tileX * TILE_SIZE - centerPoint.x) / TILE_GRID_SIZE) * 100
       const top = ((TILE_SIZE * 1.5 + tileY * TILE_SIZE - centerPoint.y) / TILE_GRID_SIZE) * 100
 
-      const tileSubdomain = CARTO_TILE_SUBDOMAINS[Math.abs(tileX + tileY * 31) % CARTO_TILE_SUBDOMAINS.length]
-
       return {
         key: `${tileX}-${tileY}`,
         left,
-        src: `https://${tileSubdomain}.basemaps.cartocdn.com/light_all/${ZOOM}/${tileX}/${tileY}.png`,
+        src: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${ZOOM}/${tileY}/${tileX}`,
         top,
       }
     }),
@@ -170,15 +167,11 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
       </div>
       <div className="buyer-real-map__copy">
         <strong>Live deal map</strong>
-        <p>{mappedDeals.length} active pin{mappedDeals.length === 1 ? '' : 's'} shown on CARTO basemaps.</p>
+        <p>{mappedDeals.length} active pin{mappedDeals.length === 1 ? '' : 's'} shown on USGS National Map tiles.</p>
       </div>
       <div className="buyer-real-map__attribution">
-        <a href="https://www.openstreetmap.org/copyright" rel="noreferrer" target="_blank">
-          © OpenStreetMap contributors
-        </a>
-        <span>·</span>
-        <a href="https://carto.com/attributions" rel="noreferrer" target="_blank">
-          © CARTO
+        <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" rel="noreferrer" target="_blank">
+          Tiles: U.S. Geological Survey, The National Map
         </a>
       </div>
     </div>

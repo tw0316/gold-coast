@@ -47,7 +47,10 @@ const transpileTsModule = (relativePath) => {
 for (const relativePath of [
   'src/access/roles.ts',
   'src/lib/deals/slug.ts',
+  'src/lib/deals/financials.ts',
+  'src/lib/deals/taxonomy.ts',
   'src/lib/deals/visibility.ts',
+  'src/lib/deals/dealView.ts',
   'src/lib/media/publicMedia.ts',
   'src/lib/media/resolveDealMedia.ts',
   'src/lib/payload/publicQueries.ts',
@@ -61,6 +64,7 @@ try {
   const roles = tempRequire(join(tmpRoot, 'src/access/roles.js'))
   const slugs = tempRequire(join(tmpRoot, 'src/lib/deals/slug.js'))
   const visibility = tempRequire(join(tmpRoot, 'src/lib/deals/visibility.js'))
+  const dealView = tempRequire(join(tmpRoot, 'src/lib/deals/dealView.js'))
   const media = tempRequire(join(tmpRoot, 'src/lib/media/publicMedia.js'))
   const publicQueries = tempRequire(join(tmpRoot, 'src/lib/payload/publicQueries.js'))
   const { schemaAccessFixtures } = tempRequire(
@@ -262,6 +266,7 @@ try {
 
   const hiddenAddressDeal = {
     ...schemaAccessFixtures.deals.find((deal) => deal.id === 'public-available'),
+    county: 'Broward County',
     internalNotes: 'REDACTED_INTERNAL_NOTE',
     mapLocation: {
       latitude: 25.7617,
@@ -291,6 +296,18 @@ try {
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'mapLocation'),
     'Exact map coordinates are removed from public deal payloads by default',
+  )
+  const sanitizedHiddenAddressBuyerView = sanitizedHiddenAddressDeal
+    ? dealView.toBuyerView(sanitizedHiddenAddressDeal)
+    : null
+  assert(
+    sanitizedHiddenAddressBuyerView?.mapLocation?.source === 'county-fallback',
+    'Buyer view falls back to county map coordinates when exact coordinates are private',
+  )
+  assert(
+    sanitizedHiddenAddressBuyerView?.mapLocation?.latitude === 26.1901 &&
+      sanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
+    'Buyer view county fallback never leaks the private exact map coordinates',
   )
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'internalNotes'),

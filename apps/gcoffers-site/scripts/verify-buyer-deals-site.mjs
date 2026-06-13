@@ -426,9 +426,8 @@ for (const file of sourceFilesToScan) {
   if (file.startsWith('src/app/(buyer)') || file.startsWith('src/components/buyer') || file.startsWith('src/fixtures')) {
     const rawUrlScanSource = source
       .replace(/https:\/\/gcoffers\.com/g, '')
-      .replace(/https:\/\/(?:[abcd]|\$\{tileSubdomain\})\.basemaps\.cartocdn\.com/g, '')
-      .replace(/https:\/\/www\.openstreetmap\.org\/copyright/g, '')
-      .replace(/https:\/\/carto\.com\/attributions/g, '')
+      .replace(/https:\/\/basemap\.nationalmap\.gov/g, '')
+      .replace(/https:\/\/www\.usgs\.gov\/programs\/national-geospatial-program\/national-map/g, '')
     assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs beyond approved canonical/map URLs`)
   }
 }

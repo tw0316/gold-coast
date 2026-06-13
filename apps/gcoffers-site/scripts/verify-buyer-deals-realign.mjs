@@ -21,11 +21,11 @@ assert(explorer.includes('setActiveCounty((current) =>'), 'Clicking the selected
 assert(explorer.includes('setHoveredDealId'), 'Deals explorer must sync card hover state to the map.')
 assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real map component.')
 
-assert(map.includes('basemaps.cartocdn.com'), 'BuyerDealsMap must use policy-compliant real map tiles.')
+assert(map.includes('basemap.nationalmap.gov'), 'BuyerDealsMap must use public-domain USGS National Map tiles.')
 assert(map.includes('buyer-map-pin'), 'BuyerDealsMap must render deal pins over the real map.')
 assert(map.includes('aria-pressed={activeDealId === deal.id}'), 'BuyerDealsMap pins must expose active-deal state.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
-assert(map.includes('© OpenStreetMap contributors'), 'BuyerDealsMap must render complete OpenStreetMap attribution copy.')
+assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
 assert(!card.includes('Request Showing'), 'Deal cards must not include Request Showing CTA copy.')
