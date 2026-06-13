@@ -169,14 +169,15 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, 
         return current
       }
 
-      const attempted = new Set(current.attempted)
-      const failed = new Set(current.failed)
-      const alreadyAttempted = attempted.has(tileKey)
-      const alreadyFailed = failed.has(tileKey)
+      const alreadyAttempted = current.attempted.has(tileKey)
+      const alreadyFailed = current.failed.has(tileKey)
 
       if (alreadyAttempted && alreadyFailed) {
         return current
       }
+
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
 
       attempted.add(tileKey)
       failed.add(tileKey)
@@ -197,14 +198,15 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, 
         return current
       }
 
-      const attempted = new Set(current.attempted)
-      const failed = new Set(current.failed)
-      const alreadyAttempted = attempted.has(tileKey)
-      const failedHasTile = failed.has(tileKey)
+      const alreadyAttempted = current.attempted.has(tileKey)
+      const failedHasTile = current.failed.has(tileKey)
 
       if (alreadyAttempted && !failedHasTile) {
         return current
       }
+
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
 
       attempted.add(tileKey)
       failed.delete(tileKey)
