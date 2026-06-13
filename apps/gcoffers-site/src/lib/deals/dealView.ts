@@ -50,9 +50,10 @@ export type BuyerMapLocation = {
 }
 
 export type BuyerDealComp = {
+  id?: string | null
   label: string
-  value: string
   note: string | null
+  value: string
 }
 
 export type BuyerPublicDeal = {
@@ -88,7 +89,7 @@ export type BuyerPublicDeal = {
 }
 
 const statusLabels: Record<string, string> = {
-  available: 'Off-market',
+  available: 'Direct Deal',
   coming_soon: 'Coming Soon',
   sold: 'Sold',
   under_contract: 'Under Contract',
@@ -228,6 +229,7 @@ const asCompArray = (value: unknown): BuyerDealComp[] => {
     }
 
     return [{
+      id: asNullableString(record.id),
       label,
       value: compValue,
       note: asNullableString(record.note),

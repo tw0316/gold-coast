@@ -314,7 +314,8 @@ export const Deals: CollectionConfig = {
         update: adminOrEditorFieldAccess,
       },
       admin: {
-        description: 'Public buyer-page street address for deal cards, forms, and map context.',
+        description:
+          'Sensitive exact street address. Exposed on public buyer pages only when showExactAddressPublicly is explicitly true.',
       },
     },
     {

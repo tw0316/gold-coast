@@ -307,11 +307,11 @@ export interface Deal {
   county?: string | null;
   zip?: string | null;
   /**
-   * Default false. Exact street addresses are sensitive and public deal helpers expose exactAddress only when this is true.
+   * Sensitive. Hidden from public reads unless showExactAddressPublicly is explicitly true.
    */
   showExactAddressPublicly?: boolean | null;
   /**
-   * Public buyer-page street address for deal cards, forms, and map context.
+   * Sensitive exact street address. Exposed on public buyer pages only when showExactAddressPublicly is explicitly true.
    */
   exactAddress?: string | null;
   /**

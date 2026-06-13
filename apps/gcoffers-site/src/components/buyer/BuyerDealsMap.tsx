@@ -14,7 +14,7 @@ type BuyerDealsMapProps = {
   activeDealId: string | null
   deals: BuyerPublicDeal[]
   onDealHover: (dealId: string | null) => void
-  onDealSelect: (dealId: string) => void
+  onDealSelect: (dealId: string | null) => void
 }
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
@@ -152,7 +152,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
               className="buyer-map-pin"
               key={deal.id}
               onBlur={() => onDealHover(null)}
-              onClick={() => onDealSelect(deal.id)}
+              onClick={() => onDealSelect(activeDealId === deal.id ? null : deal.id)}
               onFocus={() => onDealHover(deal.id)}
               onMouseEnter={() => onDealHover(deal.id)}
               onMouseLeave={() => onDealHover(null)}

@@ -3295,7 +3295,7 @@ h3 { color: var(--gchb-navy); font-size: var(--fs-h3); font-weight: var(--fw-bla
 
 .buyer-deals-grid--public-index { display: grid; grid-template-columns: 1fr; gap: 18px; }
 .buyer-deal-card { border: 1px solid var(--border-soft); border-left: 0; border-radius: 0; box-shadow: none; }
-.buyer-deal-card--active, .buyer-deal-card:hover { border-color: var(--gchb-gold); box-shadow: 0 18px 48px rgba(26,58,107,0.12); transform: translateY(-1px); }
+.buyer-deal-card--is-active, .buyer-deal-card:hover { border-color: var(--gchb-gold); box-shadow: 0 18px 48px rgba(26,58,107,0.12); transform: translateY(-1px); }
 .buyer-deal-card__media { height: 230px; }
 .buyer-deal-card__body { padding: 22px; }
 .buyer-deal-card__deal-name { color: var(--fg-2); font-weight: var(--fw-semibold); margin-top: -4px; }

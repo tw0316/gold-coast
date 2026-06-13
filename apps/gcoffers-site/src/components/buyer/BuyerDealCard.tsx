@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { type FocusEvent, useId, useState } from 'react'
+import { type FocusEvent, useEffect, useId, useRef, useState } from 'react'
 
 import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -56,8 +56,8 @@ const CompList = ({ emptyLabel, items, title }: { emptyLabel: string; items: Buy
     <h4>{title}</h4>
     {items.length > 0 ? (
       <ul>
-        {items.map((item) => (
-          <li key={`${item.label}-${item.value}`}>
+        {items.map((item, index) => (
+          <li key={item.id ?? `${index}-${item.label}-${item.value}`}>
             <strong>{item.label}</strong>
             <span>{item.value}</span>
             {item.note ? <small>{item.note}</small> : null}
@@ -93,6 +93,7 @@ export function BuyerDealCard({
 }: BuyerDealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
+  const imageRef = useRef<HTMLImageElement | null>(null)
   const detailsId = useId()
   const potentialProfit = getPotentialProfit(deal)
   const potentialROI = getPotentialROI(deal)
@@ -101,7 +102,15 @@ export function BuyerDealCard({
   const secondaryTitle = displayAddress !== deal.title ? deal.title : deal.locationLabel
   const canSubmitOffer = mode !== 'sold' && deal.dealStatus !== 'sold'
   const mediaUrl = deal.coverPhoto?.thumbnailURL ?? deal.coverPhoto?.url ?? null
-  const showCoverPhoto = Boolean(deal.coverPhoto && mediaUrl && !imageFailed && !mediaUrl.includes('/buyer-fixture-'))
+  const showCoverPhoto = Boolean(deal.coverPhoto && mediaUrl && !imageFailed)
+
+  useEffect(() => {
+    const image = imageRef.current
+
+    if (image?.complete && image.naturalWidth === 0) {
+      setImageFailed(true)
+    }
+  }, [mediaUrl])
 
   const expandCard = () => {
     setIsExpanded(true)
@@ -120,7 +129,7 @@ export function BuyerDealCard({
 
   return (
     <article
-      className={`buyer-deal-card buyer-deal-card--${mode}${isActive ? ' buyer-deal-card--active' : ''}`}
+      className={`buyer-deal-card buyer-deal-card--${mode}${isActive ? ' buyer-deal-card--is-active' : ''}`}
       data-deal-slug={deal.slug}
       data-status={deal.dealStatus}
       onBlur={handleBlur}
@@ -132,6 +141,7 @@ export function BuyerDealCard({
         {showCoverPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            ref={imageRef}
             src={mediaUrl ?? ''}
             alt={deal.coverPhoto?.alt ?? deal.title}
             className="buyer-deal-card__image"
@@ -200,7 +210,7 @@ export function BuyerDealCard({
               )}
             </>
           ) : (
-            <Link className="buyer-deal-card__link" href={`/deals/${deal.slug}`}>
+            <Link className="buyer-deal-card__link" href={`/deals/${deal.slug}/`}>
               {mode === 'sold' ? 'Review Sold Proof' : 'View Deal Details'}
             </Link>
           )}
