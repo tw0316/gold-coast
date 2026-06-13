@@ -309,6 +309,16 @@ try {
       sanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
     'Buyer view county fallback never leaks the private exact map coordinates',
   )
+  const unsanitizedHiddenAddressBuyerView = dealView.toBuyerView(hiddenAddressDeal)
+  assert(
+    unsanitizedHiddenAddressBuyerView?.mapLocation?.source === 'county-fallback',
+    'Buyer view defense-in-depth gate ignores exact coordinates when showExactAddressPublicly is false',
+  )
+  assert(
+    unsanitizedHiddenAddressBuyerView?.mapLocation?.latitude === 26.1901 &&
+      unsanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
+    'Buyer view defense-in-depth gate prevents unsanitized exact coordinates from leaking',
+  )
   const unrecognizedCountyBuyerView = sanitizedHiddenAddressDeal
     ? dealView.toBuyerView({
         ...sanitizedHiddenAddressDeal,

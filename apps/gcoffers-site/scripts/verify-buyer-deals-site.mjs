@@ -269,6 +269,10 @@ assert(
   'deal detail renders exact address when present after sanitization',
 )
 assert(
+  !detailPage.includes('REDACTED_EXACT_ADDRESS'),
+  'deal detail page source never renders the redacted exact-address sentinel',
+)
+assert(
   detailPage.includes('<h2 id="buyer-deal-numbers-title">Numbers Breakdown</h2>'),
   'deal numbers section aria label points to a visible heading',
 )

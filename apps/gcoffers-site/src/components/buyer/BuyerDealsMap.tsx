@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties } from 'react'
+import { type CSSProperties, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -110,6 +110,7 @@ const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeo
 }
 
 export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }: BuyerDealsMapProps) {
+  const [failedTileKeys, setFailedTileKeys] = useState(() => new Set<string>())
   const mappedDeals = deals.filter((deal) => deal.mapLocation !== null)
   const centerLocation = mappedDeals.length > 0
     ? {
@@ -122,6 +123,31 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
   const centerTileY = Math.floor(centerPoint.y / TILE_SIZE)
   const tiles = buildTiles(centerPoint, centerTileX, centerTileY)
   const pins = buildPins(mappedDeals, centerPoint)
+  const allTilesFailed = tiles.length > 0 && tiles.every((tile) => failedTileKeys.has(tile.key))
+
+  const handleTileError = (tileKey: string) => {
+    setFailedTileKeys((current) => {
+      if (current.has(tileKey)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.add(tileKey)
+      return next
+    })
+  }
+
+  const handleTileLoad = (tileKey: string) => {
+    setFailedTileKeys((current) => {
+      if (!current.has(tileKey)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.delete(tileKey)
+      return next
+    })
+  }
 
   return (
     <div className="map-card buyer-real-map" aria-label="Map of active South Florida deals">
@@ -132,6 +158,8 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
             className="buyer-real-map__tile"
             key={tile.key}
             loading="lazy"
+            onError={() => handleTileError(tile.key)}
+            onLoad={() => handleTileLoad(tile.key)}
             src={tile.src}
             style={{
               '--tile-left': `${tile.left}%`,
@@ -140,6 +168,11 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
           />
         ))}
       </div>
+      {allTilesFailed ? (
+        <div className="buyer-real-map__tile-fallback" role="status">
+          Map tiles are temporarily unavailable. Deal pins are still shown.
+        </div>
+      ) : null}
       <div className="buyer-real-map__pins" aria-label="Deal map pins">
         {pins.map(({ deal, left, top }) => {
           return (

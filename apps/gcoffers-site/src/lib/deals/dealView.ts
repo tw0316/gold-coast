@@ -7,7 +7,7 @@ import {
   PROPERTY_TYPE_LABELS,
   labelsFor,
 } from './taxonomy'
-import { getPublicLocationLabel, type DealVisibilityInput, type PublicDeal } from './visibility'
+import { getPublicLocationLabel, isExactAddressPublic, type DealVisibilityInput, type PublicDeal } from './visibility'
 
 export type BuyerHeroTone = 'blue' | 'gold' | 'green' | 'slate'
 
@@ -251,7 +251,7 @@ const asExternalHttpUrl = (value: unknown): string | null => {
 export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
   const rawPropertyDetails = (deal.propertyDetails ?? {}) as Record<string, unknown>
   const rawFinancials = (deal.financials ?? {}) as Record<string, unknown>
-  const rawMapLocation = (deal.mapLocation ?? {}) as Record<string, unknown>
+  const rawMapLocation = isExactAddressPublic(deal) ? (deal.mapLocation ?? {}) as Record<string, unknown> : {}
 
   const propertyType = asNullableString(rawPropertyDetails.propertyType)
   const dealStatus = asString(deal.dealStatus)

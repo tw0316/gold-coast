@@ -86,7 +86,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   }, [filteredDeals, selectedDealId])
 
   useEffect(() => {
-    if (!selectedDealId) {
+    if (!selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)) {
       return
     }
 
@@ -94,7 +94,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
       behavior: 'smooth',
       block: 'nearest',
     })
-  }, [selectedDealId])
+  }, [filteredDeals, selectedDealId])
 
   const registerDealCard = useCallback((dealId: string) => {
     const existingCallback = dealCardRefCallbacks.current.get(dealId)

@@ -24,6 +24,7 @@ assert(explorer.includes('dealCardRefCallbacks'), 'Deals explorer must cache sta
 assert(explorer.includes('useCallback((dealId: string)'), 'Deals explorer must avoid ref churn on hover state updates.')
 assert(explorer.includes('activeDealId = hoveredDealId ?? selectedDealId'), 'Deals explorer must let hover highlight the map without changing card selection.')
 assert(explorer.includes('isActive={selectedDealId === deal.id}'), 'Deal cards must keep selected-card state independent from hover state.')
+assert(explorer.includes('!selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)'), 'Deals explorer must avoid stale scroll attempts after county filter changes.')
 assert(explorer.includes('scrollIntoView'), 'Selecting a map pin must scroll the corresponding deal card into view.')
 assert(explorer.includes('cardRef={registerDealCard(deal.id)}'), 'Deals explorer must register deal-card elements for map-pin selection scroll.')
 assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real map component.')
@@ -31,6 +32,9 @@ assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real
 assert(map.includes('basemap.nationalmap.gov'), 'BuyerDealsMap must use public-domain USGS National Map tiles.')
 assert(map.includes('buyer-map-pin'), 'BuyerDealsMap must render deal pins over the real map.')
 assert(map.includes('aria-pressed={activeDealId === deal.id}'), 'BuyerDealsMap pins must expose active-deal state.')
+assert(map.includes('onError={() => handleTileError(tile.key)}'), 'BuyerDealsMap must track failed map tile loads.')
+assert(map.includes('allTilesFailed'), 'BuyerDealsMap must detect when all USGS tiles failed.')
+assert(map.includes('Map tiles are temporarily unavailable. Deal pins are still shown.'), 'BuyerDealsMap must render a visible fallback when all tiles fail.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
@@ -48,6 +52,7 @@ assert(styles.includes('buyer-deal-card--is-active'), 'CSS must style only the s
 assert(!styles.includes('.buyer-deal-card--active, .buyer-deal-card:hover'), 'CSS must not treat all active listings as selected cards.')
 assert(explorer.includes('inlineDetails'), 'Public index cards must opt into inline details instead of primary detail-page routing.')
 
+assert(dealView.includes('isExactAddressPublic(deal) ? (deal.mapLocation ?? {})'), 'Buyer deal view model must defense-in-depth gate exact coordinates before mapping.')
 assert(dealView.includes('defaultFallbackMapLocation'), 'Buyer deal view model must provide a catch-all map fallback so active deals do not disappear from the map.')
 assert(dealView.includes('mapLocation'), 'Buyer deal view model must include map coordinates.')
 assert(dealView.includes('saleComps'), 'Buyer deal view model must include optional sale comps for expanded cards.')
