@@ -91,7 +91,7 @@ for (const marker of [
   "dealStatus === PUBLIC_SOLD_DEAL_STATUS",
   'sanitizeMediaReferenceForPublic',
   'isExactAddressPublic(deal)',
-  "'mapLocation'",
+  'sanitized.mapLocation = deal.mapLocation',
   "'saleComps'",
 ]) {
   assert(visibility.includes(marker), `deal visibility helper marker present: ${marker.split('\n')[0]}`)

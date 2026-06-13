@@ -263,6 +263,10 @@ try {
   const hiddenAddressDeal = {
     ...schemaAccessFixtures.deals.find((deal) => deal.id === 'public-available'),
     internalNotes: 'REDACTED_INTERNAL_NOTE',
+    mapLocation: {
+      latitude: 25.7617,
+      longitude: -80.1918,
+    },
     photos: [
       {
         ...schemaAccessFixtures.media[2],
@@ -283,6 +287,10 @@ try {
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'exactAddress'),
     'Exact address is removed from public deal payloads by default',
+  )
+  assert(
+    sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'mapLocation'),
+    'Exact map coordinates are removed from public deal payloads by default',
   )
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'internalNotes'),
@@ -315,6 +323,10 @@ try {
     visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)?.exactAddress ===
       'REDACTED_EXACT_ADDRESS',
     'Exact address is retained only when showExactAddressPublicly is true',
+  )
+  assert(
+    visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)?.mapLocation?.latitude === 25.7617,
+    'Exact map coordinates are retained only when showExactAddressPublicly is true',
   )
 
   const [privateDefaultMedia, draftPublicMedia, readyPublicMedia, hiddenPublicMedia, privateDetailsMedia] =

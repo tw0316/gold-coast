@@ -25,6 +25,7 @@ assert(map.includes('basemaps.cartocdn.com'), 'BuyerDealsMap must use policy-com
 assert(map.includes('buyer-map-pin'), 'BuyerDealsMap must render deal pins over the real map.')
 assert(map.includes('aria-pressed={activeDealId === deal.id}'), 'BuyerDealsMap pins must expose active-deal state.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
+assert(map.includes('© OpenStreetMap contributors'), 'BuyerDealsMap must render complete OpenStreetMap attribution copy.')
 
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
 assert(!card.includes('Request Showing'), 'Deal cards must not include Request Showing CTA copy.')

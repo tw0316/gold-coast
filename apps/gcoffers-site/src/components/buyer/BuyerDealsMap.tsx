@@ -174,7 +174,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
       </div>
       <div className="buyer-real-map__attribution">
         <a href="https://www.openstreetmap.org/copyright" rel="noreferrer" target="_blank">
-          © OpenStreetMap
+          © OpenStreetMap contributors
         </a>
         <span>·</span>
         <a href="https://carto.com/attributions" rel="noreferrer" target="_blank">

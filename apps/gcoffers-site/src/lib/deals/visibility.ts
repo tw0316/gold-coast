@@ -147,7 +147,6 @@ const publicDealAllowedKeys = new Set([
   'conditionSummary',
   'county',
   'zip',
-  'mapLocation',
   'propertyDetails',
   'financials',
   'summary',
@@ -180,6 +179,10 @@ export const sanitizeDealForPublic = <TDeal extends DealVisibilityInput>(
 
   if (isExactAddressPublic(deal) && typeof deal.exactAddress === 'string') {
     sanitized.exactAddress = deal.exactAddress
+  }
+
+  if (isExactAddressPublic(deal) && deal.mapLocation) {
+    sanitized.mapLocation = deal.mapLocation
   }
 
   sanitized.photos = Array.isArray(deal.photos)
