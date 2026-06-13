@@ -13,7 +13,7 @@ import { useInlineFormSubmit } from '../forms/useInlineFormSubmit'
 
 type DealInterestFormProps = {
   deal: BuyerPublicDeal
-  idSuffix?: string
+  idSuffix: string
 }
 
 const dealInterestSuccessMessage = "Got it. We'll follow up with next steps on this offer."
@@ -25,14 +25,8 @@ export function DealInterestForm({ deal, idSuffix }: DealInterestFormProps) {
     requireServiceConsentForPhone: true,
     successMessage: dealInterestSuccessMessage,
   })
-  const idPart = idSuffix ? safeIdPart(idSuffix) : null
-  const fieldId = (name: string) => {
-    if (!idPart && name === 'title') {
-      return 'buyer-interest-title'
-    }
-
-    return idPart ? `deal-interest-${idPart}-${name}` : `deal-interest-${name}`
-  }
+  const idPart = safeIdPart(idSuffix)
+  const fieldId = (name: string) => `deal-interest-${idPart}-${name}`
 
   return (
     <form

@@ -126,6 +126,11 @@ const countyFallbackMapLocations: Record<string, Omit<BuyerMapLocation, 'source'
   'palm-beach': { latitude: 26.7056, longitude: -80.0364 },
 }
 const defaultFallbackMapLocation = countyFallbackMapLocations.broward
+const compMoneyFormatter = new Intl.NumberFormat('en-US', {
+  currency: 'USD',
+  maximumFractionDigits: 0,
+  style: 'currency',
+})
 
 export const deriveHeroVisual = (
   propertyType: string | null,
@@ -207,11 +212,7 @@ const asCompArray = (value: unknown): BuyerDealComp[] => {
     const label = asNullableString(record.label)
     const rawValue = record.value
     const compValue = typeof rawValue === 'number' && Number.isFinite(rawValue)
-      ? new Intl.NumberFormat('en-US', {
-          currency: 'USD',
-          maximumFractionDigits: 0,
-          style: 'currency',
-        }).format(rawValue)
+      ? compMoneyFormatter.format(rawValue)
       : asNullableString(rawValue)
 
     if (!label || !compValue) {
