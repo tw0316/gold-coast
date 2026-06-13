@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { type FocusEvent, useEffect, useId, useRef, useState } from 'react'
+import { type FocusEvent, type Ref, useEffect, useId, useRef, useState } from 'react'
 
 import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -71,6 +71,7 @@ const CompList = ({ emptyLabel, items, title }: { emptyLabel: string; items: Buy
 )
 
 type BuyerDealCardProps = {
+  cardRef?: Ref<HTMLElement>
   deal: BuyerPublicDeal
   inlineDetails?: boolean
   isActive?: boolean
@@ -82,6 +83,7 @@ type BuyerDealCardProps = {
 }
 
 export function BuyerDealCard({
+  cardRef,
   deal,
   inlineDetails = false,
   isActive = false,
@@ -129,6 +131,7 @@ export function BuyerDealCard({
 
   return (
     <article
+      ref={cardRef}
       className={`buyer-deal-card buyer-deal-card--${mode}${isActive ? ' buyer-deal-card--is-active' : ''}`}
       data-deal-slug={deal.slug}
       data-status={deal.dealStatus}

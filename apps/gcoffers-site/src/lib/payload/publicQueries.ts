@@ -195,11 +195,13 @@ export const publicDealSelect = {
   rehabScope: true,
   conditionSummary: true,
   saleComps: {
+    id: true,
     label: true,
     value: true,
     note: true,
   },
   rentalComps: {
+    id: true,
     label: true,
     value: true,
     note: true,

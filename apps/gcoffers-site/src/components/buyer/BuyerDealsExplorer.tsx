@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -52,6 +52,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   const [activeCounty, setActiveCounty] = useState<CountyFilter>(null)
   const [hoveredDealId, setHoveredDealId] = useState<string | null>(null)
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
+  const dealCardRefs = useRef(new Map<string, HTMLElement>())
 
   const availableCountyFilters = useMemo(() => {
     const counties = new Set<string>()
@@ -82,6 +83,25 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
       setSelectedDealId(null)
     }
   }, [filteredDeals, selectedDealId])
+
+  useEffect(() => {
+    if (!selectedDealId) {
+      return
+    }
+
+    dealCardRefs.current.get(selectedDealId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+    })
+  }, [selectedDealId])
+
+  const registerDealCard = (dealId: string) => (element: HTMLElement | null) => {
+    if (element) {
+      dealCardRefs.current.set(dealId, element)
+    } else {
+      dealCardRefs.current.delete(dealId)
+    }
+  }
 
   const activeDealId = hoveredDealId ?? selectedDealId
   const activeCount = filteredDeals.length
@@ -125,9 +145,10 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
           <div className="buyer-deals-grid buyer-deals-grid--public-index">
             {filteredDeals.map((deal) => (
               <BuyerDealCard
+                cardRef={registerDealCard(deal.id)}
                 deal={deal}
                 inlineDetails
-                isActive={activeDealId === deal.id}
+                isActive={selectedDealId === deal.id}
                 key={deal.id}
                 onFocus={() => setHoveredDealId(deal.id)}
                 onHover={() => setHoveredDealId(deal.id)}
