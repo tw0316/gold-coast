@@ -136,6 +136,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
           deals={filteredDeals}
           onDealHover={setHoveredDealId}
           onDealSelect={setSelectedDealId}
+          selectedDealId={selectedDealId}
         />
       </div>
       <div className="deal-list">

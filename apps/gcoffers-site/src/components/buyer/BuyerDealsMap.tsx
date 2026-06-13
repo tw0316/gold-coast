@@ -16,6 +16,7 @@ type BuyerDealsMapProps = {
   deals: BuyerPublicDeal[]
   onDealHover: (dealId: string | null) => void
   onDealSelect: (dealId: string | null) => void
+  selectedDealId: string | null
 }
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
@@ -121,7 +122,7 @@ const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeo
   })
 }
 
-export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }: BuyerDealsMapProps) {
+export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, selectedDealId }: BuyerDealsMapProps) {
   const [tileStatus, setTileStatus] = useState<TileStatus>(() => emptyTileStatus())
   const { mappedDeals, pins, tiles } = useMemo(() => {
     const nextMappedDeals = deals
@@ -142,6 +143,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
     }
   }, [deals])
   const tileSetKey = useMemo(() => tiles.map((tile) => tile.key).join('|'), [tiles])
+  const eagerTiles = tileStatus.tileSetKey === tileSetKey && tileStatus.failed.size > 0
   const allTilesFailed = useMemo(() => {
     if (tileStatus.tileSetKey !== tileSetKey) {
       return false
@@ -222,7 +224,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
             className="buyer-real-map__tile"
             data-tile-key={tile.key}
             key={tile.key}
-            loading={tile.loading}
+            loading={eagerTiles ? 'eager' : tile.loading}
             onError={handleTileError}
             onLoad={handleTileLoad}
             src={tile.src}
@@ -243,11 +245,12 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
           return (
             <button
               aria-label={`${formatMapPrice(deal)} at ${deal.locationLabel ?? deal.title}`}
-              aria-pressed={activeDealId === deal.id}
+              aria-pressed={selectedDealId === deal.id}
               className="buyer-map-pin"
+              data-hovered={activeDealId === deal.id && selectedDealId !== deal.id ? 'true' : undefined}
               key={deal.id}
               onBlur={() => onDealHover(null)}
-              onClick={() => onDealSelect(activeDealId === deal.id ? null : deal.id)}
+              onClick={() => onDealSelect(selectedDealId === deal.id ? null : deal.id)}
               onFocus={() => onDealHover(deal.id)}
               onMouseEnter={() => onDealHover(deal.id)}
               onMouseLeave={() => onDealHover(null)}

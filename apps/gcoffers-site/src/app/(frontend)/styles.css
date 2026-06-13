@@ -3273,7 +3273,7 @@ h3 { color: var(--gchb-navy); font-size: var(--fs-h3); font-weight: var(--fw-bla
 .buyer-map-pin { position: absolute; left: var(--pin-left); top: var(--pin-top); transform: translate(-50%, -100%); background: var(--gchb-gold); color: var(--gchb-navy); border: 2px solid var(--gchb-navy); cursor: pointer; padding: 7px 10px; font-weight: var(--fw-black); font-size: .82rem; box-shadow: 0 10px 22px rgba(26,58,107,0.2); }
 .buyer-map-pin::after { content: ""; position: absolute; left: 50%; top: calc(100% - 1px); transform: translateX(-50%); border: 7px solid transparent; border-top-color: var(--gchb-navy); }
 .buyer-map-pin small { display: block; font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
-.buyer-map-pin[aria-pressed="true"], .buyer-map-pin:hover, .buyer-map-pin:focus-visible { background: var(--gchb-navy); color: var(--gchb-cream); outline: 3px solid rgb(213 178 56 / 45%); outline-offset: 2px; z-index: 3; }
+.buyer-map-pin[aria-pressed="true"], .buyer-map-pin[data-hovered="true"], .buyer-map-pin:hover, .buyer-map-pin:focus-visible { background: var(--gchb-navy); color: var(--gchb-cream); outline: 3px solid rgb(213 178 56 / 45%); outline-offset: 2px; z-index: 3; }
 .buyer-real-map__copy { position: absolute; left: 22px; right: 22px; bottom: 34px; z-index: 2; background: rgba(251,250,247,.94); border: 1px solid var(--border-soft); padding: 18px; }
 .buyer-real-map__copy p { color: var(--fg-2); margin-top: 4px; }
 .buyer-real-map__attribution { position: absolute; right: 10px; bottom: 8px; z-index: 2; display: flex; gap: 5px; align-items: center; background: rgba(255,255,255,.82); color: var(--fg-3); font-size: .68rem; padding: 3px 6px; }
