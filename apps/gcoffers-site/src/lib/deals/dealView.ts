@@ -66,7 +66,7 @@ export type BuyerPublicDeal = {
   statusLabel: string
   locationLabel: string
   county: string | null
-  mapLocation: BuyerMapLocation | null
+  mapLocation: BuyerMapLocation
   propertyDetails: BuyerPropertyDetails
   financials: BuyerFinancials
   calculatedFinancials: DealFinancialSummary
@@ -178,7 +178,7 @@ const normalizeCountyKey = (county: string | null | undefined): string | null =>
 const asMapLocation = (
   value: unknown,
   county: string | null,
-): BuyerMapLocation | null => {
+): BuyerMapLocation => {
   const maybeLocation = value && typeof value === 'object' ? value as Record<string, unknown> : null
   const latitude = asNullableNumber(maybeLocation?.latitude)
   const longitude = asNullableNumber(maybeLocation?.longitude)

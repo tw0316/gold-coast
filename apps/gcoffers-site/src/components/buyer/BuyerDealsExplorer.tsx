@@ -16,20 +16,34 @@ type BuyerDealsExplorerProps = {
 const preferredCountyOrder = ['Miami-Dade', 'Broward', 'Palm Beach']
 
 const countyFromDeal = (deal: BuyerPublicDeal): string | null => {
-  const haystack = `${deal.county ?? ''} ${deal.locationLabel ?? ''}`.toLowerCase()
+  const county = deal.county?.trim()
 
-  if (haystack.includes('miami')) {
+  if (county) {
+    const normalizedCounty = county.toLowerCase()
+
+    if (normalizedCounty.includes('miami')) {
+      return 'Miami-Dade'
+    }
+    if (normalizedCounty.includes('broward')) {
+      return 'Broward'
+    }
+    if (normalizedCounty.includes('palm')) {
+      return 'Palm Beach'
+    }
+
+    return county.replace(/ county$/i, '').trim()
+  }
+
+  const locationLabel = (deal.locationLabel ?? '').toLowerCase()
+
+  if (locationLabel.includes('miami')) {
     return 'Miami-Dade'
   }
-  if (haystack.includes('broward')) {
+  if (locationLabel.includes('broward')) {
     return 'Broward'
   }
-  if (haystack.includes('palm')) {
+  if (locationLabel.includes('palm beach')) {
     return 'Palm Beach'
-  }
-
-  if (deal.county?.trim()) {
-    return deal.county.replace(/ county$/i, '').trim()
   }
 
   return null

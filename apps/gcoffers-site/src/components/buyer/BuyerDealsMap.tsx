@@ -40,11 +40,11 @@ const formatMapPrice = (deal: BuyerPublicDeal): string => {
   return typeof price === 'number' && Number.isFinite(price) ? moneyFormatter.format(price) : 'Deal'
 }
 
-const locationKey = (deal: MappedBuyerPublicDeal): string =>
+const locationKey = (deal: BuyerPublicDeal): string =>
   `${deal.mapLocation.latitude.toFixed(5)},${deal.mapLocation.longitude.toFixed(5)}`
 
 const buildMapPoint = (
-  deal: MappedBuyerPublicDeal,
+  deal: BuyerPublicDeal,
   center: ReturnType<typeof project>,
   duplicateIndex: number,
   duplicateCount: number,
@@ -60,16 +60,13 @@ const buildMapPoint = (
 type MapTile = {
   key: string
   left: number
+  loading: 'eager' | 'lazy'
   src: string
   top: number
 }
 
-type MappedBuyerPublicDeal = BuyerPublicDeal & {
-  mapLocation: NonNullable<BuyerPublicDeal['mapLocation']>
-}
-
 type MapPin = {
-  deal: MappedBuyerPublicDeal
+  deal: BuyerPublicDeal
   left: number
   top: number
 }
@@ -85,13 +82,14 @@ const buildTiles = (centerPoint: ReturnType<typeof project>, centerTileX: number
       return {
         key: `${tileX}-${tileY}`,
         left,
+        loading: rowOffset === 0 && columnOffset === 0 ? 'eager' : 'lazy',
         src: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${ZOOM}/${tileY}/${tileX}`,
         top,
       }
     }),
   )
 
-const buildPins = (mappedDeals: MappedBuyerPublicDeal[], centerPoint: ReturnType<typeof project>): MapPin[] => {
+const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeof project>): MapPin[] => {
   const duplicateCounts = mappedDeals.reduce((counts, deal) => {
     const key = locationKey(deal)
     counts.set(key, (counts.get(key) ?? 0) + 1)
@@ -109,16 +107,15 @@ const buildPins = (mappedDeals: MappedBuyerPublicDeal[], centerPoint: ReturnType
   })
 }
 
-const hasMapLocation = (deal: BuyerPublicDeal): deal is MappedBuyerPublicDeal => deal.mapLocation !== null
-
 export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }: BuyerDealsMapProps) {
   const [failedTileKeys, setFailedTileKeys] = useState(() => new Set<string>())
-  const mappedDeals = useMemo<MappedBuyerPublicDeal[]>(() => deals.filter(hasMapLocation), [deals])
-  const { pins, tiles } = useMemo(() => {
-    const centerLocation = mappedDeals.length > 0
+  const [attemptedTileKeys, setAttemptedTileKeys] = useState(() => new Set<string>())
+  const { mappedDeals, pins, tiles } = useMemo(() => {
+    const nextMappedDeals = deals
+    const centerLocation = nextMappedDeals.length > 0
       ? {
-          latitude: mappedDeals.reduce((sum, deal) => sum + deal.mapLocation.latitude, 0) / mappedDeals.length,
-          longitude: mappedDeals.reduce((sum, deal) => sum + deal.mapLocation.longitude, 0) / mappedDeals.length,
+          latitude: nextMappedDeals.reduce((sum, deal) => sum + deal.mapLocation.latitude, 0) / nextMappedDeals.length,
+          longitude: nextMappedDeals.reduce((sum, deal) => sum + deal.mapLocation.longitude, 0) / nextMappedDeals.length,
         }
       : DEFAULT_CENTER
     const centerPoint = project(centerLocation)
@@ -126,13 +123,23 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
     const centerTileY = Math.floor(centerPoint.y / TILE_SIZE)
 
     return {
-      pins: buildPins(mappedDeals, centerPoint),
+      mappedDeals: nextMappedDeals,
+      pins: buildPins(nextMappedDeals, centerPoint),
       tiles: buildTiles(centerPoint, centerTileX, centerTileY),
     }
-  }, [mappedDeals])
-  const allTilesFailed = tiles.length > 0 && tiles.every((tile) => failedTileKeys.has(tile.key))
+  }, [deals])
+  const allTilesFailed = attemptedTileKeys.size > 0 && [...attemptedTileKeys].every((tileKey) => failedTileKeys.has(tileKey))
 
   const handleTileError = (tileKey: string) => {
+    setAttemptedTileKeys((current) => {
+      if (current.has(tileKey)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.add(tileKey)
+      return next
+    })
     setFailedTileKeys((current) => {
       if (current.has(tileKey)) {
         return current
@@ -145,6 +152,15 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
   }
 
   const handleTileLoad = (tileKey: string) => {
+    setAttemptedTileKeys((current) => {
+      if (current.has(tileKey)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.add(tileKey)
+      return next
+    })
     setFailedTileKeys((current) => {
       if (!current.has(tileKey)) {
         return current
@@ -164,7 +180,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
             alt=""
             className="buyer-real-map__tile"
             key={tile.key}
-            loading="eager"
+            loading={tile.loading}
             onError={() => handleTileError(tile.key)}
             onLoad={() => handleTileLoad(tile.key)}
             src={tile.src}
