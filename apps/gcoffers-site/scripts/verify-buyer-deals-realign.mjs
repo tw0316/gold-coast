@@ -29,12 +29,16 @@ assert(explorer.includes('scrollIntoView'), 'Selecting a map pin must scroll the
 assert(explorer.includes('cardRef={registerDealCard(deal.id)}'), 'Deals explorer must register deal-card elements for map-pin selection scroll.')
 assert(explorer.includes('<BuyerDealsMap'), 'Deals explorer must render the real map component.')
 
+assert(map.includes('useMemo<MappedBuyerPublicDeal[]>'), 'BuyerDealsMap must memoize mapped deals so hover state does not recompute geometry.')
+assert(map.includes('useMemo(() => {'), 'BuyerDealsMap must memoize tile and pin geometry.')
 assert(map.includes('basemap.nationalmap.gov'), 'BuyerDealsMap must use public-domain USGS National Map tiles.')
 assert(map.includes('buyer-map-pin'), 'BuyerDealsMap must render deal pins over the real map.')
 assert(map.includes('aria-pressed={activeDealId === deal.id}'), 'BuyerDealsMap pins must expose active-deal state.')
 assert(map.includes('onError={() => handleTileError(tile.key)}'), 'BuyerDealsMap must track failed map tile loads.')
 assert(map.includes('allTilesFailed'), 'BuyerDealsMap must detect when all USGS tiles failed.')
 assert(map.includes('Map tiles are temporarily unavailable. Deal pins are still shown.'), 'BuyerDealsMap must render a visible fallback when all tiles fail.')
+assert(map.includes('loading="eager"'), 'BuyerDealsMap must eagerly load above-the-fold map tiles for fallback accuracy.')
+assert(!map.includes('deal.mapLocation ?'), 'BuyerDealsMap location keys must not keep a dead no-map-location fallback branch.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
