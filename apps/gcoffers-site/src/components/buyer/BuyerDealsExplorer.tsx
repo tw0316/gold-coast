@@ -23,6 +23,8 @@ const countyFromDeal = (deal: BuyerPublicDeal): string | null => {
     return southFloridaCountyLabelFor(county) ?? county.replace(/ county$/i, '').trim()
   }
 
+  // Last resort for legacy/public view models without county: locationLabel may be an approved exact address,
+  // so this relies on South Florida county names appearing in the public label when county is absent.
   return southFloridaCountyLabelFor(deal.locationLabel)
 }
 
@@ -44,6 +46,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   const [hoveredDealId, setHoveredDealId] = useState<string | null>(null)
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
   const dealCardRefs = useRef(new Map<string, HTMLElement>())
+  const scrollPendingDealIdRef = useRef<string | null>(null)
   const dealCardRefCallbacks = useRef(new Map<string, (element: HTMLElement | null) => void>())
 
   const availableCountyFilters = useMemo(() => {
@@ -72,6 +75,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
 
   useEffect(() => {
     if (selectedDealId && !filteredDeals.some((deal) => deal.id === selectedDealId)) {
+      scrollPendingDealIdRef.current = null
       setSelectedDealId(null)
     }
     if (hoveredDealId && !filteredDeals.some((deal) => deal.id === hoveredDealId)) {
@@ -80,15 +84,21 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   }, [filteredDeals, hoveredDealId, selectedDealId])
 
   useEffect(() => {
-    if (!selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)) {
+    if (!selectedDealId || scrollPendingDealIdRef.current !== selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)) {
       return
     }
 
+    scrollPendingDealIdRef.current = null
     dealCardRefs.current.get(selectedDealId)?.scrollIntoView({
       behavior: 'smooth',
       block: 'nearest',
     })
   }, [filteredDeals, selectedDealId])
+
+  const handleMapDealSelect = useCallback((dealId: string | null) => {
+    scrollPendingDealIdRef.current = dealId
+    setSelectedDealId(dealId)
+  }, [])
 
   const registerDealCard = useCallback((dealId: string) => {
     const existingCallback = dealCardRefCallbacks.current.get(dealId)
@@ -135,7 +145,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
           activeDealId={activeDealId}
           deals={filteredDeals}
           onDealHover={setHoveredDealId}
-          onDealSelect={setSelectedDealId}
+          onDealSelect={handleMapDealSelect}
           selectedDealId={selectedDealId}
         />
       </div>
