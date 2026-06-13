@@ -141,7 +141,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
       </div>
       <div className="deal-list">
         <div className="count-bar">
-          <div>
+          <div aria-live="polite" role="status">
             <strong>
               {activeCount} active deal{activeCount === 1 ? '' : 's'}
             </strong>

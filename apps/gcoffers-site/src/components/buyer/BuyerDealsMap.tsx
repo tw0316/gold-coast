@@ -124,7 +124,6 @@ const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeo
 
 export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, selectedDealId }: BuyerDealsMapProps) {
   const [tileStatus, setTileStatus] = useState<TileStatus>(() => emptyTileStatus())
-  const mappedDeals = deals
   const { pins, tiles } = useMemo(() => {
     const centerLocation = deals.length > 0
       ? {
@@ -267,7 +266,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, 
       </div>
       <div className="buyer-real-map__copy">
         <strong>Live deal map</strong>
-        <p>{mappedDeals.length} active pin{mappedDeals.length === 1 ? '' : 's'} shown on USGS National Map tiles.</p>
+        <p>{deals.length} active pin{deals.length === 1 ? '' : 's'} shown on USGS National Map tiles.</p>
       </div>
       <div className="buyer-real-map__attribution">
         <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" rel="noreferrer" target="_blank">
