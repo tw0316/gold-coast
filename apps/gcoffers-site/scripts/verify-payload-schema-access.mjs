@@ -177,17 +177,35 @@ try {
     /CREATE TABLE "buyer_signups_property_types" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
       initialSchemaMigrationSource,
     ),
-    'Initial Payload schema uses order/parent_id for simple array tables, not _order/_parent_id.',
+    'Initial Payload schema uses order/parent_id for hasMany select value tables.',
   )
   assert(
     /CREATE TABLE "deals_best_use" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
       buyerFieldsMigrationSource,
     ),
-    'Prior generated Deal array migration uses order/parent_id for simple array tables, matching the new comp tables.',
+    'Prior generated Deal hasMany select migration uses order/parent_id for value-only tables.',
+  )
+  assert(
+    /CREATE TABLE "users_sessions" \([\s\S]*?"_order" integer NOT NULL,[\s\S]*?"_parent_id" integer NOT NULL/.test(
+      initialSchemaMigrationSource,
+    ),
+    'Initial Payload schema uses _order/_parent_id for array tables that store row objects.',
   )
   assert(
     !/CREATE TABLE "deals_best_use" \([\s\S]*?"_order"/.test(buyerFieldsMigrationSource),
-    'Prior generated Deal array migration does not use _order for simple array tables.',
+    'Prior generated Deal value-only array migration does not use _order.',
+  )
+  assert(
+    /CREATE TABLE "deals_sale_comps" \([\s\S]*?"_order" integer NOT NULL,[\s\S]*?"_parent_id" integer NOT NULL/.test(
+      dealMapAndCompMigrationSource,
+    ),
+    'Deal sale comp row-object array table uses _order/_parent_id to match Payload ORM queries.',
+  )
+  assert(
+    /CREATE TABLE "deals_rental_comps" \([\s\S]*?"_order" integer NOT NULL,[\s\S]*?"_parent_id" integer NOT NULL/.test(
+      dealMapAndCompMigrationSource,
+    ),
+    'Deal rental comp row-object array table uses _order/_parent_id to match Payload ORM queries.',
   )
   for (const marker of [
     '"map_location_latitude" numeric',
@@ -199,6 +217,15 @@ try {
     '"deals_rental_comps_parent_fk"',
   ]) {
     assert(dealMapAndCompMigrationSource.includes(marker), `Deal map/comps migration marker present: ${marker}`)
+  }
+  const dealCompRepairMigrationSource = readSource('src/migrations/20260613_151940_fix_deal_comp_array_columns.ts')
+  for (const marker of [
+    'RENAME COLUMN "order" TO "_order"',
+    'RENAME COLUMN "parent_id" TO "_parent_id"',
+    '"deals_sale_comps"',
+    '"deals_rental_comps"',
+  ]) {
+    assert(dealCompRepairMigrationSource.includes(marker), `Deal comp repair migration marker present: ${marker}`)
   }
 
   assert(
