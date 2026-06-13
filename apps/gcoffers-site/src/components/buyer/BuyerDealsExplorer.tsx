@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
@@ -53,6 +53,7 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
   const [hoveredDealId, setHoveredDealId] = useState<string | null>(null)
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
   const dealCardRefs = useRef(new Map<string, HTMLElement>())
+  const dealCardRefCallbacks = useRef(new Map<string, (element: HTMLElement | null) => void>())
 
   const availableCountyFilters = useMemo(() => {
     const counties = new Set<string>()
@@ -95,13 +96,38 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
     })
   }, [selectedDealId])
 
-  const registerDealCard = (dealId: string) => (element: HTMLElement | null) => {
-    if (element) {
-      dealCardRefs.current.set(dealId, element)
-    } else {
-      dealCardRefs.current.delete(dealId)
+  const registerDealCard = useCallback((dealId: string) => {
+    const existingCallback = dealCardRefCallbacks.current.get(dealId)
+    if (existingCallback) {
+      return existingCallback
     }
-  }
+
+    const callback = (element: HTMLElement | null) => {
+      if (element) {
+        dealCardRefs.current.set(dealId, element)
+      } else {
+        dealCardRefs.current.delete(dealId)
+      }
+    }
+    dealCardRefCallbacks.current.set(dealId, callback)
+    return callback
+  }, [])
+
+  useEffect(() => {
+    const visibleDealIds = new Set(filteredDeals.map((deal) => deal.id))
+
+    for (const dealId of dealCardRefs.current.keys()) {
+      if (!visibleDealIds.has(dealId)) {
+        dealCardRefs.current.delete(dealId)
+      }
+    }
+
+    for (const dealId of dealCardRefCallbacks.current.keys()) {
+      if (!visibleDealIds.has(dealId)) {
+        dealCardRefCallbacks.current.delete(dealId)
+      }
+    }
+  }, [filteredDeals])
 
   const activeDealId = hoveredDealId ?? selectedDealId
   const activeCount = filteredDeals.length

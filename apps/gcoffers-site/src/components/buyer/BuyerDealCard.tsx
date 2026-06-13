@@ -114,9 +114,13 @@ export function BuyerDealCard({
     }
   }, [mediaUrl])
 
+  const setCardExpanded = (expanded: boolean) => {
+    setIsExpanded(expanded)
+    onSelect?.(expanded)
+  }
+
   const expandCard = () => {
-    setIsExpanded(true)
-    onSelect?.(true)
+    setCardExpanded(true)
   }
 
   const handleBlur = (event: FocusEvent<HTMLElement>) => {
@@ -195,11 +199,7 @@ export function BuyerDealCard({
                 aria-controls={detailsId}
                 aria-expanded={isExpanded}
                 className="buyer-deal-card__details-toggle"
-                onClick={() => {
-                  const nextExpanded = !isExpanded
-                  setIsExpanded(nextExpanded)
-                  onSelect?.(nextExpanded)
-                }}
+                onClick={() => setCardExpanded(!isExpanded)}
                 type="button"
               >
                 {isExpanded ? 'Hide underwriting' : 'View underwriting'}

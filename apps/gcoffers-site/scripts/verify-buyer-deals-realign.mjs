@@ -20,6 +20,8 @@ assert(!explorer.includes("'All'") && !explorer.includes('>All<'), 'Deals explor
 assert(explorer.includes('availableCountyFilters'), 'Deals explorer must derive county filters from the current active deals.')
 assert(explorer.includes('setActiveCounty((current) =>'), 'Clicking the selected county must clear the county filter.')
 assert(explorer.includes('setHoveredDealId'), 'Deals explorer must sync card hover state to the map.')
+assert(explorer.includes('dealCardRefCallbacks'), 'Deals explorer must cache stable card ref callbacks by deal id.')
+assert(explorer.includes('useCallback((dealId: string)'), 'Deals explorer must avoid ref churn on hover state updates.')
 assert(explorer.includes('activeDealId = hoveredDealId ?? selectedDealId'), 'Deals explorer must let hover highlight the map without changing card selection.')
 assert(explorer.includes('isActive={selectedDealId === deal.id}'), 'Deal cards must keep selected-card state independent from hover state.')
 assert(explorer.includes('scrollIntoView'), 'Selecting a map pin must scroll the corresponding deal card into view.')
@@ -32,6 +34,8 @@ assert(map.includes('aria-pressed={activeDealId === deal.id}'), 'BuyerDealsMap p
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
+assert(card.includes('setCardExpanded'), 'BuyerDealCard must share expand/collapse selection state through one helper.')
+assert(card.includes('onClick={() => setCardExpanded(!isExpanded)}'), 'Underwriting toggle must use the shared card expansion helper.')
 assert(card.includes('cardRef?: Ref<HTMLElement>'), 'BuyerDealCard must expose a cardRef for map-pin selection scroll.')
 assert(card.includes('ref={cardRef}'), 'BuyerDealCard must attach the registered ref to the article.')
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
@@ -44,6 +48,7 @@ assert(styles.includes('buyer-deal-card--is-active'), 'CSS must style only the s
 assert(!styles.includes('.buyer-deal-card--active, .buyer-deal-card:hover'), 'CSS must not treat all active listings as selected cards.')
 assert(explorer.includes('inlineDetails'), 'Public index cards must opt into inline details instead of primary detail-page routing.')
 
+assert(dealView.includes('defaultFallbackMapLocation'), 'Buyer deal view model must provide a catch-all map fallback so active deals do not disappear from the map.')
 assert(dealView.includes('mapLocation'), 'Buyer deal view model must include map coordinates.')
 assert(dealView.includes('saleComps'), 'Buyer deal view model must include optional sale comps for expanded cards.')
 assert(dealView.includes('rentalComps'), 'Buyer deal view model must include optional rental comps for expanded cards.')

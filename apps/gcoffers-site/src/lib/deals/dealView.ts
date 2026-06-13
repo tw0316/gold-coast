@@ -124,6 +124,7 @@ const countyFallbackMapLocations: Record<string, Omit<BuyerMapLocation, 'source'
   'miami-dade': { latitude: 25.7617, longitude: -80.1918 },
   'palm-beach': { latitude: 26.7056, longitude: -80.0364 },
 }
+const defaultFallbackMapLocation = countyFallbackMapLocations.broward
 
 export const deriveHeroVisual = (
   propertyType: string | null,
@@ -191,11 +192,7 @@ const asMapLocation = (
   }
 
   const countyKey = normalizeCountyKey(county)
-  const fallback = countyKey ? countyFallbackMapLocations[countyKey] : null
-
-  if (!fallback) {
-    return null
-  }
+  const fallback = (countyKey ? countyFallbackMapLocations[countyKey] : null) ?? defaultFallbackMapLocation
 
   return {
     ...fallback,

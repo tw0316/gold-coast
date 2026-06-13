@@ -309,6 +309,21 @@ try {
       sanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
     'Buyer view county fallback never leaks the private exact map coordinates',
   )
+  const unrecognizedCountyBuyerView = sanitizedHiddenAddressDeal
+    ? dealView.toBuyerView({
+        ...sanitizedHiddenAddressDeal,
+        county: 'Martin County',
+      })
+    : null
+  assert(
+    unrecognizedCountyBuyerView?.mapLocation?.source === 'county-fallback',
+    'Buyer view uses a default South Florida fallback pin for unrecognized counties',
+  )
+  assert(
+    unrecognizedCountyBuyerView?.mapLocation?.latitude === 26.1901 &&
+      unrecognizedCountyBuyerView?.mapLocation?.longitude === -80.3659,
+    'Default South Florida fallback pin prevents active deals from silently disappearing from the map',
+  )
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'internalNotes'),
     'Internal notes are removed from public deal payloads',
