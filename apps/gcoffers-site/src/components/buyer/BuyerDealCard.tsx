@@ -137,7 +137,7 @@ export function BuyerDealCard({
     }
 
     setShouldScrollToOffer(false)
-    offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     offerFormRef.current?.focus({ preventScroll: true })
   }, [inlineDetails, isExpanded, shouldScrollToOffer])
 
