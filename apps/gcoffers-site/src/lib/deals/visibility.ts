@@ -39,14 +39,29 @@ export const PUBLIC_SOLD_DEAL_STATUS = 'sold' as const
 export type PublicDealStatus = (typeof PUBLIC_DEAL_STATUSES)[number]
 export type PublicActiveDealStatus = (typeof PUBLIC_ACTIVE_DEAL_STATUSES)[number]
 
+export type DealMapLocationInput = {
+  latitude?: number | null
+  longitude?: number | null
+}
+
+export type DealCompInput = {
+  label?: string | null
+  value?: string | number | null
+  note?: string | null
+}
+
 export type DealVisibilityInput = {
   area?: string | null
   city?: string | null
+  conditionSummary?: string | null
   county?: string | null
   coverPhoto?: MediaVisibilityInput | number | string | null
   dealStatus?: string | null
   exactAddress?: string | null
+  mapLocation?: DealMapLocationInput | null
   photos?: (MediaVisibilityInput | number | string | null | undefined)[] | null
+  rentalComps?: DealCompInput[] | null
+  saleComps?: DealCompInput[] | null
   showExactAddressPublicly?: boolean | null
   websiteVisibility?: string | null
   zip?: string | null
@@ -55,7 +70,10 @@ export type DealVisibilityInput = {
 export type PublicDeal = Record<string, unknown> & {
   coverPhoto?: PublicMediaReference | null
   exactAddress?: string | null
+  mapLocation?: DealMapLocationInput | null
   photos?: PublicMediaReference[]
+  rentalComps?: DealCompInput[] | null
+  saleComps?: DealCompInput[] | null
 }
 
 export const publicDealVisibilityWhere: Where = {
@@ -126,12 +144,16 @@ const publicDealAllowedKeys = new Set([
   'market',
   'area',
   'city',
+  'conditionSummary',
   'county',
   'zip',
+  'mapLocation',
   'propertyDetails',
   'financials',
   'summary',
   'rehabScope',
+  'saleComps',
+  'rentalComps',
   'featureTags',
   'photos',
   'videoTourUrl',

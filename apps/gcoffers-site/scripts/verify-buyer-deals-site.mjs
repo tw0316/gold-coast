@@ -91,6 +91,8 @@ for (const marker of [
   "dealStatus === PUBLIC_SOLD_DEAL_STATUS",
   'sanitizeMediaReferenceForPublic',
   'isExactAddressPublic(deal)',
+  "'mapLocation'",
+  "'saleComps'",
 ]) {
   assert(visibility.includes(marker), `deal visibility helper marker present: ${marker.split('\n')[0]}`)
 }
@@ -262,10 +264,9 @@ assert(detailRoute.includes("from '@/lib/buyer/publicDeals'"), 'deal detail read
 assert(detailRoute.includes('dynamicParams = true'), 'deal detail renders newly published public deals on-demand')
 
 const detailPage = read('src/components/buyer/BuyerDealDetailPage.tsx')
-assert(detailPage.includes('deal.exactAddress ?'), 'deal detail renders exact address only when present after sanitization')
 assert(
-  detailPage.includes('Exact address is hidden by default') && !detailPage.includes('REDACTED_EXACT_ADDRESS'),
-  'deal detail UI documents default address suppression without embedding placeholder addresses',
+  detailPage.includes('deal.exactAddress ?'),
+  'deal detail renders exact address when present after sanitization',
 )
 assert(
   detailPage.includes('<h2 id="buyer-deal-numbers-title">Numbers Breakdown</h2>'),
@@ -326,16 +327,17 @@ assert(!/future route|form contract only|local endpoint|fake persistence/i.test(
 
 assert(frontendDealsIndex.includes('<BuyerDealsExplorer'), 'deals index delegates interactive map/list filtering to BuyerDealsExplorer')
 assert(frontendDealsIndex.includes('activeDeals'), 'deals index consumes server-provided active deals')
-assert(frontendDealsIndex.includes('BuyerListSignupForm'), 'deals index renders the reusable buyer signup form')
+assert(frontendDealsIndex.includes('BuyerSignupForm'), 'deals index renders the full buyer signup form')
 for (const marker of [
   "'use client'",
   'useState',
-  "const areas = ['Miami-Dade', 'Broward', 'Palm Beach'] as const",
-  'areaFromDeal',
-  'setActiveArea(area)',
+  'availableCountyFilters',
+  'countyFromDeal',
+  'setActiveCounty((current) => current === county ? null : county)',
   'filteredDeals.map',
-  'aria-pressed={activeArea === area}',
+  'aria-pressed={activeCounty === county}',
   'buyer-deals-grid--public-index',
+  '<BuyerDealsMap',
 ]) {
   assert(dealsExplorer.includes(marker), `deals explorer interactive filter marker present: ${marker}`)
 }
@@ -343,8 +345,8 @@ assert(dealCard.includes('buyer-deal-card__media'), 'deal card uses dedicated me
 assert(dealCard.includes('buyer-deal-card__placeholder'), 'deal card uses a nested placeholder instead of styling the image wrapper as the fallback')
 const styles = read('src/app/(frontend)/styles.css')
 assert(styles.includes('.buyer-deals-grid--public-index'), 'styles define a public-index deal card grid')
-assert(styles.includes('repeat(auto-fit, minmax(min(100%, 320px), 1fr))'), 'public deals grid uses bounded responsive cards')
-assert(styles.includes('.map-pin[aria-pressed="true"]'), 'map pins visually reflect active filter state')
+assert(styles.includes('grid-template-columns: 1fr'), 'public deals grid uses a single-column map/list card stack')
+assert(styles.includes('.buyer-map-pin[aria-pressed="true"]'), 'map pins visually reflect active deal state')
 assert(styles.includes('.buyer-deal-card__media'), 'styles define stable deal card media wrapper')
 for (const tone of ['blue', 'gold', 'green', 'slate']) {
   assert(styles.includes(`.buyer-deal-card__placeholder--${tone}`), `deal card placeholder supports ${tone} hero tone`)
@@ -387,9 +389,9 @@ assert(interestConsentTag.includes('type="checkbox"'), 'deal interest service/SM
 assert(!/\b(defaultChecked|checked)\b/.test(interestConsentTag), 'deal interest service/SMS consent is not prechecked')
 assert(interestForm.includes('If I provide a phone number') && interestForm.includes('Consent is not a condition of purchase'), 'deal interest phone collection has explicit service/SMS consent copy')
 assert(interestForm.includes('Gold Coast Offers LLC'), 'deal interest SMS consent uses Gold Coast Offers LLC')
-assert(interestForm.includes('<h2 id="buyer-interest-title">'), 'active deal interest section has a visible aria-labelledby target')
+assert(interestForm.includes('<h2 id={fieldId(\'title\')}>'), 'active deal interest section has a visible generated heading target')
 assert(interestForm.includes('name="contract"'), 'deal interest form sends explicit contract marker')
-assert(interestForm.includes("Got it. We'll follow up with next steps on this deal."), 'deal interest form has the approved inline success message')
+assert(interestForm.includes("Got it. We'll follow up with next steps on this offer."), 'deal interest form has the approved inline success message')
 assert(!/future handler|form contract only|local endpoint|fake persistence/i.test(interestForm), 'deal interest form has no implementation-leak copy')
 
 const sourceDirsToScan = [
@@ -422,8 +424,12 @@ for (const file of sourceFilesToScan) {
   assert(!prohibitedLegacyEndpoint.test(source), `${file} does not contain retired legacy live endpoints`)
   assert(!prohibitedStorageUrl.test(source), `${file} does not contain raw storage/CDN media URLs`)
   if (file.startsWith('src/app/(buyer)') || file.startsWith('src/components/buyer') || file.startsWith('src/fixtures')) {
-    const rawUrlScanSource = source.replace(/https:\/\/gcoffers\.com/g, '')
-    assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs beyond the canonical gcoffers.com metadata base`)
+    const rawUrlScanSource = source
+      .replace(/https:\/\/gcoffers\.com/g, '')
+      .replace(/https:\/\/(?:[abcd]|\$\{tileSubdomain\})\.basemaps\.cartocdn\.com/g, '')
+      .replace(/https:\/\/www\.openstreetmap\.org\/copyright/g, '')
+      .replace(/https:\/\/carto\.com\/attributions/g, '')
+    assert(!prohibitedRawUrl.test(rawUrlScanSource), `${file} does not embed raw absolute URLs beyond approved canonical/map URLs`)
   }
 }
 

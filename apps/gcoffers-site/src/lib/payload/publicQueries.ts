@@ -162,6 +162,10 @@ export const publicDealSelect = {
   zip: true,
   showExactAddressPublicly: true,
   exactAddress: true,
+  mapLocation: {
+    latitude: true,
+    longitude: true,
+  },
   propertyDetails: {
     propertyType: true,
     units: true,
@@ -187,6 +191,17 @@ export const publicDealSelect = {
   },
   summary: true,
   rehabScope: true,
+  conditionSummary: true,
+  saleComps: {
+    label: true,
+    value: true,
+    note: true,
+  },
+  rentalComps: {
+    label: true,
+    value: true,
+    note: true,
+  },
   featureTags: true,
   coverPhoto: true,
   photos: true,

@@ -280,6 +280,9 @@ export interface Page {
 export interface Deal {
   id: number;
   title: string;
+  /**
+   * URL path segment. Spaces/case are normalized automatically, e.g. "Test Deal" becomes "test-deal".
+   */
   slug: string;
   /**
    * Best investment use for buyers (multi-select). Drives the deal badges and buyer filtering.
@@ -292,6 +295,9 @@ export interface Deal {
    */
   websiteVisibility: 'hidden' | 'preview' | 'public' | 'archived';
   dealStatus: 'draft' | 'coming_soon' | 'available' | 'under_contract' | 'sold' | 'cancelled';
+  /**
+   * Select or create the market. Default South Florida markets are seeded by migration.
+   */
   market?: (number | null) | Market;
   /**
    * Area / neighborhood label safe for public display (no exact address).
@@ -301,13 +307,20 @@ export interface Deal {
   county?: string | null;
   zip?: string | null;
   /**
-   * Default false. Public detail/API helpers may expose exactAddress only when this is true.
+   * Default false. Exact street addresses are sensitive and public deal helpers expose exactAddress only when this is true.
    */
   showExactAddressPublicly?: boolean | null;
   /**
-   * Sensitive. Hidden from public reads unless showExactAddressPublicly is explicitly true.
+   * Public buyer-page street address for deal cards, forms, and map context.
    */
   exactAddress?: string | null;
+  /**
+   * Exact map pin coordinates. If blank, the public map falls back to a county-level pin.
+   */
+  mapLocation?: {
+    latitude?: number | null;
+    longitude?: number | null;
+  };
   propertyDetails?: {
     /**
      * What the property is. Controls which detail fields below apply.
@@ -351,6 +364,32 @@ export interface Deal {
   };
   summary?: string | null;
   rehabScope?: string | null;
+  /**
+   * Buyer-facing condition note shown inside the expanded deal card.
+   */
+  conditionSummary?: string | null;
+  /**
+   * Buyer-facing comparable sale rows for the expanded deal card.
+   */
+  saleComps?:
+    | {
+        label: string;
+        value: string;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Buyer-facing rental comp rows for the expanded deal card.
+   */
+  rentalComps?:
+    | {
+        label: string;
+        value: string;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Quick highlight chips shown on the deal card and detail page.
    */
@@ -797,6 +836,12 @@ export interface DealsSelect<T extends boolean = true> {
   zip?: T;
   showExactAddressPublicly?: T;
   exactAddress?: T;
+  mapLocation?:
+    | T
+    | {
+        latitude?: T;
+        longitude?: T;
+      };
   propertyDetails?:
     | T
     | {
@@ -826,6 +871,23 @@ export interface DealsSelect<T extends boolean = true> {
       };
   summary?: T;
   rehabScope?: T;
+  conditionSummary?: T;
+  saleComps?:
+    | T
+    | {
+        label?: T;
+        value?: T;
+        note?: T;
+        id?: T;
+      };
+  rentalComps?:
+    | T
+    | {
+        label?: T;
+        value?: T;
+        note?: T;
+        id?: T;
+      };
   featureTags?: T;
   coverPhoto?: T;
   photos?: T;

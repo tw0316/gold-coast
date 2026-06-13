@@ -61,8 +61,20 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     dealStatus: 'available',
     disclaimer:
       'Fixture deal for local buyer-page rendering only. Buyers must independently verify all numbers.',
-    exactAddress: 'REDACTED_EXACT_ADDRESS',
+    exactAddress: 'Sample Broward public address',
     featureTags: ['cosmetic_reno', 'cash_only'],
+    conditionSummary: 'Cosmetic renovation candidate with kitchen, bath, flooring, paint, and punch-list work expected.',
+    saleComps: [
+      { label: 'Nearby renovated 3/2', value: '$410K', note: '0.6 mi · sold Q4' },
+      { label: 'Updated CBS comp', value: '$397K', note: '0.9 mi · similar sqft' },
+    ],
+    rentalComps: [
+      { label: '3/2 single-family rent', value: '$2,800/mo', note: 'North Broward sample comp' },
+    ],
+    mapLocation: {
+      latitude: 26.1901,
+      longitude: -80.1759,
+    },
     financials: {
       arv: 410000,
       askingPrice: 245000,
@@ -97,7 +109,15 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     city: 'North Miami area',
     county: 'Miami-Dade County',
     dealStatus: 'coming_soon',
-    exactAddress: 'REDACTED_EXACT_ADDRESS',
+    exactAddress: 'Sample Miami-Dade public address',
+    mapLocation: {
+      latitude: 25.8898,
+      longitude: -80.1861,
+    },
+    conditionSummary: 'Pre-market lead. Final access, repair budget, and occupancy to be verified before offer deadline.',
+    saleComps: [
+      { label: 'Updated North Miami 4/2', value: '$520K', note: 'Similar bedroom count' },
+    ],
     financials: {
       arv: 520000,
       askingPrice: 330000,
@@ -123,11 +143,19 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
   {
     area: 'Palm Beach County',
     bestUse: ['buy_and_hold', 'brrrr'],
-    city: 'Palm Beach County',
+    city: 'North Palm Beach area',
     county: 'Palm Beach County',
     dealStatus: 'under_contract',
-    exactAddress: 'REDACTED_EXACT_ADDRESS',
+    exactAddress: 'Sample Palm Beach public address',
     featureTags: ['tenant_occupied'],
+    mapLocation: {
+      latitude: 26.7153,
+      longitude: -80.0534,
+    },
+    conditionSummary: 'Tenant-occupied rental candidate with exterior cleanup and light turns assumed.',
+    rentalComps: [
+      { label: '4-bed rental comp', value: '$2,600/mo', note: 'Palm Beach County sample comp' },
+    ],
     financials: {
       arv: 360000,
       askingPrice: 238000,
@@ -204,9 +232,9 @@ export const buyerDealFixtures: BuyerDealFixture[] = [
     publishedAt: '2026-01-04T12:00:00.000Z',
     showExactAddressPublicly: true,
     slug: 'sample-public-address-disclosure',
-    summary: 'Fixture demonstrating that exact address appears only when explicitly enabled.',
+    summary: 'Fixture demonstrating a non-public legacy address-disclosure state.',
     title: 'Public Address Disclosure Example',
-    websiteVisibility: 'public',
+    websiteVisibility: 'preview',
   },
   {
     area: 'Hidden area',

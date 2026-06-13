@@ -1,6 +1,11 @@
-import Link from 'next/link'
+'use client'
 
-import type { BuyerPublicDeal } from '@/lib/deals/dealView'
+import Link from 'next/link'
+import { type FocusEvent, useId, useState } from 'react'
+
+import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
+
+import { DealInterestForm } from './DealInterestForm'
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
@@ -19,6 +24,14 @@ const formatNumber = (value: number | null | undefined): string =>
 const formatPercent = (value: number | null | undefined): string =>
   typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}%` : 'Verify'
 
+const formatOccupancy = (value: string | null | undefined): string => {
+  if (!value) {
+    return 'Verify'
+  }
+
+  return value.replaceAll('_', ' ')
+}
+
 const getSpecs = (deal: BuyerPublicDeal): string => {
   const specs = [
     deal.propertyDetails.propertyTypeLabel,
@@ -26,79 +39,214 @@ const getSpecs = (deal: BuyerPublicDeal): string => {
     deal.propertyDetails.beds ? `${deal.propertyDetails.beds} Bed` : null,
     deal.propertyDetails.baths ? `${deal.propertyDetails.baths} Bath` : null,
     deal.propertyDetails.sqft ? `${formatNumber(deal.propertyDetails.sqft)} sqft` : null,
+    deal.propertyDetails.yearBuilt ? `Built ${deal.propertyDetails.yearBuilt}` : null,
   ]
 
   return specs.filter((spec): spec is string => Boolean(spec)).join(' · ')
 }
 
+const getPotentialProfit = (deal: BuyerPublicDeal): number | null =>
+  deal.financials.potentialProfitOverride ?? deal.calculatedFinancials.potentialProfit
+
+const getPotentialROI = (deal: BuyerPublicDeal): number | null =>
+  deal.financials.potentialROIOverride ?? deal.calculatedFinancials.potentialROI
+
+const CompList = ({ emptyLabel, items, title }: { emptyLabel: string; items: BuyerDealComp[]; title: string }) => (
+  <div className="buyer-deal-card__comp-block">
+    <h4>{title}</h4>
+    {items.length > 0 ? (
+      <ul>
+        {items.map((item) => (
+          <li key={`${item.label}-${item.value}`}>
+            <strong>{item.label}</strong>
+            <span>{item.value}</span>
+            {item.note ? <small>{item.note}</small> : null}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p>{emptyLabel}</p>
+    )}
+  </div>
+)
+
 type BuyerDealCardProps = {
   deal: BuyerPublicDeal
+  inlineDetails?: boolean
+  isActive?: boolean
   mode?: 'active' | 'sold'
+  onFocus?: () => void
+  onHover?: () => void
+  onLeave?: () => void
+  onSelect?: (selected: boolean) => void
 }
 
-export function BuyerDealCard({ deal, mode = 'active' }: BuyerDealCardProps) {
-  const potentialROI = deal.financials.potentialROIOverride ?? deal.calculatedFinancials.potentialROI
-  const potentialProfit = deal.financials.potentialProfitOverride ?? deal.calculatedFinancials.potentialProfit
+export function BuyerDealCard({
+  deal,
+  inlineDetails = false,
+  isActive = false,
+  mode = 'active',
+  onFocus,
+  onHover,
+  onLeave,
+  onSelect,
+}: BuyerDealCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
+  const detailsId = useId()
+  const potentialProfit = getPotentialProfit(deal)
+  const potentialROI = getPotentialROI(deal)
   const badgeUse = deal.bestUseLabels.slice(0, 2)
+  const displayAddress = (deal.exactAddress ?? deal.locationLabel) || deal.title
+  const secondaryTitle = displayAddress !== deal.title ? deal.title : deal.locationLabel
+  const canSubmitOffer = mode !== 'sold' && deal.dealStatus !== 'sold'
+  const mediaUrl = deal.coverPhoto?.thumbnailURL ?? deal.coverPhoto?.url ?? null
+  const showCoverPhoto = Boolean(deal.coverPhoto && mediaUrl && !imageFailed && !mediaUrl.includes('/buyer-fixture-'))
+
+  const expandCard = () => {
+    setIsExpanded(true)
+    onSelect?.(true)
+  }
+
+  const handleBlur = (event: FocusEvent<HTMLElement>) => {
+    const nextTarget = event.relatedTarget
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return
+    }
+
+    onLeave?.()
+  }
 
   return (
-    <article className={`buyer-deal-card buyer-deal-card--${mode}`} data-deal-slug={deal.slug}>
-      <Link href={`/deals/${deal.slug}/`} className="buyer-deal-card__link-wrap">
-        <div className="buyer-deal-card__media">
-          {deal.coverPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={deal.coverPhoto.thumbnailURL ?? deal.coverPhoto.url}
-              alt={deal.coverPhoto.alt ?? deal.title}
-              className="buyer-deal-card__image"
-              loading="lazy"
-            />
-          ) : (
-            <div className={`buyer-deal-card__placeholder buyer-deal-card__placeholder--${deal.heroVisual.tone}`}>
-              <span aria-hidden="true">{deal.heroVisual.icon}</span>
-              <small>{deal.heroVisual.label}</small>
-            </div>
-          )}
-          <div className="buyer-deal-card__badges" aria-label="Deal badges">
-            <span className={`buyer-badge buyer-badge--${deal.dealStatus.replaceAll('_', '-')}`}>
-              {deal.statusLabel}
-            </span>
-            {badgeUse.map((use) => (
-              <span className="buyer-badge buyer-badge--type" key={use}>
-                {use}
-              </span>
-            ))}
+    <article
+      className={`buyer-deal-card buyer-deal-card--${mode}${isActive ? ' buyer-deal-card--active' : ''}`}
+      data-deal-slug={deal.slug}
+      data-status={deal.dealStatus}
+      onBlur={handleBlur}
+      onFocus={onFocus}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+    >
+      <div className="buyer-deal-card__media">
+        {showCoverPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mediaUrl ?? ''}
+            alt={deal.coverPhoto?.alt ?? deal.title}
+            className="buyer-deal-card__image"
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className={`buyer-deal-card__placeholder buyer-deal-card__placeholder--${deal.heroVisual.tone}`}>
+            <span aria-hidden="true">{deal.heroVisual.icon}</span>
+            <small>{deal.heroVisual.label}</small>
           </div>
+        )}
+        <div className="buyer-deal-card__badges" aria-label="Deal badges">
+          <span className={`buyer-badge buyer-badge--${deal.dealStatus.replaceAll('_', '-')}`}>
+            {deal.statusLabel}
+          </span>
+          {badgeUse.map((use) => (
+            <span className="buyer-badge buyer-badge--type" key={use}>
+              {use}
+            </span>
+          ))}
         </div>
-        <div className="buyer-deal-card__body">
-          <p className="buyer-deal-card__location">{deal.locationLabel || 'South Florida'}</p>
-          <h3>{deal.title}</h3>
-          <p className="buyer-deal-card__specs">{getSpecs(deal)}</p>
-          <p className="buyer-deal-card__summary">{deal.summary}</p>
-          <dl className="buyer-deal-card__numbers">
-            <div>
-              <dt>{mode === 'sold' ? 'Closed Price' : 'Asking Price'}</dt>
-              <dd>{formatMoney(deal.financials.closedPrice ?? deal.financials.askingPrice)}</dd>
-            </div>
-            <div>
-              <dt>ARV</dt>
-              <dd>{formatMoney(deal.financials.arv)}</dd>
-            </div>
+      </div>
+      <div className="buyer-deal-card__body">
+        <p className="buyer-deal-card__location">{deal.county ? deal.county.replace(/ county$/i, '') : 'South Florida'}</p>
+        <h3>{displayAddress}</h3>
+        {secondaryTitle ? <p className="buyer-deal-card__deal-name">{secondaryTitle}</p> : null}
+        <p className="buyer-deal-card__specs">{getSpecs(deal)}</p>
+        <p className="buyer-deal-card__summary">{deal.summary}</p>
+        <dl className="buyer-deal-card__numbers buyer-deal-card__numbers--primary">
+          <div>
+            <dt>{mode === 'sold' ? 'Closed' : 'Asking'}</dt>
+            <dd>{formatMoney(deal.financials.closedPrice ?? deal.financials.askingPrice)}</dd>
+          </div>
+          <div>
+            <dt>ARV</dt>
+            <dd>{formatMoney(deal.financials.arv)}</dd>
+          </div>
+          <div>
+            <dt>Margin</dt>
+            <dd>{formatMoney(potentialProfit)}</dd>
+          </div>
+        </dl>
+        <div className="buyer-deal-card__actions">
+          {inlineDetails ? (
+            <>
+              <button
+                aria-controls={detailsId}
+                aria-expanded={isExpanded}
+                className="buyer-deal-card__details-toggle"
+                onClick={() => {
+                  const nextExpanded = !isExpanded
+                  setIsExpanded(nextExpanded)
+                  onSelect?.(nextExpanded)
+                }}
+                type="button"
+              >
+                {isExpanded ? 'Hide underwriting' : 'View underwriting'}
+              </button>
+              {canSubmitOffer ? (
+                <button className="btn btn--primary buyer-deal-card__submit" onClick={expandCard} type="button">
+                  Submit Offer
+                </button>
+              ) : (
+                <span className="buyer-deal-card__closed">Closed</span>
+              )}
+            </>
+          ) : (
+            <Link className="buyer-deal-card__link" href={`/deals/${deal.slug}`}>
+              {mode === 'sold' ? 'Review Sold Proof' : 'View Deal Details'}
+            </Link>
+          )}
+        </div>
+      </div>
+      {inlineDetails ? (
+        <div className="buyer-deal-card__details" hidden={!isExpanded} id={detailsId}>
+        <div className="buyer-deal-card__details-grid">
+          <section className="buyer-deal-card__detail-section">
+            <h4>Condition</h4>
+            <p>{deal.conditionSummary || deal.rehabScope || 'Condition notes are available during buyer diligence.'}</p>
+          </section>
+          <dl className="buyer-deal-card__detail-list">
             <div>
               <dt>Est. Rehab</dt>
               <dd>{formatMoney(deal.financials.estimatedRehab)}</dd>
             </div>
             <div>
-              <dt>{mode === 'sold' ? 'Close Date' : 'Potential ROI'}</dt>
-              <dd>{mode === 'sold' ? 'Closed' : formatPercent(potentialROI)}</dd>
+              <dt>Total Basis</dt>
+              <dd>{formatMoney(deal.calculatedFinancials.totalInvestment)}</dd>
+            </div>
+            <div>
+              <dt>Potential ROI</dt>
+              <dd>{formatPercent(potentialROI)}</dd>
+            </div>
+            <div>
+              <dt>Occupancy</dt>
+              <dd>{formatOccupancy(deal.propertyDetails.occupancy)}</dd>
             </div>
           </dl>
-          {mode !== 'sold' && potentialProfit !== null ? (
-            <p className="buyer-deal-card__profit">Estimated profit before buyer verification: {formatMoney(potentialProfit)}</p>
-          ) : null}
-          <span className="buyer-deal-card__cta">View Details →</span>
         </div>
-      </Link>
+        <div className="buyer-deal-card__comps">
+          <CompList emptyLabel="Sale comps are available during diligence." items={deal.saleComps} title="Sale comps" />
+          <CompList emptyLabel="Rental comps are available during diligence." items={deal.rentalComps} title="Rental comps" />
+        </div>
+        {deal.photos.length > 1 ? (
+          <div className="buyer-deal-card__thumbs" aria-label="More property photos">
+            {deal.photos.slice(1, 5).map((photo) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={photo.id} src={photo.thumbnailURL ?? photo.url} alt={photo.alt ?? deal.title} loading="lazy" />
+            ))}
+          </div>
+        ) : null}
+        {canSubmitOffer ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}
+        </div>
+      ) : null}
     </article>
   )
 }
