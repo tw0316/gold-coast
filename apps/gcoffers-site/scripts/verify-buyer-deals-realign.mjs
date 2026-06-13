@@ -94,6 +94,11 @@ assert(card.includes('onClick={() => setCardExpanded(!isExpanded)}'), 'Underwrit
 assert(card.includes("import dynamic from 'next/dynamic'"), 'BuyerDealCard must dynamically load the deal-interest form.')
 assert(card.includes("import('./DealInterestForm')"), 'BuyerDealCard must lazy-load DealInterestForm only when inline deal details can render it.')
 assert(card.includes('loading: DealInterestFormLoading'), 'Lazy offer forms must show loading feedback when the dynamic form chunk is still loading.')
+assert(card.includes('aria-label="Offer form"'), 'Submit Offer focus target must have an accessible name for assistive tech.')
+assert(
+  card.includes('{isExpanded ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}'),
+  'DealInterestForm must render only after the card expands so the dynamic chunk stays genuinely lazy.',
+)
 assert(!card.includes("import { DealInterestForm } from './DealInterestForm'"), 'BuyerDealCard must not statically import DealInterestForm into homepage card bundles.')
 assert(card.includes('aria-controls={detailsId}'), 'Underwriting toggle must control the collapsible card details region.')
 assert(flatCard.includes("offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })"), 'Submit Offer must reveal the offer form without fighting the map-pin card scroll.')

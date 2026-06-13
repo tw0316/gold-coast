@@ -170,7 +170,25 @@ try {
   assert(migratedSlugs.get(8) === 'test-deal-8', 'Public deal slug migration suffixes lower-priority duplicate normalized slugs')
   assert(migratedSlugs.get(12) === 'deal-12', 'Public deal slug migration falls back deterministically for null/blank slugs')
 
+  const initialSchemaMigrationSource = readSource('src/migrations/20260606_154941_initial_schema.ts')
+  const buyerFieldsMigrationSource = readSource('src/migrations/20260612_120000_deal_buyer_fields.ts')
   const dealMapAndCompMigrationSource = readSource('src/migrations/20260613_074900_deal_map_and_comp_fields.ts')
+  assert(
+    /CREATE TABLE "buyer_signups_property_types" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
+      initialSchemaMigrationSource,
+    ),
+    'Initial Payload schema uses order/parent_id for simple array tables, not _order/_parent_id.',
+  )
+  assert(
+    /CREATE TABLE "deals_best_use" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
+      buyerFieldsMigrationSource,
+    ),
+    'Prior generated Deal array migration uses order/parent_id for simple array tables, matching the new comp tables.',
+  )
+  assert(
+    !/CREATE TABLE "deals_best_use" \([\s\S]*?"_order"/.test(buyerFieldsMigrationSource),
+    'Prior generated Deal array migration does not use _order for simple array tables.',
+  )
   for (const marker of [
     '"map_location_latitude" numeric',
     '"map_location_longitude" numeric',

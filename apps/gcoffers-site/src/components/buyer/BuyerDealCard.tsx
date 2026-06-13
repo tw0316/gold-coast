@@ -290,8 +290,13 @@ export function BuyerDealCard({
             </div>
           ) : null}
           {canSubmitOffer ? (
-            <div ref={offerFormRef} className="buyer-deal-card__offer-form-anchor" tabIndex={-1}>
-              <DealInterestForm deal={deal} idSuffix={deal.slug} />
+            <div
+              ref={offerFormRef}
+              aria-label="Offer form"
+              className="buyer-deal-card__offer-form-anchor"
+              tabIndex={-1}
+            >
+              {isExpanded ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}
             </div>
           ) : null}
         </div>
