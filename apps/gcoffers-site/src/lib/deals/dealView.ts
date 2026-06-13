@@ -65,6 +65,7 @@ export type BuyerPublicDeal = {
   bestUseLabels: string[]
   dealStatus: string
   statusLabel: string
+  /** Public display label for location; may be an exact address only after sanitizer approval. */
   locationLabel: string
   county: string | null
   mapLocation: BuyerMapLocation

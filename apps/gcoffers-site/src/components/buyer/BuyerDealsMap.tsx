@@ -124,12 +124,12 @@ const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeo
 
 export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, selectedDealId }: BuyerDealsMapProps) {
   const [tileStatus, setTileStatus] = useState<TileStatus>(() => emptyTileStatus())
-  const { mappedDeals, pins, tiles } = useMemo(() => {
-    const nextMappedDeals = deals
-    const centerLocation = nextMappedDeals.length > 0
+  const mappedDeals = deals
+  const { pins, tiles } = useMemo(() => {
+    const centerLocation = deals.length > 0
       ? {
-          latitude: nextMappedDeals.reduce((sum, deal) => sum + deal.mapLocation.latitude, 0) / nextMappedDeals.length,
-          longitude: nextMappedDeals.reduce((sum, deal) => sum + deal.mapLocation.longitude, 0) / nextMappedDeals.length,
+          latitude: deals.reduce((sum, deal) => sum + deal.mapLocation.latitude, 0) / deals.length,
+          longitude: deals.reduce((sum, deal) => sum + deal.mapLocation.longitude, 0) / deals.length,
         }
       : DEFAULT_CENTER
     const centerPoint = project(centerLocation)
@@ -137,8 +137,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect, 
     const centerTileY = Math.floor(centerPoint.y / TILE_SIZE)
 
     return {
-      mappedDeals: nextMappedDeals,
-      pins: buildPins(nextMappedDeals, centerPoint),
+      pins: buildPins(deals, centerPoint),
       tiles: buildTiles(centerPoint, centerTileX, centerTileY),
     }
   }, [deals])

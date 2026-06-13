@@ -147,6 +147,8 @@ const publicDealAllowedKeys = new Set([
   'conditionSummary',
   'county',
   'zip',
+  // exactAddress and mapLocation are intentionally excluded here; they are
+  // conditionally copied below only behind isExactAddressPublic.
   'propertyDetails',
   'financials',
   'summary',
