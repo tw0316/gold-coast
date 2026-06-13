@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { type FocusEvent, type Ref, useEffect, useId, useRef, useState } from 'react'
 
@@ -7,7 +8,10 @@ import { southFloridaCountyLabelFor } from '@/lib/deals/taxonomy'
 
 import type { BuyerDealComp, BuyerPublicDeal } from '@/lib/deals/dealView'
 
-import { DealInterestForm } from './DealInterestForm'
+const DealInterestForm = dynamic(
+  () => import('./DealInterestForm').then((module) => ({ default: module.DealInterestForm })),
+  { ssr: false },
+)
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
