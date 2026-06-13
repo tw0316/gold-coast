@@ -41,10 +41,10 @@ assert(map.includes('allTilesFailed'), 'BuyerDealsMap must detect when all USGS 
 assert(map.includes('Map tiles are temporarily unavailable. Deal pins are still shown.'), 'BuyerDealsMap must render a visible fallback when all tiles fail.')
 assert(map.includes("loading: rowOffset === 0 && columnOffset === 0 ? 'eager' : 'lazy'"), 'BuyerDealsMap must eagerly load only the center tile and lazy-load surrounding tiles.')
 assert(map.includes('loading={tile.loading}'), 'BuyerDealsMap must pass per-tile loading priority to tile images.')
-assert(map.includes('useMemo(() => {\n    const currentTileKeys'), 'BuyerDealsMap must memoize failed-tile detection by current tile keys.')
+assert(map.includes('useMemo(() => {') && map.includes('const currentTileKeys'), 'BuyerDealsMap must memoize failed-tile detection by current tile keys.')
 assert(map.includes('currentTileKeys'), 'BuyerDealsMap must evaluate failed-tile state only against the current tile set.')
-assert(map.includes('setAttemptedTileKeys(new Set())'), 'BuyerDealsMap must reset attempted tile state when the tile set changes.')
-assert(map.includes('setFailedTileKeys(new Set())'), 'BuyerDealsMap must reset failed tile state when the tile set changes.')
+assert(map.includes('attemptedCurrentTileKeys.length === tiles.length'), 'BuyerDealsMap must show the failure banner only after every current tile has attempted and failed.')
+assert(map.includes('setTileStatus({ attempted: new Set(), failed: new Set() })'), 'BuyerDealsMap must reset tile status when the tile set changes.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
@@ -77,8 +77,8 @@ assert(dealView.includes('mapLocation'), 'Buyer deal view model must include map
 assert(dealView.includes('saleComps'), 'Buyer deal view model must include optional sale comps for expanded cards.')
 assert(dealView.includes('rentalComps'), 'Buyer deal view model must include optional rental comps for expanded cards.')
 assert(dealView.includes('conditionSummary'), 'Buyer deal view model must include optional condition summary for expanded cards.')
-assert(publicQueries.includes('saleComps: {\n    id: true'), 'Public deal select must include stable Payload IDs for sale comps.')
-assert(publicQueries.includes('rentalComps: {\n    id: true'), 'Public deal select must include stable Payload IDs for rental comps.')
+assert(/saleComps:\s*{\s*id:\s*true/.test(publicQueries), 'Public deal select must include stable Payload IDs for sale comps.')
+assert(/rentalComps:\s*{\s*id:\s*true/.test(publicQueries), 'Public deal select must include stable Payload IDs for rental comps.')
 
 if (failures.length > 0) {
   console.error('Buyer deals realignment verification failed:')

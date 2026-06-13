@@ -65,6 +65,11 @@ type MapTile = {
   top: number
 }
 
+type TileStatus = {
+  attempted: Set<string>
+  failed: Set<string>
+}
+
 type MapPin = {
   deal: BuyerPublicDeal
   left: number
@@ -108,8 +113,10 @@ const buildPins = (mappedDeals: BuyerPublicDeal[], centerPoint: ReturnType<typeo
 }
 
 export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }: BuyerDealsMapProps) {
-  const [failedTileKeys, setFailedTileKeys] = useState(() => new Set<string>())
-  const [attemptedTileKeys, setAttemptedTileKeys] = useState(() => new Set<string>())
+  const [tileStatus, setTileStatus] = useState<TileStatus>(() => ({
+    attempted: new Set(),
+    failed: new Set(),
+  }))
   const { mappedDeals, pins, tiles } = useMemo(() => {
     const nextMappedDeals = deals
     const centerLocation = nextMappedDeals.length > 0
@@ -130,55 +137,48 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
   }, [deals])
   const allTilesFailed = useMemo(() => {
     const currentTileKeys = new Set(tiles.map((tile) => tile.key))
-    const attemptedCurrentTileKeys = [...attemptedTileKeys].filter((tileKey) => currentTileKeys.has(tileKey))
+    const attemptedCurrentTileKeys = [...tileStatus.attempted].filter((tileKey) => currentTileKeys.has(tileKey))
 
-    return attemptedCurrentTileKeys.length > 0 && attemptedCurrentTileKeys.every((tileKey) => failedTileKeys.has(tileKey))
-  }, [attemptedTileKeys, failedTileKeys, tiles])
+    return attemptedCurrentTileKeys.length === tiles.length && attemptedCurrentTileKeys.every((tileKey) => tileStatus.failed.has(tileKey))
+  }, [tileStatus, tiles])
 
   useEffect(() => {
-    setAttemptedTileKeys(new Set())
-    setFailedTileKeys(new Set())
+    setTileStatus({ attempted: new Set(), failed: new Set() })
   }, [tiles])
 
   const handleTileError = (tileKey: string) => {
-    setAttemptedTileKeys((current) => {
-      if (current.has(tileKey)) {
+    setTileStatus((current) => {
+      const alreadyAttempted = current.attempted.has(tileKey)
+      const alreadyFailed = current.failed.has(tileKey)
+
+      if (alreadyAttempted && alreadyFailed) {
         return current
       }
 
-      const next = new Set(current)
-      next.add(tileKey)
-      return next
-    })
-    setFailedTileKeys((current) => {
-      if (current.has(tileKey)) {
-        return current
-      }
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
+      attempted.add(tileKey)
+      failed.add(tileKey)
 
-      const next = new Set(current)
-      next.add(tileKey)
-      return next
+      return { attempted, failed }
     })
   }
 
   const handleTileLoad = (tileKey: string) => {
-    setAttemptedTileKeys((current) => {
-      if (current.has(tileKey)) {
+    setTileStatus((current) => {
+      const alreadyAttempted = current.attempted.has(tileKey)
+      const failedHasTile = current.failed.has(tileKey)
+
+      if (alreadyAttempted && !failedHasTile) {
         return current
       }
 
-      const next = new Set(current)
-      next.add(tileKey)
-      return next
-    })
-    setFailedTileKeys((current) => {
-      if (!current.has(tileKey)) {
-        return current
-      }
+      const attempted = new Set(current.attempted)
+      const failed = new Set(current.failed)
+      attempted.add(tileKey)
+      failed.delete(tileKey)
 
-      const next = new Set(current)
-      next.delete(tileKey)
-      return next
+      return { attempted, failed }
     })
   }
 

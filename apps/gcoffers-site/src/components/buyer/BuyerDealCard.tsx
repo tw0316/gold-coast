@@ -232,43 +232,43 @@ export function BuyerDealCard({
       </div>
       {inlineDetails ? (
         <div className="buyer-deal-card__details" hidden={!isExpanded} id={detailsId}>
-        <div className="buyer-deal-card__details-grid">
-          <section className="buyer-deal-card__detail-section">
-            <h4>Condition</h4>
-            <p>{deal.conditionSummary || deal.rehabScope || 'Condition notes are available during buyer diligence.'}</p>
-          </section>
-          <dl className="buyer-deal-card__detail-list">
-            <div>
-              <dt>Est. Rehab</dt>
-              <dd>{formatMoney(deal.financials.estimatedRehab)}</dd>
-            </div>
-            <div>
-              <dt>Total Basis</dt>
-              <dd>{formatMoney(deal.calculatedFinancials.totalInvestment)}</dd>
-            </div>
-            <div>
-              <dt>Potential ROI</dt>
-              <dd>{formatPercent(potentialROI)}</dd>
-            </div>
-            <div>
-              <dt>Occupancy</dt>
-              <dd>{formatOccupancy(deal.propertyDetails.occupancy)}</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="buyer-deal-card__comps">
-          <CompList emptyLabel="Sale comps are available during diligence." items={deal.saleComps} title="Sale comps" />
-          <CompList emptyLabel="Rental comps are available during diligence." items={deal.rentalComps} title="Rental comps" />
-        </div>
-        {deal.photos.length > 1 ? (
-          <div className="buyer-deal-card__thumbs" aria-label="More property photos">
-            {deal.photos.slice(1, 5).map((photo) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={photo.id} src={photo.thumbnailURL ?? photo.url} alt={photo.alt ?? deal.title} loading="lazy" />
-            ))}
+          <div className="buyer-deal-card__details-grid">
+            <section className="buyer-deal-card__detail-section">
+              <h4>Condition</h4>
+              <p>{deal.conditionSummary || deal.rehabScope || 'Condition notes are available during buyer diligence.'}</p>
+            </section>
+            <dl className="buyer-deal-card__detail-list">
+              <div>
+                <dt>Est. Rehab</dt>
+                <dd>{formatMoney(deal.financials.estimatedRehab)}</dd>
+              </div>
+              <div>
+                <dt>Total Basis</dt>
+                <dd>{formatMoney(deal.calculatedFinancials.totalInvestment)}</dd>
+              </div>
+              <div>
+                <dt>Potential ROI</dt>
+                <dd>{formatPercent(potentialROI)}</dd>
+              </div>
+              <div>
+                <dt>Occupancy</dt>
+                <dd>{formatOccupancy(deal.propertyDetails.occupancy)}</dd>
+              </div>
+            </dl>
           </div>
-        ) : null}
-        {canSubmitOffer ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}
+          <div className="buyer-deal-card__comps">
+            <CompList emptyLabel="Sale comps are available during diligence." items={deal.saleComps} title="Sale comps" />
+            <CompList emptyLabel="Rental comps are available during diligence." items={deal.rentalComps} title="Rental comps" />
+          </div>
+          {deal.photos.length > 1 ? (
+            <div className="buyer-deal-card__thumbs" aria-label="More property photos">
+              {deal.photos.slice(1, 5).map((photo) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={photo.id} src={photo.thumbnailURL ?? photo.url} alt={photo.alt ?? deal.title} loading="lazy" />
+              ))}
+            </div>
+          ) : null}
+          {canSubmitOffer ? <DealInterestForm deal={deal} idSuffix={deal.slug} /> : null}
         </div>
       ) : null}
     </article>
