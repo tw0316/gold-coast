@@ -6,6 +6,7 @@ import {
   FEATURE_TAG_LABELS,
   PROPERTY_TYPE_LABELS,
   labelsFor,
+  southFloridaCountyKeyFor,
 } from './taxonomy'
 import { getPublicLocationLabel, isExactAddressPublic, type DealVisibilityInput, type PublicDeal } from './visibility'
 
@@ -156,23 +157,15 @@ const asMediaReference = (value: unknown): PublicMediaReference | null => {
 }
 
 const normalizeCountyKey = (county: string | null | undefined): string | null => {
-  if (!county) {
-    return null
+  const southFloridaCountyKey = southFloridaCountyKeyFor(county)
+
+  if (southFloridaCountyKey) {
+    return southFloridaCountyKey
   }
 
-  const normalized = county.toLowerCase().replace(/[-_]+/g, ' ').replace(/ county/g, '').trim()
+  const normalized = county?.toLowerCase().replace(/[-_]+/g, ' ').replace(/ county/g, '').trim()
 
-  if (normalized.includes('miami')) {
-    return 'miami-dade'
-  }
-  if (normalized.includes('broward')) {
-    return 'broward'
-  }
-  if (normalized.includes('palm beach')) {
-    return 'palm-beach'
-  }
-
-  return normalized.length > 0 ? normalized : null
+  return normalized && normalized.length > 0 ? normalized : null
 }
 
 const asMapLocation = (

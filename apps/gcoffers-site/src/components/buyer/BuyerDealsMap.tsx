@@ -128,9 +128,12 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
       tiles: buildTiles(centerPoint, centerTileX, centerTileY),
     }
   }, [deals])
-  const currentTileKeys = new Set(tiles.map((tile) => tile.key))
-  const attemptedCurrentTileKeys = [...attemptedTileKeys].filter((tileKey) => currentTileKeys.has(tileKey))
-  const allTilesFailed = attemptedCurrentTileKeys.length > 0 && attemptedCurrentTileKeys.every((tileKey) => failedTileKeys.has(tileKey))
+  const allTilesFailed = useMemo(() => {
+    const currentTileKeys = new Set(tiles.map((tile) => tile.key))
+    const attemptedCurrentTileKeys = [...attemptedTileKeys].filter((tileKey) => currentTileKeys.has(tileKey))
+
+    return attemptedCurrentTileKeys.length > 0 && attemptedCurrentTileKeys.every((tileKey) => failedTileKeys.has(tileKey))
+  }, [attemptedTileKeys, failedTileKeys, tiles])
 
   useEffect(() => {
     setAttemptedTileKeys(new Set())

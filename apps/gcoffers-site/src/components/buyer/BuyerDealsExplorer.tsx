@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
+import { southFloridaCountyLabelFor } from '@/lib/deals/taxonomy'
 
 import { BuyerDealCard } from './BuyerDealCard'
 import { BuyerDealsMap } from './BuyerDealsMap'
@@ -19,34 +20,10 @@ const countyFromDeal = (deal: BuyerPublicDeal): string | null => {
   const county = deal.county?.trim()
 
   if (county) {
-    const normalizedCounty = county.toLowerCase().replace(/[-_]+/g, ' ')
-
-    if (normalizedCounty.includes('miami')) {
-      return 'Miami-Dade'
-    }
-    if (normalizedCounty.includes('broward')) {
-      return 'Broward'
-    }
-    if (normalizedCounty.includes('palm beach')) {
-      return 'Palm Beach'
-    }
-
-    return county.replace(/ county$/i, '').trim()
+    return southFloridaCountyLabelFor(county) ?? county.replace(/ county$/i, '').trim()
   }
 
-  const locationLabel = (deal.locationLabel ?? '').toLowerCase()
-
-  if (locationLabel.includes('miami')) {
-    return 'Miami-Dade'
-  }
-  if (locationLabel.includes('broward')) {
-    return 'Broward'
-  }
-  if (locationLabel.includes('palm beach')) {
-    return 'Palm Beach'
-  }
-
-  return null
+  return southFloridaCountyLabelFor(deal.locationLabel)
 }
 
 const sortCounties = (counties: string[]): string[] =>
@@ -97,7 +74,10 @@ export function BuyerDealsExplorer({ activeDeals }: BuyerDealsExplorerProps) {
     if (selectedDealId && !filteredDeals.some((deal) => deal.id === selectedDealId)) {
       setSelectedDealId(null)
     }
-  }, [filteredDeals, selectedDealId])
+    if (hoveredDealId && !filteredDeals.some((deal) => deal.id === hoveredDealId)) {
+      setHoveredDealId(null)
+    }
+  }, [filteredDeals, hoveredDealId, selectedDealId])
 
   useEffect(() => {
     if (!selectedDealId || !filteredDeals.some((deal) => deal.id === selectedDealId)) {
