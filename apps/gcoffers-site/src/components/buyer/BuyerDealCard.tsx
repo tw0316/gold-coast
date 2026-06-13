@@ -136,13 +136,9 @@ export function BuyerDealCard({
       return
     }
 
-    const frame = window.requestAnimationFrame(() => {
-      offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      offerFormRef.current?.focus({ preventScroll: true })
-      setShouldScrollToOffer(false)
-    })
-
-    return () => window.cancelAnimationFrame(frame)
+    setShouldScrollToOffer(false)
+    offerFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    offerFormRef.current?.focus({ preventScroll: true })
   }, [inlineDetails, isExpanded, shouldScrollToOffer])
 
   const setCardExpanded = (expanded: boolean) => {

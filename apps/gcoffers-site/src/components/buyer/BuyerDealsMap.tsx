@@ -242,7 +242,7 @@ export function BuyerDealsMap({ activeDealId, deals, onDealHover, onDealSelect }
         {pins.map(({ deal, left, top }) => {
           return (
             <button
-              aria-label={`${formatMapPrice(deal)} at ${deal.exactAddress ?? deal.locationLabel ?? deal.title}`}
+              aria-label={`${formatMapPrice(deal)} at ${deal.locationLabel ?? deal.title}`}
               aria-pressed={activeDealId === deal.id}
               className="buyer-map-pin"
               key={deal.id}
