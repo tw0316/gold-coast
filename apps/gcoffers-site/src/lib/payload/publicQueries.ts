@@ -162,6 +162,13 @@ export const publicDealSelect = {
   zip: true,
   showExactAddressPublicly: true,
   exactAddress: true,
+  // Selected for sanitizer-only use. Public helpers must pass raw results through
+  // sanitizeDealForPublic before returning; exact coordinates are exposed only when
+  // showExactAddressPublicly is explicitly true.
+  mapLocation: {
+    latitude: true,
+    longitude: true,
+  },
   propertyDetails: {
     propertyType: true,
     units: true,
@@ -187,6 +194,19 @@ export const publicDealSelect = {
   },
   summary: true,
   rehabScope: true,
+  conditionSummary: true,
+  saleComps: {
+    id: true,
+    label: true,
+    value: true,
+    note: true,
+  },
+  rentalComps: {
+    id: true,
+    label: true,
+    value: true,
+    note: true,
+  },
   featureTags: true,
   coverPhoto: true,
   photos: true,

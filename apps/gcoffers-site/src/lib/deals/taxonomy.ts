@@ -56,6 +56,40 @@ export const PROPERTY_TYPE_LABELS = toLabelMap(PROPERTY_TYPE_OPTIONS)
 export const BEST_USE_LABELS = toLabelMap(BEST_USE_OPTIONS)
 export const FEATURE_TAG_LABELS = toLabelMap(FEATURE_TAG_OPTIONS)
 
+export type SouthFloridaCountyLabel = 'Miami-Dade' | 'Broward' | 'Palm Beach'
+export type SouthFloridaCountyKey = 'miami-dade' | 'broward' | 'palm-beach'
+
+const southFloridaCountyMap: ReadonlyArray<{
+  key: SouthFloridaCountyKey
+  label: SouthFloridaCountyLabel
+  match: string
+}> = [
+  { key: 'miami-dade', label: 'Miami-Dade', match: 'miami' },
+  { key: 'broward', label: 'Broward', match: 'broward' },
+  { key: 'palm-beach', label: 'Palm Beach', match: 'palm beach' },
+]
+
+const normalizeCountyText = (value: string): string =>
+  value.toLowerCase().replace(/[-_]+/g, ' ').replace(/ county/g, '').trim()
+
+export const southFloridaCountyLabelFor = (value: string | null | undefined): SouthFloridaCountyLabel | null => {
+  if (!value) {
+    return null
+  }
+
+  const normalized = normalizeCountyText(value)
+  return southFloridaCountyMap.find((county) => normalized.includes(county.match))?.label ?? null
+}
+
+export const southFloridaCountyKeyFor = (value: string | null | undefined): SouthFloridaCountyKey | null => {
+  if (!value) {
+    return null
+  }
+
+  const normalized = normalizeCountyText(value)
+  return southFloridaCountyMap.find((county) => normalized.includes(county.match))?.key ?? null
+}
+
 export const labelsFor = (
   values: unknown,
   labelMap: Record<string, string>,

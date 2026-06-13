@@ -2,6 +2,7 @@ import * as migration_20260606_154941_initial_schema from './20260606_154941_ini
 import * as migration_20260612_120000_deal_buyer_fields from './20260612_120000_deal_buyer_fields';
 import * as migration_20260612_151525_staff_access_and_default_markets from './20260612_151525_staff_access_and_default_markets';
 import * as migration_20260612_171059_deal_public_surface_regressions from './20260612_171059_deal_public_surface_regressions';
+import * as migration_20260613_074900_deal_map_and_comp_fields from './20260613_074900_deal_map_and_comp_fields';
 
 export const migrations = [
   {
@@ -23,5 +24,10 @@ export const migrations = [
     up: migration_20260612_171059_deal_public_surface_regressions.up,
     down: migration_20260612_171059_deal_public_surface_regressions.down,
     name: '20260612_171059_deal_public_surface_regressions'
+  },
+  {
+    up: migration_20260613_074900_deal_map_and_comp_fields.up,
+    down: migration_20260613_074900_deal_map_and_comp_fields.down,
+    name: '20260613_074900_deal_map_and_comp_fields'
   },
 ];

@@ -302,7 +302,7 @@ export const Deals: CollectionConfig = {
       name: 'showExactAddressPublicly',
       type: 'checkbox',
       admin: {
-        description: 'Default false. Public detail/API helpers may expose exactAddress only when this is true.',
+        description: 'Sensitive. Hidden from public reads unless showExactAddressPublicly is explicitly true.',
       },
       defaultValue: false,
     },
@@ -315,8 +315,30 @@ export const Deals: CollectionConfig = {
       },
       admin: {
         description:
-          'Sensitive. Hidden from public reads unless showExactAddressPublicly is explicitly true.',
+          'Sensitive exact street address. Exposed on public buyer pages only when showExactAddressPublicly is explicitly true.',
       },
+    },
+    {
+      name: 'mapLocation',
+      type: 'group',
+      admin: {
+        description:
+          'Sensitive exact map pin coordinates. Exposed on public buyer maps only when showExactAddressPublicly is true; verify they match the approved public address. If blank or private, the public map falls back to a county-level pin.',
+      },
+      fields: [
+        {
+          name: 'latitude',
+          type: 'number',
+          max: 90,
+          min: -90,
+        },
+        {
+          name: 'longitude',
+          type: 'number',
+          max: 180,
+          min: -180,
+        },
+      ],
     },
     {
       name: 'propertyDetails',
@@ -483,6 +505,59 @@ export const Deals: CollectionConfig = {
     {
       name: 'rehabScope',
       type: 'textarea',
+    },
+    {
+      name: 'conditionSummary',
+      type: 'textarea',
+      admin: {
+        description: 'Buyer-facing condition note shown inside the expanded deal card.',
+      },
+    },
+    {
+      name: 'saleComps',
+      type: 'array',
+      admin: {
+        description: 'Buyer-facing comparable sale rows for the expanded deal card.',
+      },
+      fields: [
+        {
+          name: 'label',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'value',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'note',
+          type: 'text',
+        },
+      ],
+    },
+    {
+      name: 'rentalComps',
+      type: 'array',
+      admin: {
+        description: 'Buyer-facing rental comp rows for the expanded deal card.',
+      },
+      fields: [
+        {
+          name: 'label',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'value',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'note',
+          type: 'text',
+        },
+      ],
     },
     {
       name: 'featureTags',

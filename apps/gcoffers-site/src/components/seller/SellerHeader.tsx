@@ -22,6 +22,9 @@ export function SellerHeader({ active = 'sell' }: { active?: SellerNavItem }) {
     setIsOpen(false)
   }
 
+  const ctaHref = active === 'buy' ? '/deals/#join' : '/#offer'
+  const ctaLabel = active === 'buy' ? 'Join the buyer list' : 'Get my cash offer'
+
   return (
     <header className="site-header">
       <div className="container nav" aria-label="Primary navigation">
@@ -44,8 +47,8 @@ export function SellerHeader({ active = 'sell' }: { active?: SellerNavItem }) {
           <a className="nav__phone" href={sellerPhoneHref}>
             {sellerPhoneLabel}
           </a>
-          <Link className="btn btn--ondark" href="/#offer">
-            Get my cash offer
+          <Link className="btn btn--ondark" href={ctaHref}>
+            {ctaLabel}
           </Link>
         </div>
         <button

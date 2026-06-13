@@ -47,7 +47,10 @@ const transpileTsModule = (relativePath) => {
 for (const relativePath of [
   'src/access/roles.ts',
   'src/lib/deals/slug.ts',
+  'src/lib/deals/financials.ts',
+  'src/lib/deals/taxonomy.ts',
   'src/lib/deals/visibility.ts',
+  'src/lib/deals/dealView.ts',
   'src/lib/media/publicMedia.ts',
   'src/lib/media/resolveDealMedia.ts',
   'src/lib/payload/publicQueries.ts',
@@ -61,6 +64,7 @@ try {
   const roles = tempRequire(join(tmpRoot, 'src/access/roles.js'))
   const slugs = tempRequire(join(tmpRoot, 'src/lib/deals/slug.js'))
   const visibility = tempRequire(join(tmpRoot, 'src/lib/deals/visibility.js'))
+  const dealView = tempRequire(join(tmpRoot, 'src/lib/deals/dealView.js'))
   const media = tempRequire(join(tmpRoot, 'src/lib/media/publicMedia.js'))
   const publicQueries = tempRequire(join(tmpRoot, 'src/lib/payload/publicQueries.js'))
   const { schemaAccessFixtures } = tempRequire(
@@ -166,6 +170,37 @@ try {
   assert(migratedSlugs.get(8) === 'test-deal-8', 'Public deal slug migration suffixes lower-priority duplicate normalized slugs')
   assert(migratedSlugs.get(12) === 'deal-12', 'Public deal slug migration falls back deterministically for null/blank slugs')
 
+  const initialSchemaMigrationSource = readSource('src/migrations/20260606_154941_initial_schema.ts')
+  const buyerFieldsMigrationSource = readSource('src/migrations/20260612_120000_deal_buyer_fields.ts')
+  const dealMapAndCompMigrationSource = readSource('src/migrations/20260613_074900_deal_map_and_comp_fields.ts')
+  assert(
+    /CREATE TABLE "buyer_signups_property_types" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
+      initialSchemaMigrationSource,
+    ),
+    'Initial Payload schema uses order/parent_id for simple array tables, not _order/_parent_id.',
+  )
+  assert(
+    /CREATE TABLE "deals_best_use" \([\s\S]*?"order" integer NOT NULL,[\s\S]*?"parent_id" integer NOT NULL/.test(
+      buyerFieldsMigrationSource,
+    ),
+    'Prior generated Deal array migration uses order/parent_id for simple array tables, matching the new comp tables.',
+  )
+  assert(
+    !/CREATE TABLE "deals_best_use" \([\s\S]*?"_order"/.test(buyerFieldsMigrationSource),
+    'Prior generated Deal array migration does not use _order for simple array tables.',
+  )
+  for (const marker of [
+    '"map_location_latitude" numeric',
+    '"map_location_longitude" numeric',
+    '"condition_summary" varchar',
+    'CREATE TABLE "deals_sale_comps"',
+    'CREATE TABLE "deals_rental_comps"',
+    '"deals_sale_comps_parent_fk"',
+    '"deals_rental_comps_parent_fk"',
+  ]) {
+    assert(dealMapAndCompMigrationSource.includes(marker), `Deal map/comps migration marker present: ${marker}`)
+  }
+
   assert(
     exactArray(visibility.PUBLIC_DEAL_STATUSES, [
       'coming_soon',
@@ -262,7 +297,12 @@ try {
 
   const hiddenAddressDeal = {
     ...schemaAccessFixtures.deals.find((deal) => deal.id === 'public-available'),
+    county: 'Broward County',
     internalNotes: 'REDACTED_INTERNAL_NOTE',
+    mapLocation: {
+      latitude: 25.7617,
+      longitude: -80.1918,
+    },
     photos: [
       {
         ...schemaAccessFixtures.media[2],
@@ -283,6 +323,37 @@ try {
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'exactAddress'),
     'Exact address is removed from public deal payloads by default',
+  )
+  assert(
+    sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'mapLocation'),
+    'Exact map coordinates are removed from public deal payloads by default',
+  )
+  const sanitizedHiddenAddressBuyerView = sanitizedHiddenAddressDeal
+    ? dealView.toBuyerView(sanitizedHiddenAddressDeal)
+    : null
+  assert(
+    sanitizedHiddenAddressBuyerView?.mapLocation?.source === 'county-fallback',
+    'Buyer view falls back to county map coordinates when exact coordinates are private',
+  )
+  assert(
+    sanitizedHiddenAddressBuyerView?.mapLocation?.latitude === 26.1901 &&
+      sanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
+    'Buyer view county fallback never leaks the private exact map coordinates',
+  )
+  const unrecognizedCountyBuyerView = sanitizedHiddenAddressDeal
+    ? dealView.toBuyerView({
+        ...sanitizedHiddenAddressDeal,
+        county: 'Martin County',
+      })
+    : null
+  assert(
+    unrecognizedCountyBuyerView?.mapLocation?.source === 'county-fallback',
+    'Buyer view uses a default South Florida fallback pin for unrecognized counties',
+  )
+  assert(
+    unrecognizedCountyBuyerView?.mapLocation?.latitude === 26.1901 &&
+      unrecognizedCountyBuyerView?.mapLocation?.longitude === -80.3659,
+    'Default South Florida fallback pin prevents active deals from silently disappearing from the map',
   )
   assert(
     sanitizedHiddenAddressDeal !== null && !Object.hasOwn(sanitizedHiddenAddressDeal, 'internalNotes'),
@@ -311,10 +382,30 @@ try {
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     showExactAddressPublicly: true,
   }
+  const sanitizedPublicAddressDeal = visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)
   assert(
-    visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)?.exactAddress ===
-      'REDACTED_EXACT_ADDRESS',
+    sanitizedPublicAddressDeal?.exactAddress === 'REDACTED_EXACT_ADDRESS',
     'Exact address is retained only when showExactAddressPublicly is true',
+  )
+  assert(
+    sanitizedPublicAddressDeal?.mapLocation?.latitude === 25.7617,
+    'Exact map coordinates are retained only when showExactAddressPublicly is true',
+  )
+  const publicAddressBuyerView = sanitizedPublicAddressDeal
+    ? dealView.toBuyerView(sanitizedPublicAddressDeal)
+    : null
+  assert(
+    publicAddressBuyerView?.mapLocation?.source === 'exact',
+    'Buyer view uses exact coordinates for public-address deals end-to-end',
+  )
+  assert(
+    publicAddressBuyerView?.mapLocation?.latitude === 25.7617 &&
+      publicAddressBuyerView?.mapLocation?.longitude === -80.1918,
+    'Exact map coordinates survive the full sanitizer-to-view-model pipeline',
+  )
+  assert(
+    publicAddressBuyerView?.locationLabel === 'REDACTED_EXACT_ADDRESS',
+    'Exact public addresses survive the full sanitizer-to-view-model label pipeline',
   )
 
   const [privateDefaultMedia, draftPublicMedia, readyPublicMedia, hiddenPublicMedia, privateDetailsMedia] =

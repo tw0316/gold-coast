@@ -20,6 +20,7 @@
     "verify:scaffold": "node scripts/verify-scaffold.mjs",
     "verify:seller-site": "node scripts/verify-seller-site.mjs",
     "verify:buyer-deals-site": "node scripts/verify-buyer-deals-site.mjs",
+    "verify:buyer-deals-realign": "node scripts/verify-buyer-deals-realign.mjs",
     "verify:s3-first-form-pipeline": "node scripts/verify-s3-first-form-pipeline.mjs"
   },
   "dependencies": {

@@ -3,7 +3,7 @@ import { SellerHeader } from '@/components/seller/SellerHeader'
 import type { BuyerPublicDeal } from '@/lib/deals/dealView'
 
 import { BuyerDealsExplorer } from './BuyerDealsExplorer'
-import { BuyerListSignupForm } from './BuyerListSignupForm'
+import { BuyerSignupForm } from './BuyerSignupForm'
 
 type BuyerDealsIndexPageProps = {
   activeDeals: BuyerPublicDeal[]
@@ -47,7 +47,7 @@ export function BuyerDealsIndexPage({ activeDeals }: BuyerDealsIndexPageProps) {
                 <li>No fake inventory. If nothing is active, we say so.</li>
               </ul>
             </div>
-            <BuyerListSignupForm />
+            <BuyerSignupForm />
           </div>
         </section>
       </main>

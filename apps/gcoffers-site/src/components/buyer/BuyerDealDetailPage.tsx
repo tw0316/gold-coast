@@ -235,14 +235,14 @@ export function BuyerDealDetailPage({ deal }: BuyerDealDetailPageProps) {
           </div>
         </section>
 
-        <section className="buyer-section buyer-section--alt" aria-labelledby="buyer-interest-title">
+        <section className="buyer-section buyer-section--alt" aria-labelledby="deal-interest-detail-title">
           <div className="container buyer-detail-interest">
             {canExpressInterest ? (
-              <DealInterestForm deal={deal} />
+              <DealInterestForm deal={deal} idSuffix="detail" />
             ) : (
               <article className="buyer-detail-card text-center">
                 <p className="eyebrow">Closed Deal</p>
-                <h2 id="buyer-interest-title">This public proof deal is sold</h2>
+                <h2 id="deal-interest-detail-title">This public proof deal is sold</h2>
                 <p>Join the buyer list to hear about future public inventory.</p>
                 <Link href="/join/" className="btn btn--primary">
                   Join Buyers List
