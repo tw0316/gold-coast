@@ -15,7 +15,10 @@ const map = read('src/components/buyer/BuyerDealsMap.tsx')
 const dealView = read('src/lib/deals/dealView.ts')
 const publicQueries = read('src/lib/payload/publicQueries.ts')
 const taxonomy = read('src/lib/deals/taxonomy.ts')
+const dealsCollection = read('src/collections/Deals.ts')
 const styles = read('src/app/(frontend)/styles.css')
+const submitButtonStart = card.indexOf('buyer-deal-card__submit')
+const submitButtonSnippet = submitButtonStart >= 0 ? card.slice(Math.max(0, submitButtonStart - 160), submitButtonStart + 260) : ''
 
 assert(!explorer.includes("'All'") && !explorer.includes('>All<'), 'Deals explorer must not render or model an All filter pill.')
 assert(explorer.includes('availableCountyFilters'), 'Deals explorer must derive county filters from the current active deals.')
@@ -44,7 +47,8 @@ assert(map.includes('loading={tile.loading}'), 'BuyerDealsMap must pass per-tile
 assert(map.includes('useMemo(() => {') && map.includes('const currentTileKeys'), 'BuyerDealsMap must memoize failed-tile detection by current tile keys.')
 assert(map.includes('currentTileKeys'), 'BuyerDealsMap must evaluate failed-tile state only against the current tile set.')
 assert(map.includes('attemptedCurrentTileKeys.length === tiles.length'), 'BuyerDealsMap must show the failure banner only after every current tile has attempted and failed.')
-assert(map.includes('setTileStatus({ attempted: new Set(), failed: new Set() })'), 'BuyerDealsMap must reset tile status when the tile set changes.')
+assert(map.includes('tileStatus.tileSetKey !== tileSetKey'), 'BuyerDealsMap must suppress stale tile-failure status during tile-set changes.')
+assert(map.includes('emptyTileStatus(tileSetKey)'), 'BuyerDealsMap must reset tile status when the tile set changes.')
 assert(map.includes('onDealSelect(activeDealId === deal.id ? null : deal.id)'), 'BuyerDealsMap pins must toggle selection off when the active pin is clicked again.')
 assert(map.includes('Tiles: U.S. Geological Survey, The National Map'), 'BuyerDealsMap must render USGS tile attribution copy.')
 
@@ -60,6 +64,8 @@ assert(dealView.includes('southFloridaCountyKeyFor'), 'Buyer deal view model mus
 assert(card.includes('displayCounty'), 'BuyerDealCard must use the canonical county display label.')
 assert(card.includes('aria-controls={detailsId}'), 'BuyerDealCard controls that reveal underwriting must point to the expandable details region.')
 assert(card.includes('aria-expanded={isExpanded}'), 'BuyerDealCard controls that reveal underwriting must expose expanded state.')
+assert(submitButtonStart >= 0, 'BuyerDealCard must render a Submit Offer button.')
+assert(!submitButtonSnippet.includes('aria-controls') && !submitButtonSnippet.includes('aria-expanded'), 'Submit Offer must not masquerade as a disclosure control.')
 assert(card.includes("'use client'"), 'BuyerDealCard must be interactive so deal cards can expand inline.')
 assert(!card.includes('Request Showing'), 'Deal cards must not include Request Showing CTA copy.')
 assert(card.includes('Submit Offer'), 'Deal cards must expose a single Submit Offer CTA.')
@@ -79,6 +85,10 @@ assert(dealView.includes('rentalComps'), 'Buyer deal view model must include opt
 assert(dealView.includes('conditionSummary'), 'Buyer deal view model must include optional condition summary for expanded cards.')
 assert(/saleComps:\s*{\s*id:\s*true/.test(publicQueries), 'Public deal select must include stable Payload IDs for sale comps.')
 assert(/rentalComps:\s*{\s*id:\s*true/.test(publicQueries), 'Public deal select must include stable Payload IDs for rental comps.')
+assert(
+  dealsCollection.includes('Sensitive exact map pin coordinates') && dealsCollection.includes('verify they match the approved public address'),
+  'Deals collection must warn editors that exact map coordinates are sensitive and must match the approved public address.',
+)
 
 if (failures.length > 0) {
   console.error('Buyer deals realignment verification failed:')

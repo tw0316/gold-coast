@@ -211,8 +211,6 @@ export function BuyerDealCard({
               </button>
               {canSubmitOffer ? (
                 <button
-                  aria-controls={detailsId}
-                  aria-expanded={isExpanded}
                   className="btn btn--primary buyer-deal-card__submit"
                   onClick={expandCard}
                   type="button"

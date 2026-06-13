@@ -322,7 +322,8 @@ export const Deals: CollectionConfig = {
       name: 'mapLocation',
       type: 'group',
       admin: {
-        description: 'Exact map pin coordinates. If blank, the public map falls back to a county-level pin.',
+        description:
+          'Sensitive exact map pin coordinates. Exposed on public buyer maps only when showExactAddressPublicly is true; verify they match the approved public address. If blank or private, the public map falls back to a county-level pin.',
       },
       fields: [
         {
