@@ -8,7 +8,7 @@ import {
   labelsFor,
   southFloridaCountyKeyFor,
 } from './taxonomy'
-import { getPublicLocationLabel, isExactAddressPublic, type DealVisibilityInput, type PublicDeal } from './visibility'
+import { getPublicLocationLabel, type DealVisibilityInput, type PublicDeal } from './visibility'
 
 export type BuyerHeroTone = 'blue' | 'gold' | 'green' | 'slate'
 
@@ -245,11 +245,12 @@ const asExternalHttpUrl = (value: unknown): string | null => {
 export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
   const rawPropertyDetails = (deal.propertyDetails ?? {}) as Record<string, unknown>
   const rawFinancials = (deal.financials ?? {}) as Record<string, unknown>
-  const rawMapLocation = isExactAddressPublic(deal) ? (deal.mapLocation ?? {}) as Record<string, unknown> : {}
+  const rawMapLocation = (deal.mapLocation ?? {}) as Record<string, unknown>
 
   const propertyType = asNullableString(rawPropertyDetails.propertyType)
   const dealStatus = asString(deal.dealStatus)
   const county = asNullableString(deal.county)
+  const exactAddress = asNullableString(deal.exactAddress)
 
   const financials: BuyerFinancials = {
     askingPrice: asNullableNumber(rawFinancials.askingPrice),
@@ -278,7 +279,7 @@ export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
     bestUseLabels: labelsFor(bestUse, BEST_USE_LABELS),
     dealStatus,
     statusLabel: getDealStatusLabel(dealStatus),
-    locationLabel: getPublicLocationLabel(deal as DealVisibilityInput),
+    locationLabel: exactAddress ?? getPublicLocationLabel(deal as DealVisibilityInput),
     county,
     mapLocation: asMapLocation(rawMapLocation, county),
     propertyDetails: {
@@ -319,6 +320,6 @@ export const toBuyerView = (deal: PublicDeal): BuyerPublicDeal => {
     heroVisual: deriveHeroVisual(propertyType, dealStatus),
     publishedAt: asString(deal.publishedAt),
     closedAt: asNullableString(deal.closedAt),
-    exactAddress: asNullableString(deal.exactAddress),
+    exactAddress,
   }
 }

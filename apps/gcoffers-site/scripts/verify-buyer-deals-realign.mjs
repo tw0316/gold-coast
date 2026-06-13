@@ -111,7 +111,7 @@ assert(!styles.includes('.buyer-deal-card--active, .buyer-deal-card:hover'), 'CS
 assert(explorer.includes('inlineDetails'), 'Public index cards must opt into inline details instead of primary detail-page routing.')
 
 assert(dealView.includes('mapLocation: BuyerMapLocation'), 'Buyer deal view model must type mapLocation as non-null because every active deal receives a fallback pin.')
-assert(dealView.includes('isExactAddressPublic(deal) ? (deal.mapLocation ?? {})'), 'Buyer deal view model must defense-in-depth gate exact coordinates before mapping.')
+assert(dealView.includes('const rawMapLocation = (deal.mapLocation ?? {}) as Record<string, unknown>'), 'Buyer deal view model must trust already-sanitized mapLocation so public exact pins survive.')
 assert(dealView.includes("const compMoneyFormatter = new Intl.NumberFormat('en-US'"), 'Buyer comp values must reuse a module-scope money formatter.')
 assert(dealView.includes('compMoneyFormatter.format(rawValue)'), 'Buyer comp value normalization must not allocate Intl.NumberFormat per comp row.')
 assert(dealView.includes('defaultFallbackMapLocation'), 'Buyer deal view model must provide a catch-all map fallback so active deals do not disappear from the map.')

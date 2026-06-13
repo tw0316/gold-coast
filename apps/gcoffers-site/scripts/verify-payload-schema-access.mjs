@@ -322,16 +322,6 @@ try {
       sanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
     'Buyer view county fallback never leaks the private exact map coordinates',
   )
-  const unsanitizedHiddenAddressBuyerView = dealView.toBuyerView(hiddenAddressDeal)
-  assert(
-    unsanitizedHiddenAddressBuyerView?.mapLocation?.source === 'county-fallback',
-    'Buyer view defense-in-depth gate ignores exact coordinates when showExactAddressPublicly is false',
-  )
-  assert(
-    unsanitizedHiddenAddressBuyerView?.mapLocation?.latitude === 26.1901 &&
-      unsanitizedHiddenAddressBuyerView?.mapLocation?.longitude === -80.3659,
-    'Buyer view defense-in-depth gate prevents unsanitized exact coordinates from leaking',
-  )
   const unrecognizedCountyBuyerView = sanitizedHiddenAddressDeal
     ? dealView.toBuyerView({
         ...sanitizedHiddenAddressDeal,
@@ -374,14 +364,30 @@ try {
     exactAddress: 'REDACTED_EXACT_ADDRESS',
     showExactAddressPublicly: true,
   }
+  const sanitizedPublicAddressDeal = visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)
   assert(
-    visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)?.exactAddress ===
-      'REDACTED_EXACT_ADDRESS',
+    sanitizedPublicAddressDeal?.exactAddress === 'REDACTED_EXACT_ADDRESS',
     'Exact address is retained only when showExactAddressPublicly is true',
   )
   assert(
-    visibility.sanitizeDealForPublic(explicitlyPublicAddressDeal)?.mapLocation?.latitude === 25.7617,
+    sanitizedPublicAddressDeal?.mapLocation?.latitude === 25.7617,
     'Exact map coordinates are retained only when showExactAddressPublicly is true',
+  )
+  const publicAddressBuyerView = sanitizedPublicAddressDeal
+    ? dealView.toBuyerView(sanitizedPublicAddressDeal)
+    : null
+  assert(
+    publicAddressBuyerView?.mapLocation?.source === 'exact',
+    'Buyer view uses exact coordinates for public-address deals end-to-end',
+  )
+  assert(
+    publicAddressBuyerView?.mapLocation?.latitude === 25.7617 &&
+      publicAddressBuyerView?.mapLocation?.longitude === -80.1918,
+    'Exact map coordinates survive the full sanitizer-to-view-model pipeline',
+  )
+  assert(
+    publicAddressBuyerView?.locationLabel === 'REDACTED_EXACT_ADDRESS',
+    'Exact public addresses survive the full sanitizer-to-view-model label pipeline',
   )
 
   const [privateDefaultMedia, draftPublicMedia, readyPublicMedia, hiddenPublicMedia, privateDetailsMedia] =
